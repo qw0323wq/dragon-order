@@ -52,6 +52,8 @@ export const suppliers = pgTable('suppliers', {
   noDeliveryDays: integer('no_delivery_days').array().default([]).notNull(),
   /** 前置天數：今天叫明天到 = 1（預設） */
   leadDays: integer('lead_days').default(1).notNull(),
+  /** 結帳方式：'現結' = 當天驗收後請款, '月結' = 月底統一付款 */
+  paymentType: varchar('payment_type', { length: 10 }).default('月結').notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -170,6 +172,33 @@ export const receiving = pgTable('receiving', {
 });
 
 // ─────────────────────────────────────────────
+// 供應商付款紀錄（追蹤每筆訂單對每個供應商的付款）
+// ─────────────────────────────────────────────
+export const payments = pgTable('payments', {
+  id: serial('id').primaryKey(),
+  orderId: integer('order_id')
+    .references(() => orders.id)
+    .notNull(),
+  supplierId: integer('supplier_id')
+    .references(() => suppliers.id)
+    .notNull(),
+  /** 應付金額（元） */
+  amount: integer('amount').default(0).notNull(),
+  /** 付款狀態：'unpaid' | 'pending' | 'paid' */
+  status: varchar('status', { length: 20 }).default('unpaid').notNull(),
+  /** 結帳方式：'現結' | '月結'（從供應商複製） */
+  paymentType: varchar('payment_type', { length: 10 }).notNull(),
+  /** 付款日期 */
+  paidAt: timestamp('paid_at'),
+  /** 付款備註 */
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type NewPayment = typeof payments.$inferInsert;
+
+// ─────────────────────────────────────────────
 // Relations（Drizzle 關聯，供 query API 使用）
 // ─────────────────────────────────────────────
 
@@ -180,6 +209,7 @@ export const storesRelations = relations(stores, ({ many }) => ({
 
 export const suppliersRelations = relations(suppliers, ({ many }) => ({
   items: many(items),
+  payments: many(payments),
 }));
 
 export const itemsRelations = relations(items, ({ one, many }) => ({
@@ -205,6 +235,18 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [users.id],
   }),
   orderItems: many(orderItems),
+  payments: many(payments),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  order: one(orders, {
+    fields: [payments.orderId],
+    references: [orders.id],
+  }),
+  supplier: one(suppliers, {
+    fields: [payments.supplierId],
+    references: [suppliers.id],
+  }),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
