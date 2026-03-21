@@ -25,9 +25,12 @@ export default async function OrderPage() {
     allowedSupplierIds = dbUser?.allowedSuppliers ?? [];
   }
 
+  // 分店採購價加價比例
+  const markup = parseFloat(process.env.COST_MARKUP || "1.2");
+
   // 從 DB 讀取品項（含供應商名稱）
   // CRITICAL: staff 且 allowedSuppliers 不為空 → 只顯示該供應商的品項
-  const dbItems = await db
+  const rawItems = await db
     .select({
       id: items.id,
       name: items.name,
@@ -43,12 +46,24 @@ export default async function OrderPage() {
     .innerJoin(suppliers, eq(items.supplierId, suppliers.id))
     .where(
       allowedSupplierIds.length > 0
-        // staff 且有設定可叫供應商：只顯示指定供應商的啟用品項
         ? and(eq(items.isActive, true), inArray(items.supplierId, allowedSupplierIds))
-        // owner/manager 或 staff 未設限制：顯示所有啟用品項
         : eq(items.isActive, true)
     )
     .orderBy(items.category, items.name);
+
+  // 依角色處理價格
+  // owner：顯示廠商進貨價
+  // manager：顯示分店採購價（加 20%）
+  // staff：不顯示價格
+  const dbItems = rawItems.map((item) => {
+    if (user.role === "owner") {
+      return item; // 看廠商進貨價
+    } else if (user.role === "manager") {
+      return { ...item, cost_price: Math.round(item.cost_price * markup) }; // 看分店採購價
+    } else {
+      return { ...item, cost_price: 0, sell_price: 0 }; // 員工看不到價格
+    }
+  });
 
   // 從 DB 讀取門市
   const dbStores = await db

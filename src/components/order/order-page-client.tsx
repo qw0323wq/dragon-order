@@ -508,7 +508,9 @@ export default function OrderPageClient({
             </span>
           </div>
           <div className="text-sm font-bold">
-            {cartTotal > 0 ? `預估 $${cartTotal.toLocaleString()}` : "查看購物車"}
+            {cartCount > 0
+              ? (user.role !== "staff" && cartTotal > 0 ? `預估 $${cartTotal.toLocaleString()}` : `${cartCount} 件`)
+              : "查看購物車"}
           </div>
         </button>
       </div>
@@ -539,6 +541,7 @@ export default function OrderPageClient({
                   <CartItemRow
                     key={ci.item.id}
                     cartItem={ci}
+                    showPrice={user.role !== "staff"}
                     onQuantityChange={(qty) =>
                       handleCartQtyChange(ci.item.id, qty)
                     }
@@ -549,13 +552,15 @@ export default function OrderPageClient({
 
               <Separator />
 
-              {/* 總計 */}
-              <div className="flex items-center justify-between py-2 text-sm">
-                <span className="text-gray-500">預估進貨成本</span>
-                <span className="font-bold text-base text-primary">
-                  ${cartTotal.toLocaleString()}
-                </span>
-              </div>
+              {/* 總計（員工看不到金額） */}
+              {user.role !== "staff" && cartTotal > 0 && (
+                <div className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-gray-500">預估採購成本</span>
+                  <span className="font-bold text-base text-primary">
+                    ${cartTotal.toLocaleString()}
+                  </span>
+                </div>
+              )}
             </>
           )}
 
@@ -609,7 +614,7 @@ function ItemCard({
           </span>
         </div>
         <div className="text-xs text-gray-400">
-          {item.unit} · 成本 ${item.cost_price}
+          {item.unit}{item.cost_price > 0 ? ` · 成本 $${item.cost_price}` : ''}
         </div>
       </div>
 
@@ -699,10 +704,12 @@ function ParsedLineCard({
 /** 購物車 Sheet 內的品項列 */
 function CartItemRow({
   cartItem,
+  showPrice,
   onQuantityChange,
   onRemove,
 }: {
   cartItem: CartItem;
+  showPrice: boolean;
   onQuantityChange: (qty: number) => void;
   onRemove: () => void;
 }) {
@@ -717,7 +724,7 @@ function CartItemRow({
           {item.name}
         </div>
         <div className="text-xs text-gray-400">
-          ${item.cost_price}/{item.unit} · 小計 ${subtotal}
+          {showPrice ? `$${item.cost_price}/${item.unit} · 小計 $${subtotal}` : `${quantity} ${item.unit}`}
         </div>
       </div>
 
