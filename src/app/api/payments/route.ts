@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { payments, orders, orderItems, suppliers, items, stores } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
-import { authenticateRequest } from "@/lib/api-auth";
+import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   const auth = authenticateRequest(request);
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = authenticateRequest(request);
+  const auth = requireAdmin(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = authenticateRequest(request);
+  const auth = requireAdmin(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

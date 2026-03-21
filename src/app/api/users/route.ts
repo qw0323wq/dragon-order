@@ -8,10 +8,10 @@ import { db } from "@/lib/db";
 import { users, stores } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
-import { authenticateRequest } from "@/lib/api-auth";
+import { requireAdmin } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
-  const auth = authenticateRequest(request);
+  const auth = requireAdmin(request);
   if (!auth.ok) return auth.response;
   const allUsers = await db
     .select({
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = authenticateRequest(request);
+  const auth = requireAdmin(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

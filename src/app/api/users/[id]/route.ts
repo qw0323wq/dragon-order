@@ -8,13 +8,13 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
-import { authenticateRequest } from "@/lib/api-auth";
+import { requireAdmin } from "@/lib/api-auth";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = authenticateRequest(request);
+  const auth = requireAdmin(request);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -66,7 +66,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = authenticateRequest(request);
+  const auth = requireAdmin(request);
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const userId = parseInt(id);

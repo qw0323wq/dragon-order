@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { orders, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { authenticateRequest } from "@/lib/api-auth";
+import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
 
 export async function GET(
   request: NextRequest,
@@ -58,7 +58,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = authenticateRequest(request);
+  const auth = requireAdmin(request);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
