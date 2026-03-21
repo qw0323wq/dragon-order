@@ -7,8 +7,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { receiving, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { authenticateRequest } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);
   const orderId = searchParams.get("orderId");
 
@@ -52,6 +55,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
 
   // 支援批次驗收

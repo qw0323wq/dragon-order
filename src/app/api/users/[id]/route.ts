@@ -8,11 +8,15 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
+import { authenticateRequest } from "@/lib/api-auth";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const { id } = await params;
   const userId = parseInt(id);
   const body = await request.json();
@@ -59,9 +63,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
   const { id } = await params;
   const userId = parseInt(id);
 

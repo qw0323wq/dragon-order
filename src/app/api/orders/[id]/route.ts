@@ -7,11 +7,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { orders, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { authenticateRequest } from "@/lib/api-auth";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
   const { id } = await params;
   const orderId = parseInt(id);
 
@@ -55,6 +58,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const { id } = await params;
   const orderId = parseInt(id);
   const body = await request.json();

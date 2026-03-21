@@ -7,8 +7,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stores } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { authenticateRequest } from "@/lib/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
   const allStores = await db
     .select()
     .from(stores)
@@ -18,6 +21,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { id, name, companyName, taxId, address, hours, manager, phone } = body;
 

@@ -7,8 +7,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { suppliers } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { authenticateRequest } from "@/lib/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
   // 取得供應商 + 各供應商的品項數量
   const result = await db
     .select({
@@ -37,6 +40,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin } = body;
 
@@ -67,6 +73,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { id, name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin } = body;
 

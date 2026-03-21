@@ -8,8 +8,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { payments, orders, orderItems, suppliers, items, stores } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { authenticateRequest } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);
   const month = searchParams.get("month"); // 格式：2026-03
   const storeId = searchParams.get("storeId"); // 篩選特定門市（可選）
@@ -113,6 +116,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { orderId, supplierId, amount, paymentType, notes } = body;
 
@@ -147,6 +153,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { paymentId, status, notes } = body;
 

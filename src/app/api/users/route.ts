@@ -8,8 +8,11 @@ import { db } from "@/lib/db";
 import { users, stores } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
+import { authenticateRequest } from "@/lib/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
   const allUsers = await db
     .select({
       id: users.id,
@@ -29,6 +32,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = authenticateRequest(request);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { name, phone, pin, role, storeId } = body as {
     name: string;
