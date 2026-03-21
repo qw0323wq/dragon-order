@@ -1,0 +1,88 @@
+/**
+ * 訂單 API
+ * GET /api/orders — 讀取訂單列表
+ * POST /api/orders — 建立/更新訂單（員工叫貨送出）
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { orders, orderItems, items, stores, suppliers } from "@/lib/db/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const date = searchParams.get("date"); // YYYY-MM-DD
+  const limit = parseInt(searchParams.get("limit") ?? "10");
+
+  const baseQuery = db.select().from(orders);
+
+  const result = date
+    ? await baseQuery.where(eq(orders.orderDate, date)).orderBy(desc(orders.createdAt)).limit(limit)
+    : await baseQuery.orderBy(desc(orders.orderDate)).limit(limit);
+  return NextResponse.json(result);
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const { storeId, items: cartItems, userId } = body as {
+    storeId: number;
+    items: Array<{ itemId: number; quantity: number; unit: string; unitPrice: number }>;
+    userId: number;
+  };
+
+  if (!storeId || !cartItems?.length) {
+    return NextResponse.json({ error: "缺少門市或品項" }, { status: 400 });
+  }
+
+  // 取得今天日期
+  const today = new Date().toISOString().slice(0, 10);
+
+  // 查看今天是否已有 draft 訂單
+  const [existingOrder] = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.orderDate, today), eq(orders.status, "draft")))
+    .limit(1);
+
+  let orderId: number;
+
+  if (existingOrder) {
+    orderId = existingOrder.id;
+  } else {
+    // 建立新訂單
+    const [newOrder] = await db
+      .insert(orders)
+      .values({
+        orderDate: today,
+        status: "draft",
+        createdBy: userId,
+      })
+      .returning();
+    orderId = newOrder.id;
+  }
+
+  // 寫入訂單明細
+  const orderItemValues = cartItems.map((item) => ({
+    orderId,
+    itemId: item.itemId,
+    storeId,
+    quantity: String(item.quantity),
+    unit: item.unit,
+    unitPrice: item.unitPrice,
+    subtotal: Math.round(item.quantity * item.unitPrice),
+  }));
+
+  await db.insert(orderItems).values(orderItemValues);
+
+  // 更新訂單總額
+  const [totalResult] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${orderItems.subtotal}), 0)` })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+
+  await db
+    .update(orders)
+    .set({ totalAmount: Number(totalResult.total), updatedAt: new Date() })
+    .where(eq(orders.id, orderId));
+
+  return NextResponse.json({ success: true, orderId });
+}
