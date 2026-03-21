@@ -58,6 +58,14 @@ interface UserData {
   hasApiToken: boolean;
   isActive: boolean;
   createdAt: string;
+  allowedSuppliers: number[];
+}
+
+/** 供應商資料型別（叫貨權限用） */
+interface SupplierOption {
+  id: number;
+  name: string;
+  category: string;
 }
 
 /** 門市資料型別 */
@@ -89,6 +97,7 @@ const ROLE_COLORS: Record<string, string> = {
 export default function SettingsPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [stores, setStores] = useState<StoreData[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Dialog 狀態
@@ -104,6 +113,8 @@ export default function SettingsPage() {
   const [formRole, setFormRole] = useState("staff");
   const [formStoreId, setFormStoreId] = useState<string>("");
   const [formNewPin, setFormNewPin] = useState("");
+  /** 叫貨權限：勾選的供應商 ID（空陣列 = 全部可叫） */
+  const [formAllowedSuppliers, setFormAllowedSuppliers] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   // 門市編輯
@@ -115,12 +126,24 @@ export default function SettingsPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [usersRes, storesRes] = await Promise.all([
+      const [usersRes, storesRes, suppliersRes] = await Promise.all([
         fetch("/api/users"),
         fetch("/api/stores"),
+        fetch("/api/suppliers"),
       ]);
       setUsers(await usersRes.json());
       setStores(await storesRes.json());
+      // 供應商清單：只取 id, name, category（用於叫貨權限設定）
+      const suppliersData = await suppliersRes.json();
+      setSuppliers(
+        Array.isArray(suppliersData)
+          ? suppliersData.map((s: SupplierOption) => ({
+              id: s.id,
+              name: s.name,
+              category: s.category,
+            }))
+          : []
+      );
     } catch {
       toast.error("載入失敗");
     } finally {
@@ -174,6 +197,7 @@ export default function SettingsPage() {
     setFormPhone(user.phone);
     setFormRole(user.role);
     setFormStoreId(user.storeId ? String(user.storeId) : "");
+    setFormAllowedSuppliers(user.allowedSuppliers ?? []);
     setShowEditDialog(true);
   };
 
@@ -189,6 +213,7 @@ export default function SettingsPage() {
           phone: formPhone,
           role: formRole,
           storeId: formStoreId ? parseInt(formStoreId) : null,
+          allowedSuppliers: formAllowedSuppliers,
         }),
       });
       const data = await res.json();
@@ -306,6 +331,7 @@ export default function SettingsPage() {
     setFormPin("");
     setFormRole("staff");
     setFormStoreId("");
+    setFormAllowedSuppliers([]);
     setEditingUser(null);
   };
 
@@ -772,7 +798,7 @@ export default function SettingsPage() {
 
       {/* ─── 編輯員工 Dialog ─── */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>編輯 {editingUser?.name}</DialogTitle>
           </DialogHeader>
@@ -823,6 +849,65 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 叫貨權限（僅員工角色顯示；老闆/店長無限制） */}
+            {formRole === "staff" && suppliers.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label>叫貨權限</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {formAllowedSuppliers.length === 0
+                      ? "全部可叫"
+                      : `已選 ${formAllowedSuppliers.length} 家`}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  不勾選 = 全部供應商皆可叫。勾選後只能叫勾選的供應商。
+                </p>
+                {/* 全選/全不選控制 */}
+                <label className="flex items-center gap-2 py-1.5 px-2 rounded-md bg-muted mb-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded"
+                    checked={formAllowedSuppliers.length === suppliers.length && suppliers.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setFormAllowedSuppliers(suppliers.map((s) => s.id));
+                      } else {
+                        setFormAllowedSuppliers([]);
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-medium">全選</span>
+                </label>
+                {/* 按分類顯示供應商 */}
+                <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
+                  {suppliers.map((s) => (
+                    <label
+                      key={s.id}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer select-none"
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded"
+                        checked={formAllowedSuppliers.includes(s.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormAllowedSuppliers((prev) => [...prev, s.id]);
+                          } else {
+                            setFormAllowedSuppliers((prev) =>
+                              prev.filter((id) => id !== s.id)
+                            );
+                          }
+                        }}
+                      />
+                      <span className="text-sm flex-1">{s.name}</span>
+                      <span className="text-xs text-muted-foreground">{s.category}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>

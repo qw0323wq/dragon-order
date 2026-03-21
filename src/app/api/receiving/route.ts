@@ -58,6 +58,9 @@ export async function POST(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
 
+  // CRITICAL: 從認證結果取得驗收人 ID（個人 token 或 cookie session 都有值）
+  const receivedByUserId = auth.userId ?? null;
+
   const body = await request.json();
 
   // 支援批次驗收
@@ -85,6 +88,9 @@ export async function POST(request: NextRequest) {
       .where(eq(receiving.orderItemId, rec.orderItemId))
       .limit(1);
 
+    // 驗收人：優先用 auth 取得的 userId，其次用前端傳入的 receivedBy
+    const resolvedReceivedBy = receivedByUserId ?? rec.receivedBy ?? null;
+
     if (existing) {
       // 更新既有紀錄
       const [updated] = await db
@@ -95,7 +101,7 @@ export async function POST(request: NextRequest) {
           issue: rec.issue || null,
           resolution: rec.resolution || null,
           receivedAt: now,
-          receivedBy: rec.receivedBy || null,
+          receivedBy: resolvedReceivedBy,
         })
         .where(eq(receiving.orderItemId, rec.orderItemId))
         .returning();
@@ -111,7 +117,7 @@ export async function POST(request: NextRequest) {
           issue: rec.issue || null,
           resolution: rec.resolution || null,
           receivedAt: now,
-          receivedBy: rec.receivedBy || null,
+          receivedBy: resolvedReceivedBy,
         })
         .returning();
       results.push(inserted);

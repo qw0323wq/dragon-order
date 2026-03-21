@@ -21,7 +21,7 @@ export async function PATCH(
   const { id } = await params;
   const userId = parseInt(id);
   const body = await request.json();
-  const { name, phone, role, storeId, isActive, newPin, generateToken, revokeToken } = body as {
+  const { name, phone, role, storeId, isActive, newPin, generateToken, revokeToken, allowedSuppliers } = body as {
     name?: string;
     phone?: string;
     role?: string;
@@ -30,6 +30,8 @@ export async function PATCH(
     newPin?: string;
     generateToken?: boolean;
     revokeToken?: boolean;
+    /** 可叫貨的供應商 ID 清單（空陣列 = 全部可叫） */
+    allowedSuppliers?: number[];
   };
 
   // 組合要更新的欄位
@@ -64,6 +66,10 @@ export async function PATCH(
   // 撤銷 API Token
   if (revokeToken) {
     updates.apiToken = null;
+  }
+  // 更新叫貨權限（空陣列 = 全部可叫）
+  if (allowedSuppliers !== undefined) {
+    updates.allowedSuppliers = allowedSuppliers;
   }
 
   if (Object.keys(updates).length === 0) {

@@ -72,6 +72,7 @@ interface Order {
   status: string
   totalAmount: number
   notes: string | null
+  createdByName: string | null
 }
 
 interface ReceivingRecord {
@@ -724,6 +725,10 @@ export default function OrdersPage() {
       const detailRes = await fetch(`/api/orders/${ord.id}`)
       const data = await detailRes.json()
       setDetails(data.details || [])
+      // 用明細 API 回傳的 order 物件（含 createdByName）更新 state
+      if (data.order) {
+        setOrder(data.order)
+      }
     } catch {
       toast.error('載入訂單失敗')
     } finally {
@@ -812,6 +817,11 @@ export default function OrdersPage() {
           {order && (
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge className={STATUS_COLORS[order.status] || ''}>{orderStatus}</Badge>
+              {order.createdByName && (
+                <span className="text-xs text-muted-foreground">
+                  建單人：{order.createdByName}
+                </span>
+              )}
               {supplierGroups.size > 0 && viewMode === 'summary' && (
                 <span className="text-xs text-muted-foreground">
                   {orderedCount}/{supplierGroups.size} 供應商已叫貨

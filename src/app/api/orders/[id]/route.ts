@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { orders, orderItems, items, stores, suppliers } from "@/lib/db/schema";
+import { orders, orderItems, items, stores, suppliers, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
 
@@ -18,14 +18,28 @@ export async function GET(
   const { id } = await params;
   const orderId = parseInt(id);
 
-  // 取得訂單
-  const [order] = await db
-    .select()
+  // 取得訂單（JOIN users 取得建單人名稱）
+  const [orderRow] = await db
+    .select({
+      id: orders.id,
+      orderDate: orders.orderDate,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      notes: orders.notes,
+      createdBy: orders.createdBy,
+      createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
+      createdByName: users.name,
+    })
     .from(orders)
+    .leftJoin(users, eq(orders.createdBy, users.id))
     .where(eq(orders.id, orderId))
     .limit(1);
 
-  if (!order) {
+  // 向下相容：把 orderRow 當作 order 使用
+  const order = orderRow;
+
+  if (!orderRow) {
     return NextResponse.json({ error: "找不到訂單" }, { status: 404 });
   }
 

@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       hasApiToken: users.apiToken,
       isActive: users.isActive,
       createdAt: users.createdAt,
+      allowedSuppliers: users.allowedSuppliers,
     })
     .from(users)
     .leftJoin(stores, eq(users.storeId, stores.id))
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
   const safeUsers = allUsers.map(u => ({
     ...u,
     hasApiToken: !!u.hasApiToken,
+    allowedSuppliers: u.allowedSuppliers ?? [],
   }));
   return NextResponse.json(safeUsers);
 }
