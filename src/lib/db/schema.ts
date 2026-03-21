@@ -115,6 +115,8 @@ export const users = pgTable('users', {
   role: varchar('role', { length: 10 }).default('staff').notNull(),
   /** staff 綁定門市；owner/manager 可為 null（跨門市） */
   storeId: integer('store_id').references(() => stores.id),
+  /** 個人 API Token（給該使用者的 AI 助理用） */
+  apiToken: varchar('api_token', { length: 64 }).unique(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

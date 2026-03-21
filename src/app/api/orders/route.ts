@@ -10,7 +10,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { authenticateRequest } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
-  const auth = authenticateRequest(request);
+  const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date"); // YYYY-MM-DD
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = authenticateRequest(request);
+  const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

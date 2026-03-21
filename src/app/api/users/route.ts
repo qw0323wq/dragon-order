@@ -11,7 +11,7 @@ import { hash } from "bcryptjs";
 import { requireAdmin } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;
   const allUsers = await db
     .select({
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
       role: users.role,
       storeId: users.storeId,
       storeName: stores.name,
+      hasApiToken: users.apiToken,
       isActive: users.isActive,
       createdAt: users.createdAt,
     })
@@ -28,11 +29,16 @@ export async function GET(request: NextRequest) {
     .leftJoin(stores, eq(users.storeId, stores.id))
     .orderBy(users.role, users.name);
 
-  return NextResponse.json(allUsers);
+  // 只回傳「有沒有 token」，不回傳 token 值（安全考量）
+  const safeUsers = allUsers.map(u => ({
+    ...u,
+    hasApiToken: !!u.hasApiToken,
+  }));
+  return NextResponse.json(safeUsers);
 }
 
 export async function POST(request: NextRequest) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

@@ -9,7 +9,7 @@ import { eq } from "drizzle-orm";
 import { authenticateRequest } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
-  const auth = authenticateRequest(request);
+  const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
   const allItems = await db
     .select({

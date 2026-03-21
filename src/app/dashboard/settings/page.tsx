@@ -42,6 +42,9 @@ import {
   StoreIcon,
   Building2Icon,
   SaveIcon,
+  KeyIcon,
+  CopyIcon,
+  XCircleIcon,
 } from "lucide-react";
 
 /** 使用者資料型別 */
@@ -52,6 +55,7 @@ interface UserData {
   role: string;
   storeId: number | null;
   storeName: string | null;
+  hasApiToken: boolean;
   isActive: boolean;
   createdAt: string;
 }
@@ -255,6 +259,47 @@ export default function SettingsPage() {
     }
   };
 
+  // ─── 產生 API Token ───
+  const [showTokenResult, setShowTokenResult] = useState<string | null>(null);
+
+  const handleGenerateToken = async (user: UserData) => {
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generateToken: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "產生失敗");
+        return;
+      }
+      setShowTokenResult(data.apiToken);
+      toast.success(`已為 ${user.name} 產生 API Token`);
+      fetchData();
+    } catch {
+      toast.error("產生失敗");
+    }
+  };
+
+  const handleRevokeToken = async (user: UserData) => {
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revokeToken: true }),
+      });
+      if (!res.ok) {
+        toast.error("撤銷失敗");
+        return;
+      }
+      toast.success(`已撤銷 ${user.name} 的 API Token`);
+      fetchData();
+    } catch {
+      toast.error("撤銷失敗");
+    }
+  };
+
   const resetForm = () => {
     setFormName("");
     setFormPhone("");
@@ -350,6 +395,7 @@ export default function SettingsPage() {
                   <TableHead>手機號碼</TableHead>
                   <TableHead>角色</TableHead>
                   <TableHead>門市</TableHead>
+                  <TableHead>API Token</TableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
@@ -365,6 +411,22 @@ export default function SettingsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>{user.storeName || "全部門市"}</TableCell>
+                    <TableCell>
+                      {user.hasApiToken ? (
+                        <div className="flex items-center gap-1">
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                            <KeyIcon className="size-3 mr-0.5" />已啟用
+                          </Badge>
+                          <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleRevokeToken(user)} title="撤銷">
+                            <XCircleIcon className="size-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground" onClick={() => handleGenerateToken(user)}>
+                          <KeyIcon className="size-3 mr-1" />產生
+                        </Button>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button
@@ -415,9 +477,17 @@ export default function SettingsPage() {
                     {user.storeName || "全部門市"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                {/* API Token 狀態 */}
+                <div className="flex items-center gap-2">
                   <span className="font-mono text-sm text-muted-foreground">{user.phone}</span>
-                  <div className="flex gap-1">
+                  {user.hasApiToken ? (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs gap-0.5">
+                      <KeyIcon className="size-3" />API
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-1 flex-wrap">
                     <Button variant="outline" size="sm" onClick={() => openEdit(user)}>
                       <PencilIcon className="size-3.5 mr-1" />
                       編輯
@@ -426,6 +496,15 @@ export default function SettingsPage() {
                       <KeyRoundIcon className="size-3.5 mr-1" />
                       PIN
                     </Button>
+                    {user.hasApiToken ? (
+                      <Button variant="outline" size="sm" className="text-red-500 border-red-200" onClick={() => handleRevokeToken(user)}>
+                        <XCircleIcon className="size-3.5 mr-1" />撤銷 Token
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => handleGenerateToken(user)}>
+                        <KeyIcon className="size-3.5 mr-1" />產生 Token
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -783,6 +862,47 @@ export default function SettingsPage() {
             </Button>
             <Button onClick={handleResetPin} disabled={submitting || formNewPin.length !== 4}>
               {submitting ? "重設中..." : "確認重設"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── API Token 產生結果 Dialog ─── */}
+      <Dialog open={!!showTokenResult} onOpenChange={() => setShowTokenResult(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>API Token 已產生</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              請立即複製此 Token，關閉後將無法再次查看。
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-muted px-3 py-2 rounded-md text-xs font-mono break-all select-all">
+                {showTokenResult}
+              </code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(showTokenResult || "");
+                  toast.success("已複製 Token");
+                }}
+              >
+                <CopyIcon className="size-3.5" />
+              </Button>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-700 space-y-1">
+              <p className="font-semibold">使用方式：</p>
+              <p>AI 助理呼叫 API 時帶入 Header：</p>
+              <code className="block bg-yellow-100 px-2 py-1 rounded text-[11px]">
+                Authorization: Bearer {showTokenResult?.slice(0, 8)}...
+              </code>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowTokenResult(null)}>
+              我已複製，關閉
             </Button>
           </DialogFooter>
         </DialogContent>

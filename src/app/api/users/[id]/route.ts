@@ -4,6 +4,7 @@
  * DELETE /api/users/[id] — 停用使用者（軟刪除）
  */
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -14,19 +15,21 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
   const userId = parseInt(id);
   const body = await request.json();
-  const { name, phone, role, storeId, isActive, newPin } = body as {
+  const { name, phone, role, storeId, isActive, newPin, generateToken, revokeToken } = body as {
     name?: string;
     phone?: string;
     role?: string;
     storeId?: number | null;
     isActive?: boolean;
     newPin?: string;
+    generateToken?: boolean;
+    revokeToken?: boolean;
   };
 
   // 組合要更新的欄位
@@ -53,12 +56,26 @@ export async function PATCH(
     }
     updates.pinHash = await hash(newPin, 10);
   }
+  // 產生新的 API Token
+  if (generateToken) {
+    const newToken = randomBytes(32).toString("hex");
+    updates.apiToken = newToken;
+  }
+  // 撤銷 API Token
+  if (revokeToken) {
+    updates.apiToken = null;
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "沒有要更新的欄位" }, { status: 400 });
   }
 
   await db.update(users).set(updates).where(eq(users.id, userId));
+
+  // 如果有產生 token，回傳給前端顯示（只顯示一次）
+  if (generateToken && updates.apiToken) {
+    return NextResponse.json({ success: true, apiToken: updates.apiToken });
+  }
   return NextResponse.json({ success: true });
 }
 
@@ -66,7 +83,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = requireAdmin(request);
+  const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;
   const { id } = await params;
   const userId = parseInt(id);
