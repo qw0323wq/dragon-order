@@ -25,7 +25,9 @@ import {
   CreditCard,
   CheckCircle2,
   AlertTriangle,
+  PlusCircle,
 } from 'lucide-react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -771,7 +773,15 @@ export default function OrdersPage() {
       {/* ── 頂部：日期導航 ── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
-          <h2 className="font-heading text-xl font-semibold">訂單管理</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="font-heading text-xl font-semibold">訂單管理</h2>
+            <Link href="/order">
+              <Button size="sm" className="gap-1.5">
+                <PlusCircle className="size-3.5" />
+                新增訂單
+              </Button>
+            </Link>
+          </div>
 
           {/* 日期切換 */}
           <div className="flex items-center gap-2 mt-2">
