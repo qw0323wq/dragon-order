@@ -18,9 +18,13 @@ export async function GET() {
       contact: suppliers.contact,
       phone: suppliers.phone,
       notes: suppliers.notes,
+      companyName: suppliers.companyName,
+      taxId: suppliers.taxId,
+      address: suppliers.address,
       noDeliveryDays: suppliers.noDeliveryDays,
       leadDays: suppliers.leadDays,
-      // CRITICAL: paymentType 影響付款追蹤和月結報表的邏輯
+      deliveryDays: suppliers.deliveryDays,
+      freeShippingMin: suppliers.freeShippingMin,
       paymentType: suppliers.paymentType,
       isActive: suppliers.isActive,
       itemsCount: sql<number>`(SELECT COUNT(*) FROM items WHERE items.supplier_id = ${suppliers.id} AND items.is_active = true)`,
@@ -34,7 +38,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType } = body;
+  const { name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "供應商名稱不能為空" }, { status: 400 });
@@ -45,12 +49,16 @@ export async function POST(request: NextRequest) {
     .values({
       name,
       category,
+      companyName: companyName || null,
+      taxId: taxId || null,
+      address: address || null,
       contact: contact || null,
       phone: phone || null,
       notes: notes || null,
       noDeliveryDays: noDeliveryDays || [],
       leadDays: leadDays || 1,
-      // CRITICAL: 預設月結，確保新供應商有正確結帳方式
+      deliveryDays: deliveryDays || 1,
+      freeShippingMin: freeShippingMin || 0,
       paymentType: paymentType || '月結',
     })
     .returning();
@@ -60,7 +68,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const body = await request.json();
-  const { id, name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType } = body;
+  const { id, name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin } = body;
 
   if (!id) {
     return NextResponse.json({ error: "缺少供應商 ID" }, { status: 400 });
@@ -71,11 +79,16 @@ export async function PATCH(request: NextRequest) {
     .set({
       ...(name && { name }),
       ...(category && { category }),
+      companyName: companyName ?? null,
+      taxId: taxId ?? null,
+      address: address ?? null,
       contact: contact ?? null,
       phone: phone ?? null,
       notes: notes ?? null,
       ...(noDeliveryDays !== undefined && { noDeliveryDays }),
       ...(leadDays !== undefined && { leadDays }),
+      ...(deliveryDays !== undefined && { deliveryDays }),
+      ...(freeShippingMin !== undefined && { freeShippingMin }),
       ...(paymentType && { paymentType }),
     })
     .where(eq(suppliers.id, id))

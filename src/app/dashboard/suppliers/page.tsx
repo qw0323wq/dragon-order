@@ -7,6 +7,7 @@
  *  2. 新增/編輯供應商 Dialog（含結帳方式下拉選單）
  *  3. 刪除供應商
  *  4. 從 API 讀取真實資料
+ *  5. 公司名稱、統一編號、地址、送貨天數、免運金額
  */
 
 import { useState, useEffect } from 'react'
@@ -20,6 +21,10 @@ import {
   Package,
   Loader2,
   CreditCard,
+  Building2,
+  MapPin,
+  Truck,
+  ShoppingCart,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -80,6 +85,16 @@ interface Supplier {
   paymentType: string
   isActive: boolean
   itemsCount: number
+  /** 公司正式名稱（含「股份有限公司」等） */
+  companyName: string | null
+  /** 統一編號 */
+  taxId: string | null
+  /** 公司／倉庫地址 */
+  address: string | null
+  /** 下單後幾天到貨 */
+  deliveryDays: number | null
+  /** 免運門檻（元）；0 或 null 代表無門檻 */
+  freeShippingMin: number | null
 }
 
 /** 表單資料（不含 id 和 itemsCount） */
@@ -91,6 +106,11 @@ interface SupplierFormData {
   no_delivery: string
   paymentType: string
   memo: string
+  companyName: string
+  taxId: string
+  address: string
+  deliveryDays: string
+  freeShippingMin: string
 }
 
 const EMPTY_FORM: SupplierFormData = {
@@ -101,6 +121,11 @@ const EMPTY_FORM: SupplierFormData = {
   no_delivery: '',
   paymentType: '月結',
   memo: '',
+  companyName: '',
+  taxId: '',
+  address: '',
+  deliveryDays: '',
+  freeShippingMin: '',
 }
 
 // ── 供應商卡片元件 ────────────────────────────────────────────────────────────
@@ -147,6 +172,23 @@ function SupplierCard({ supplier, onEdit, onDelete }: SupplierCardProps) {
               )}
             </div>
 
+            {/* 公司名稱 + 統編 */}
+            {(supplier.companyName || supplier.taxId) && (
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                {supplier.companyName && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Building2 className="size-3.5 shrink-0" />
+                    <span>{supplier.companyName}</span>
+                  </div>
+                )}
+                {supplier.taxId && (
+                  <span className="text-xs text-muted-foreground/70 font-mono">
+                    統編：{supplier.taxId}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* 聯絡人 / 電話 */}
             <div className="mt-2 space-y-1">
               {supplier.contact ? (
@@ -163,6 +205,32 @@ function SupplierCard({ supplier, onEdit, onDelete }: SupplierCardProps) {
                 <p className="text-sm text-muted-foreground/50 italic">電話未填</p>
               )}
             </div>
+
+            {/* 地址 */}
+            {supplier.address && (
+              <div className="flex items-start gap-1.5 mt-1.5 text-sm text-muted-foreground">
+                <MapPin className="size-3.5 mt-0.5 shrink-0" />
+                <span>{supplier.address}</span>
+              </div>
+            )}
+
+            {/* 送貨天數 + 免運金額 */}
+            {(supplier.deliveryDays != null || (supplier.freeShippingMin != null && supplier.freeShippingMin > 0)) && (
+              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                {supplier.deliveryDays != null && supplier.deliveryDays > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Truck className="size-3.5" />
+                    送貨 {supplier.deliveryDays} 天
+                  </div>
+                )}
+                {supplier.freeShippingMin != null && supplier.freeShippingMin > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                    <ShoppingCart className="size-3.5" />
+                    滿 ${supplier.freeShippingMin.toLocaleString()} 免運
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 品項數 */}
             <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
@@ -226,6 +294,11 @@ function SupplierFormDialog({ open, onOpenChange, editTarget, onSubmit }: Suppli
         no_delivery: noDeliveryText,
         paymentType: editTarget.paymentType,
         memo: editTarget.notes ?? '',
+        companyName: editTarget.companyName ?? '',
+        taxId: editTarget.taxId ?? '',
+        address: editTarget.address ?? '',
+        deliveryDays: editTarget.deliveryDays != null ? String(editTarget.deliveryDays) : '',
+        freeShippingMin: editTarget.freeShippingMin != null ? String(editTarget.freeShippingMin) : '',
       })
     } else {
       setForm(EMPTY_FORM)
@@ -267,6 +340,28 @@ function SupplierFormDialog({ open, onOpenChange, editTarget, onSubmit }: Suppli
               placeholder="例：以曜"
               value={form.name}
               onChange={(e) => handleFieldChange('name', e.target.value)}
+            />
+          </div>
+
+          {/* 公司名稱 */}
+          <div className="space-y-1.5">
+            <Label htmlFor="sup-company-name">公司名稱</Label>
+            <Input
+              id="sup-company-name"
+              placeholder="例：以曜食品股份有限公司"
+              value={form.companyName}
+              onChange={(e) => handleFieldChange('companyName', e.target.value)}
+            />
+          </div>
+
+          {/* 統一編號 */}
+          <div className="space-y-1.5">
+            <Label htmlFor="sup-tax-id">統一編號</Label>
+            <Input
+              id="sup-tax-id"
+              placeholder="例：12345678"
+              value={form.taxId}
+              onChange={(e) => handleFieldChange('taxId', e.target.value)}
             />
           </div>
 
@@ -337,6 +432,44 @@ function SupplierFormDialog({ open, onOpenChange, editTarget, onSubmit }: Suppli
               value={form.no_delivery}
               onChange={(e) => handleFieldChange('no_delivery', e.target.value)}
             />
+          </div>
+
+          {/* 地址 */}
+          <div className="space-y-1.5">
+            <Label htmlFor="sup-address">地址</Label>
+            <Textarea
+              id="sup-address"
+              placeholder="公司或倉庫地址"
+              rows={2}
+              value={form.address}
+              onChange={(e) => handleFieldChange('address', e.target.value)}
+            />
+          </div>
+
+          {/* 送貨天數 + 免運金額（同一行） */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="sup-delivery-days">送貨天數</Label>
+              <Input
+                id="sup-delivery-days"
+                type="number"
+                min={0}
+                placeholder="例：1"
+                value={form.deliveryDays}
+                onChange={(e) => handleFieldChange('deliveryDays', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sup-free-shipping">免運金額（元）</Label>
+              <Input
+                id="sup-free-shipping"
+                type="number"
+                min={0}
+                placeholder="0 = 無門檻"
+                value={form.freeShippingMin}
+                onChange={(e) => handleFieldChange('freeShippingMin', e.target.value)}
+              />
+            </div>
           </div>
 
           {/* 備註 */}
@@ -421,6 +554,10 @@ export default function SuppliersPage() {
 
   /** 新增/儲存供應商 */
   async function handleSubmit(data: SupplierFormData) {
+    // 將文字型數字轉換為數字（空字串轉 null）
+    const deliveryDaysNum = data.deliveryDays.trim() !== '' ? Number(data.deliveryDays) : null
+    const freeShippingMinNum = data.freeShippingMin.trim() !== '' ? Number(data.freeShippingMin) : null
+
     if (editTarget) {
       // 編輯模式：呼叫 PATCH API
       const res = await fetch('/api/suppliers', {
@@ -434,6 +571,11 @@ export default function SuppliersPage() {
           phone: data.phone || null,
           notes: data.memo || null,
           paymentType: data.paymentType,
+          companyName: data.companyName || null,
+          taxId: data.taxId || null,
+          address: data.address || null,
+          deliveryDays: deliveryDaysNum,
+          freeShippingMin: freeShippingMinNum,
         }),
       })
       if (!res.ok) {
@@ -454,6 +596,11 @@ export default function SuppliersPage() {
           phone: data.phone || null,
           notes: data.memo || null,
           paymentType: data.paymentType,
+          companyName: data.companyName || null,
+          taxId: data.taxId || null,
+          address: data.address || null,
+          deliveryDays: deliveryDaysNum,
+          freeShippingMin: freeShippingMinNum,
         }),
       })
       if (!res.ok) {

@@ -44,6 +44,12 @@ export const suppliers = pgTable('suppliers', {
   name: varchar('name', { length: 50 }).notNull(),
   /** 分類：肉品 | 海鮮 | 蔬菜 | 飲料 | 底料 | 雜貨 | 火鍋料 */
   category: varchar('category', { length: 20 }).notNull(),
+  /** 公司名稱（發票/對帳用） */
+  companyName: varchar('company_name', { length: 100 }),
+  /** 統一編號 */
+  taxId: varchar('tax_id', { length: 20 }),
+  /** 地址 */
+  address: text('address'),
   contact: varchar('contact', { length: 50 }),
   phone: varchar('phone', { length: 20 }),
   notes: text('notes'),
@@ -52,6 +58,10 @@ export const suppliers = pgTable('suppliers', {
   noDeliveryDays: integer('no_delivery_days').array().default([]).notNull(),
   /** 前置天數：今天叫明天到 = 1（預設） */
   leadDays: integer('lead_days').default(1).notNull(),
+  /** 送貨天數：下單後幾天到貨（顯示用） */
+  deliveryDays: integer('delivery_days').default(1).notNull(),
+  /** 免運金額（元），0 = 無免運門檻 */
+  freeShippingMin: integer('free_shipping_min').default(0).notNull(),
   /** 結帳方式：'現結' = 當天驗收後請款, '月結' = 月底統一付款 */
   paymentType: varchar('payment_type', { length: 10 }).default('月結').notNull(),
   isActive: boolean('is_active').default(true).notNull(),

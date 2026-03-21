@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { logout } from "@/app/actions/auth";
 import type { SessionUser } from "@/app/actions/auth";
@@ -46,6 +47,7 @@ import {
   ScanTextIcon,
   SendIcon,
   XIcon,
+  ArrowLeftIcon,
 } from "lucide-react";
 
 interface OrderPageClientProps {
@@ -63,6 +65,8 @@ export default function OrderPageClient({
   items,
   stores,
 }: OrderPageClientProps) {
+  const router = useRouter();
+
   // 選取的門市 ID（預設用使用者的 store_id，若為 owner 則必須手動選）
   const [selectedStoreId, setSelectedStoreId] = useState<string>(
     user.store_id ? String(user.store_id) : ""
@@ -70,6 +74,9 @@ export default function OrderPageClient({
 
   // 分類篩選（空字串 = 全部）
   const [activeCategory, setActiveCategory] = useState<string>("");
+
+  // 分類模式：'category' = 依品項分類, 'supplier' = 依供應商
+  const [groupMode, setGroupMode] = useState<"category" | "supplier">("category");
 
   // 搜尋關鍵字
   const [searchQuery, setSearchQuery] = useState("");
@@ -98,18 +105,33 @@ export default function OrderPageClient({
 
   const [isPending, startTransition] = useTransition();
 
-  // 根據分類和搜尋篩選品項
+  // 從品項中提取供應商列表（去重）
+  const supplierNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const item of items) {
+      if ((item as any).supplierName) names.add((item as any).supplierName);
+    }
+    return Array.from(names).sort();
+  }, [items]);
+
+  // 根據分類/供應商和搜尋篩選品項
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      const matchCategory =
-        !activeCategory || item.category === activeCategory;
+      let matchGroup = true;
+      if (activeCategory) {
+        if (groupMode === "category") {
+          matchGroup = item.category === activeCategory;
+        } else {
+          matchGroup = (item as any).supplierName === activeCategory;
+        }
+      }
       const matchSearch =
         !searchQuery ||
         item.name.includes(searchQuery) ||
         item.aliases.some((a) => a.includes(searchQuery));
-      return matchCategory && matchSearch;
+      return matchGroup && matchSearch;
     });
-  }, [items, activeCategory, searchQuery]);
+  }, [items, activeCategory, searchQuery, groupMode]);
 
   // 購物車統計
   const cartTotal = calcCartTotal(cartItems);
@@ -179,7 +201,7 @@ export default function OrderPageClient({
   }
 
   /** 送出叫貨 */
-  function handleSubmitOrder() {
+  async function handleSubmitOrder() {
     if (!selectedStoreId) {
       toast.error("請先選擇門市");
       return;
@@ -188,10 +210,32 @@ export default function OrderPageClient({
       toast.error("購物車是空的");
       return;
     }
-    // TODO: 呼叫 Server Action 寫入 DB / Google Sheets
-    toast.success("叫貨單已送出！");
-    setCartItems([]);
-    setIsCartOpen(false);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeId: parseInt(selectedStoreId),
+          userId: user.id,
+          items: cartItems.map((c) => ({
+            itemId: c.item.id,
+            quantity: c.quantity,
+            unit: c.item.unit,
+            unitPrice: c.item.cost_price,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "送出失敗");
+        return;
+      }
+      toast.success("叫貨單已送出！");
+      setCartItems([]);
+      setIsCartOpen(false);
+    } catch {
+      toast.error("送出失敗，請重試");
+    }
   }
 
   /** 登出 */
@@ -204,11 +248,23 @@ export default function OrderPageClient({
       {/* ===== 頂部 Header ===== */}
       <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
         <div className="px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex flex-col min-w-0">
-            <span className="text-base font-bold text-gray-800 leading-tight">
-              嗨，{user.name}！
-            </span>
-            <span className="text-xs text-gray-400">今日叫貨</span>
+          {/* 返回按鈕 + 標題 */}
+          <div className="flex items-center gap-2 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 size-8 text-gray-500"
+              onClick={() => router.back()}
+              aria-label="返回上一頁"
+            >
+              <ArrowLeftIcon className="size-4" />
+            </Button>
+            <div className="flex flex-col min-w-0">
+              <span className="text-base font-bold text-gray-800 leading-tight">
+                嗨，{user.name}！
+              </span>
+              <span className="text-xs text-gray-400">今日叫貨</span>
+            </div>
           </div>
 
           {/* 門市選擇器 */}
@@ -261,7 +317,31 @@ export default function OrderPageClient({
 
           {/* ===== Tab 1: 清單模式 ===== */}
           <TabsContent value="list">
-            {/* 分類橫向滾動標籤 */}
+            {/* 分類模式切換：依分類 / 依供應商 */}
+            <div className="flex gap-1.5 mb-2">
+              <button
+                onClick={() => { setGroupMode("category"); setActiveCategory(""); }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  groupMode === "category"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-gray-100 text-gray-500"
+                }`}
+              >
+                依分類
+              </button>
+              <button
+                onClick={() => { setGroupMode("supplier"); setActiveCategory(""); }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  groupMode === "supplier"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-gray-100 text-gray-500"
+                }`}
+              >
+                依供應商
+              </button>
+            </div>
+
+            {/* 分類/供應商 橫向滾動標籤 */}
             <div
               className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-none"
               style={{ scrollbarWidth: "none" }}
@@ -276,19 +356,19 @@ export default function OrderPageClient({
               >
                 全部
               </button>
-              {ALL_CATEGORIES.map((cat) => (
+              {(groupMode === "category" ? ALL_CATEGORIES : supplierNames).map((label) => (
                 <button
-                  key={cat}
+                  key={label}
                   onClick={() =>
-                    setActiveCategory(activeCategory === cat ? "" : cat)
+                    setActiveCategory(activeCategory === label ? "" : label)
                   }
                   className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    activeCategory === cat
+                    activeCategory === label
                       ? "bg-primary text-primary-foreground"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  {cat}
+                  {label}
                 </button>
               ))}
             </div>
