@@ -11,7 +11,7 @@ import { users } from "@/lib/db/schema";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
 /** Cookie 名稱 */
-const SESSION_COOKIE = "dragon_session";
+const SESSION_COOKIE = "dragon-session";
 
 export type UserRole = "staff" | "manager" | "owner";
 

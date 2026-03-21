@@ -98,8 +98,9 @@ export default function LoginForm() {
         {process.env.NODE_ENV === "development" && (
           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700">
             <p className="font-semibold mb-1">測試帳號：</p>
-            <p>員工：0912345678 / 1234</p>
-            <p>老闆：0934567890 / 0000</p>
+            <p>老闆：0900000001 / 1234</p>
+            <p>林森店員工：0900000002 / 0000</p>
+            <p>信義店員工：0900000003 / 0000</p>
           </div>
         )}
       </CardContent>

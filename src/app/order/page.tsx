@@ -1,21 +1,44 @@
 import { getSessionUser } from "@/app/actions/auth";
 import OrderPageClient from "@/components/order/order-page-client";
-import { MOCK_ITEMS, MOCK_STORES } from "@/lib/mock-data";
+import { db } from "@/lib/db";
+import { items, suppliers, stores } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * 員工叫貨頁（Server Component）
- * 讀取登入使用者資料，傳給 Client Component 渲染互動 UI
- * 正式版：在此向 DB 查詢品項清單和門市資料
+ * 從 DB 讀取品項+門市，傳給 Client Component 渲染互動 UI
  */
 export default async function OrderPage() {
-  // layout.tsx 已做 auth guard，這裡可以直接 assert non-null
   const user = (await getSessionUser())!;
+
+  // 從 DB 讀取品項（含供應商名稱）
+  const dbItems = await db
+    .select({
+      id: items.id,
+      name: items.name,
+      category: items.category,
+      unit: items.unit,
+      cost_price: items.costPrice,
+      sell_price: items.sellPrice,
+      aliases: items.aliases,
+      supplierName: suppliers.name,
+    })
+    .from(items)
+    .innerJoin(suppliers, eq(items.supplierId, suppliers.id))
+    .where(eq(items.isActive, true))
+    .orderBy(items.category, items.name);
+
+  // 從 DB 讀取門市
+  const dbStores = await db
+    .select({ id: stores.id, name: stores.name })
+    .from(stores)
+    .orderBy(stores.sortOrder);
 
   return (
     <OrderPageClient
       user={user}
-      items={MOCK_ITEMS}
-      stores={MOCK_STORES}
+      items={dbItems as any}
+      stores={dbStores}
     />
   );
 }
