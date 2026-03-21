@@ -11,7 +11,7 @@ export type ItemCategory =
   | "菇類"
   | "豆製品"
   | "火鍋料"
-  | "特色/內臟"
+  | "特色"
   | "飲料"
   | "酒類"
   | "底料"
@@ -43,7 +43,7 @@ export const ALL_CATEGORIES: ItemCategory[] = [
   "菇類",
   "豆製品",
   "火鍋料",
-  "特色/內臟",
+  "特色",
   "飲料",
   "酒類",
   "底料",
@@ -58,7 +58,7 @@ export const CATEGORY_COLORS: Record<ItemCategory, string> = {
   菇類: "bg-yellow-100 text-yellow-700",
   豆製品: "bg-orange-100 text-orange-700",
   火鍋料: "bg-purple-100 text-purple-700",
-  "特色/內臟": "bg-pink-100 text-pink-700",
+  "特色": "bg-pink-100 text-pink-700",
   飲料: "bg-cyan-100 text-cyan-700",
   酒類: "bg-amber-100 text-amber-700",
   底料: "bg-rose-100 text-rose-700",
@@ -132,7 +132,7 @@ export const MOCK_ITEMS: MenuItem[] = [
   {
     id: 8,
     name: "手撕鮮毛肚",
-    category: "特色/內臟",
+    category: "特色",
     unit: "份",
     cost_price: 80,
     sell_price: 280,
