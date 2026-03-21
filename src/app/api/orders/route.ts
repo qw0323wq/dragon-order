@@ -23,24 +23,25 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { storeId, items: cartItems, userId } = body as {
+  const { storeId, items: cartItems, userId, orderDate: customDate } = body as {
     storeId: number;
     items: Array<{ itemId: number; quantity: number; unit: string; unitPrice: number }>;
     userId: number;
+    orderDate?: string; // 可指定日期（補 key 過去訂單用）
   };
 
   if (!storeId || !cartItems?.length) {
     return NextResponse.json({ error: "缺少門市或品項" }, { status: 400 });
   }
 
-  // 取得今天日期
-  const today = new Date().toISOString().slice(0, 10);
+  // 使用指定日期或今天
+  const targetDate = customDate || new Date().toISOString().slice(0, 10);
 
-  // 查看今天是否已有 draft 訂單
+  // 查看該日期是否已有 draft 訂單
   const [existingOrder] = await db
     .select()
     .from(orders)
-    .where(and(eq(orders.orderDate, today), eq(orders.status, "draft")))
+    .where(and(eq(orders.orderDate, targetDate), eq(orders.status, "draft")))
     .limit(1);
 
   let orderId: number;
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     const [newOrder] = await db
       .insert(orders)
       .values({
-        orderDate: today,
+        orderDate: targetDate,
         status: "draft",
         createdBy: userId,
       })

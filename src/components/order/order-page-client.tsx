@@ -48,6 +48,7 @@ import {
   SendIcon,
   XIcon,
   ArrowLeftIcon,
+  CalendarIcon,
 } from "lucide-react";
 
 interface OrderPageClientProps {
@@ -77,6 +78,9 @@ export default function OrderPageClient({
 
   // 分類模式：'category' = 依品項分類, 'supplier' = 依供應商
   const [groupMode, setGroupMode] = useState<"category" | "supplier">("category");
+
+  // 訂單日期（預設今天，可改為過去日期補 key）
+  const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   // 搜尋關鍵字
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,6 +221,7 @@ export default function OrderPageClient({
         body: JSON.stringify({
           storeId: parseInt(selectedStoreId),
           userId: user.id,
+          orderDate,
           items: cartItems.map((c) => ({
             itemId: c.item.id,
             quantity: c.quantity,
@@ -263,7 +268,21 @@ export default function OrderPageClient({
               <span className="text-base font-bold text-gray-800 leading-tight">
                 嗨，{user.name}！
               </span>
-              <span className="text-xs text-gray-400">今日叫貨</span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <CalendarIcon className="size-3 text-gray-400" />
+                <input
+                  type="date"
+                  value={orderDate}
+                  onChange={(e) => setOrderDate(e.target.value)}
+                  className="text-xs text-gray-500 bg-transparent border-none p-0 focus:outline-none"
+                  max={new Date().toISOString().slice(0, 10)}
+                />
+                {orderDate !== new Date().toISOString().slice(0, 10) && (
+                  <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-medium">
+                    補單
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
