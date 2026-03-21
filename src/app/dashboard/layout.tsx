@@ -17,6 +17,7 @@ import {
   LogOut,
   Flame,
   Wallet,
+  FileDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { label: '供應商', href: '/dashboard/suppliers', icon: Store },
   { label: '品項管理', href: '/dashboard/menu', icon: Soup },
   { label: '帳務', href: '/dashboard/payments', icon: Wallet },
+  { label: 'POS 匯入', href: '/dashboard/import', icon: FileDown },
   { label: '設定', href: '/dashboard/settings', icon: Settings },
 ] as const
 
