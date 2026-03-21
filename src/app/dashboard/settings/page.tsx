@@ -1,32 +1,601 @@
-/**
- * 設定頁面（預留）
- * 目前僅顯示佔位訊息，後續可加入門店設定、帳號管理等功能
- */
+"use client";
 
-import { Settings } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  UserPlusIcon,
+  PencilIcon,
+  KeyRoundIcon,
+  UserXIcon,
+  UserCheckIcon,
+  ShieldIcon,
+  UsersIcon,
+} from "lucide-react";
+
+/** 使用者資料型別 */
+interface UserData {
+  id: number;
+  name: string;
+  phone: string;
+  role: string;
+  storeId: number | null;
+  storeName: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+/** 門市資料型別 */
+interface StoreData {
+  id: number;
+  name: string;
+}
+
+/** 角色中文對照 */
+const ROLE_LABELS: Record<string, string> = {
+  owner: "老闆",
+  manager: "店長",
+  staff: "員工",
+};
+
+/** 角色 Badge 顏色 */
+const ROLE_COLORS: Record<string, string> = {
+  owner: "bg-red-100 text-red-700",
+  manager: "bg-blue-100 text-blue-700",
+  staff: "bg-gray-100 text-gray-700",
+};
 
 export default function SettingsPage() {
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [stores, setStores] = useState<StoreData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Dialog 狀態
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showPinDialog, setShowPinDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+
+  // 表單
+  const [formName, setFormName] = useState("");
+  const [formPhone, setFormPhone] = useState("");
+  const [formPin, setFormPin] = useState("");
+  const [formRole, setFormRole] = useState("staff");
+  const [formStoreId, setFormStoreId] = useState<string>("");
+  const [formNewPin, setFormNewPin] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [usersRes, storesRes] = await Promise.all([
+        fetch("/api/users"),
+        fetch("/api/stores"),
+      ]);
+      setUsers(await usersRes.json());
+      setStores(await storesRes.json());
+    } catch {
+      toast.error("載入失敗");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // ─── 新增員工 ───
+  const handleAdd = async () => {
+    if (!formName || !formPhone || !formPin) {
+      toast.error("請填寫所有必填欄位");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formName,
+          phone: formPhone,
+          pin: formPin,
+          role: formRole,
+          storeId: formStoreId ? parseInt(formStoreId) : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "新增失敗");
+        return;
+      }
+      toast.success(`已新增 ${formName}`);
+      setShowAddDialog(false);
+      resetForm();
+      fetchData();
+    } catch {
+      toast.error("新增失敗");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── 編輯員工 ───
+  const openEdit = (user: UserData) => {
+    setEditingUser(user);
+    setFormName(user.name);
+    setFormPhone(user.phone);
+    setFormRole(user.role);
+    setFormStoreId(user.storeId ? String(user.storeId) : "");
+    setShowEditDialog(true);
+  };
+
+  const handleEdit = async () => {
+    if (!editingUser) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formName,
+          phone: formPhone,
+          role: formRole,
+          storeId: formStoreId ? parseInt(formStoreId) : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "更新失敗");
+        return;
+      }
+      toast.success(`已更新 ${formName}`);
+      setShowEditDialog(false);
+      resetForm();
+      fetchData();
+    } catch {
+      toast.error("更新失敗");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── 重設 PIN ───
+  const openResetPin = (user: UserData) => {
+    setEditingUser(user);
+    setFormNewPin("");
+    setShowPinDialog(true);
+  };
+
+  const handleResetPin = async () => {
+    if (!editingUser || !formNewPin) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPin: formNewPin }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "重設失敗");
+        return;
+      }
+      toast.success(`已重設 ${editingUser.name} 的 PIN 碼`);
+      setShowPinDialog(false);
+      setFormNewPin("");
+      setEditingUser(null);
+    } catch {
+      toast.error("重設失敗");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── 啟用/停用 ───
+  const toggleActive = async (user: UserData) => {
+    const action = user.isActive ? "停用" : "啟用";
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !user.isActive }),
+      });
+      if (!res.ok) {
+        toast.error(`${action}失敗`);
+        return;
+      }
+      toast.success(`已${action} ${user.name}`);
+      fetchData();
+    } catch {
+      toast.error(`${action}失敗`);
+    }
+  };
+
+  const resetForm = () => {
+    setFormName("");
+    setFormPhone("");
+    setFormPin("");
+    setFormRole("staff");
+    setFormStoreId("");
+    setEditingUser(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6">
+        <p className="text-muted-foreground">載入中...</p>
+      </div>
+    );
+  }
+
+  const activeUsers = users.filter((u) => u.isActive);
+  const inactiveUsers = users.filter((u) => !u.isActive);
+
   return (
     <div className="p-4 md:p-6 space-y-5">
-      <div>
-        <h2 className="font-heading text-xl font-semibold">設定</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">系統設定（開發中）</p>
+      {/* 標題 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-heading text-xl font-semibold flex items-center gap-2">
+            <UsersIcon className="size-5" />
+            員工管理
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            管理帳號、權限、PIN 碼
+          </p>
+        </div>
+        <Button onClick={() => { resetForm(); setShowAddDialog(true); }} className="gap-1.5">
+          <UserPlusIcon className="size-4" />
+          新增員工
+        </Button>
       </div>
 
+      {/* 員工列表 */}
       <Card>
-        <CardContent className="py-16 flex flex-col items-center justify-center text-center gap-3">
-          <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center">
-            <Settings className="size-7 text-muted-foreground" />
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            目前帳號（{activeUsers.length} 人）
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {/* 桌面版表格 */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>姓名</TableHead>
+                  <TableHead>手機號碼</TableHead>
+                  <TableHead>角色</TableHead>
+                  <TableHead>門市</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-mono text-sm">{user.phone}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={ROLE_COLORS[user.role]}>
+                        <ShieldIcon className="size-3 mr-1" />
+                        {ROLE_LABELS[user.role] || user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{user.storeName || "全部門市"}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(user)}
+                          title="編輯"
+                        >
+                          <PencilIcon className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openResetPin(user)}
+                          title="重設 PIN"
+                        >
+                          <KeyRoundIcon className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleActive(user)}
+                          title="停用"
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <UserXIcon className="size-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-          <div>
-            <p className="font-medium">設定頁面建置中</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              即將新增：門店資料、帳號管理、通知設定
-            </p>
+
+          {/* 手機版卡片 */}
+          <div className="md:hidden divide-y">
+            {activeUsers.map((user) => (
+              <div key={user.id} className="p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium">{user.name}</span>
+                    <Badge variant="secondary" className={`ml-2 text-xs ${ROLE_COLORS[user.role]}`}>
+                      {ROLE_LABELS[user.role]}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {user.storeName || "全部門市"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm text-muted-foreground">{user.phone}</span>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={() => openEdit(user)}>
+                      <PencilIcon className="size-3.5 mr-1" />
+                      編輯
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => openResetPin(user)}>
+                      <KeyRoundIcon className="size-3.5 mr-1" />
+                      PIN
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleActive(user)}
+                      className="text-red-500 border-red-200"
+                    >
+                      <UserXIcon className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
+
+      {/* 已停用帳號 */}
+      {inactiveUsers.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-muted-foreground">
+              已停用帳號（{inactiveUsers.length} 人）
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {inactiveUsers.map((user) => (
+                <div key={user.id} className="p-4 flex items-center justify-between opacity-60">
+                  <div>
+                    <span className="font-medium">{user.name}</span>
+                    <span className="ml-2 text-sm text-muted-foreground">{user.phone}</span>
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {ROLE_LABELS[user.role]}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleActive(user)}
+                    className="text-green-600 border-green-200"
+                  >
+                    <UserCheckIcon className="size-3.5 mr-1" />
+                    重新啟用
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─── 新增員工 Dialog ─── */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>新增員工</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>姓名 *</Label>
+              <Input
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="員工姓名"
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label>手機號碼 *</Label>
+              <Input
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
+                placeholder="09xx-xxx-xxx"
+                type="tel"
+                inputMode="tel"
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label>PIN 碼 *（4 位數字）</Label>
+              <Input
+                value={formPin}
+                onChange={(e) => setFormPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="0000"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                className="mt-1.5 tracking-widest"
+              />
+            </div>
+            <div>
+              <Label>角色</Label>
+              <Select value={formRole} onValueChange={(v) => setFormRole(v ?? "staff")}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">員工</SelectItem>
+                  <SelectItem value="manager">店長</SelectItem>
+                  <SelectItem value="owner">老闆</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>所屬門市</Label>
+              <Select value={formStoreId} onValueChange={(v) => setFormStoreId(v ?? "")}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="全部門市" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">全部門市</SelectItem>
+                  {stores.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleAdd} disabled={submitting}>
+              {submitting ? "新增中..." : "新增"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── 編輯員工 Dialog ─── */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>編輯 {editingUser?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>姓名</Label>
+              <Input
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label>手機號碼</Label>
+              <Input
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
+                type="tel"
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label>角色</Label>
+              <Select value={formRole} onValueChange={(v) => setFormRole(v ?? "staff")}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">員工</SelectItem>
+                  <SelectItem value="manager">店長</SelectItem>
+                  <SelectItem value="owner">老闆</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>所屬門市</Label>
+              <Select value={formStoreId} onValueChange={(v) => setFormStoreId(v ?? "")}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="全部門市" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">全部門市</SelectItem>
+                  {stores.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleEdit} disabled={submitting}>
+              {submitting ? "儲存中..." : "儲存"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── 重設 PIN Dialog ─── */}
+      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>重設 {editingUser?.name} 的 PIN 碼</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>新 PIN 碼（4 位數字）</Label>
+              <Input
+                value={formNewPin}
+                onChange={(e) => setFormNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="0000"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                className="mt-1.5 tracking-widest text-lg text-center"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPinDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleResetPin} disabled={submitting || formNewPin.length !== 4}>
+              {submitting ? "重設中..." : "確認重設"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }
