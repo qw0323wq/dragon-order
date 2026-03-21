@@ -425,6 +425,7 @@ export default function OrderPageClient({
                     key={item.id}
                     item={item}
                     quantity={getItemQty(item.id)}
+                    showPrice={user.role !== "staff"}
                     onQuantityChange={(qty) => setItemQty(item.id, qty)}
                     onAddToCart={() => handleAddToCart(item)}
                   />
@@ -588,11 +589,13 @@ export default function OrderPageClient({
 function ItemCard({
   item,
   quantity,
+  showPrice = true,
   onQuantityChange,
   onAddToCart,
 }: {
   item: MenuItem;
   quantity: number;
+  showPrice?: boolean;
   onQuantityChange: (qty: number) => void;
   onAddToCart: () => void;
 }) {
@@ -614,7 +617,7 @@ function ItemCard({
           </span>
         </div>
         <div className="text-xs text-gray-400">
-          {item.unit}{item.cost_price > 0 ? ` · 成本 $${item.cost_price}` : ''}
+          {item.unit}{showPrice && item.cost_price > 0 ? ` · 成本 $${item.cost_price}` : ''}
         </div>
       </div>
 
