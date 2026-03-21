@@ -6,12 +6,13 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { payments, orders, orderItems, suppliers, items } from "@/lib/db/schema";
+import { payments, orders, orderItems, suppliers, items, stores } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const month = searchParams.get("month"); // 格式：2026-03
+  const storeId = searchParams.get("storeId"); // 篩選特定門市（可選）
 
   if (!month) {
     return NextResponse.json({ error: "缺少 month 參數（格式：YYYY-MM）" }, { status: 400 });
@@ -36,7 +37,9 @@ export async function GET(request: NextRequest) {
   const orderIds = monthOrders.map((o) => o.id);
 
   // 按供應商統計訂單金額（從 order_items 計算）
-  // 使用 SQL 聚合：按供應商分組取得訂單金額
+  // 可選按門市篩選
+  const storeFilter = storeId ? sql` AND ${orderItems.storeId} = ${parseInt(storeId)}` : sql``;
+
   const supplierAmounts = await db
     .select({
       supplierId: suppliers.id,
@@ -49,7 +52,7 @@ export async function GET(request: NextRequest) {
     .innerJoin(items, eq(orderItems.itemId, items.id))
     .innerJoin(suppliers, eq(items.supplierId, suppliers.id))
     .where(
-      sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map((id) => sql`${id}`), sql`, `)}]::int[])`
+      sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map((id) => sql`${id}`), sql`, `)}]::int[])${storeFilter}`
     )
     .groupBy(suppliers.id, suppliers.name, suppliers.paymentType);
 
@@ -95,7 +98,18 @@ export async function GET(request: NextRequest) {
     unpaidAmount: supplierReport.reduce((sum, s) => sum + s.unpaidAmount, 0),
   };
 
-  return NextResponse.json({ month, suppliers: supplierReport, summary });
+  // 如果有指定門市，取得門市資訊
+  let storeInfo = null;
+  if (storeId) {
+    const [store] = await db
+      .select({ id: stores.id, name: stores.name, companyName: stores.companyName, taxId: stores.taxId })
+      .from(stores)
+      .where(eq(stores.id, parseInt(storeId)))
+      .limit(1);
+    storeInfo = store || null;
+  }
+
+  return NextResponse.json({ month, storeId: storeId ? parseInt(storeId) : null, storeInfo, suppliers: supplierReport, summary });
 }
 
 export async function POST(request: NextRequest) {

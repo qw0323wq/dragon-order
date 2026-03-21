@@ -27,6 +27,10 @@ import {
 export const stores = pgTable('stores', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 50 }).notNull(),
+  /** 公司名稱（發票/對帳用，每間分店不同統編） */
+  companyName: varchar('company_name', { length: 100 }),
+  /** 統一編號 */
+  taxId: varchar('tax_id', { length: 20 }),
   address: text('address').notNull(),
   hours: text('hours').notNull(),
   manager: varchar('manager', { length: 50 }),
