@@ -29,6 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import {
   UserPlusIcon,
   PencilIcon,
@@ -37,6 +39,9 @@ import {
   UserCheckIcon,
   ShieldIcon,
   UsersIcon,
+  StoreIcon,
+  Building2Icon,
+  SaveIcon,
 } from "lucide-react";
 
 /** 使用者資料型別 */
@@ -55,6 +60,12 @@ interface UserData {
 interface StoreData {
   id: number;
   name: string;
+  companyName: string | null;
+  taxId: string | null;
+  address: string;
+  hours: string;
+  manager: string | null;
+  phone: string | null;
 }
 
 /** 角色中文對照 */
@@ -90,6 +101,13 @@ export default function SettingsPage() {
   const [formStoreId, setFormStoreId] = useState<string>("");
   const [formNewPin, setFormNewPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // 門市編輯
+  const [showStoreDialog, setShowStoreDialog] = useState(false);
+  const [editingStore, setEditingStore] = useState<StoreData | null>(null);
+  const [storeForm, setStoreForm] = useState({
+    name: "", companyName: "", taxId: "", address: "", hours: "", manager: "", phone: "",
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -244,6 +262,45 @@ export default function SettingsPage() {
     setFormRole("staff");
     setFormStoreId("");
     setEditingUser(null);
+  };
+
+  // ─── 門市編輯 ───
+  const openStoreEdit = (store: StoreData) => {
+    setEditingStore(store);
+    setStoreForm({
+      name: store.name,
+      companyName: store.companyName || "",
+      taxId: store.taxId || "",
+      address: store.address || "",
+      hours: store.hours || "",
+      manager: store.manager || "",
+      phone: store.phone || "",
+    });
+    setShowStoreDialog(true);
+  };
+
+  const handleStoreEdit = async () => {
+    if (!editingStore) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/stores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingStore.id, ...storeForm }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "更新失敗");
+        return;
+      }
+      toast.success(`已更新 ${storeForm.name}`);
+      setShowStoreDialog(false);
+      fetchData();
+    } catch {
+      toast.error("更新失敗");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -419,6 +476,140 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Separator className="my-6" />
+
+      {/* ═══════════════ 門市管理 ═══════════════ */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-heading text-xl font-semibold flex items-center gap-2">
+            <StoreIcon className="size-5" />
+            門市管理
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            公司名稱、統編、地址、營業時間
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {stores.map((store) => (
+          <Card key={store.id}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">{store.name}</CardTitle>
+                <Button variant="outline" size="sm" onClick={() => openStoreEdit(store)}>
+                  <PencilIcon className="size-3.5 mr-1" />
+                  編輯
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {store.companyName && (
+                <div className="flex items-center gap-2">
+                  <Building2Icon className="size-3.5 text-muted-foreground shrink-0" />
+                  <span>{store.companyName}</span>
+                  {store.taxId && (
+                    <span className="text-muted-foreground font-mono text-xs">（{store.taxId}）</span>
+                  )}
+                </div>
+              )}
+              {!store.companyName && (
+                <p className="text-muted-foreground text-xs">尚未設定公司名稱和統編</p>
+              )}
+              <div className="text-muted-foreground">{store.address}</div>
+              <div className="text-muted-foreground text-xs">{store.hours}</div>
+              {store.manager && (
+                <div className="text-xs">店長：{store.manager} {store.phone && `(${store.phone})`}</div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* ─── 門市編輯 Dialog ─── */}
+      <Dialog open={showStoreDialog} onOpenChange={setShowStoreDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>編輯 {editingStore?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>門市名稱</Label>
+              <Input
+                value={storeForm.name}
+                onChange={(e) => setStoreForm((f) => ({ ...f, name: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>公司名稱（發票抬頭）</Label>
+                <Input
+                  value={storeForm.companyName}
+                  onChange={(e) => setStoreForm((f) => ({ ...f, companyName: e.target.value }))}
+                  placeholder="OOO有限公司"
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>統一編號</Label>
+                <Input
+                  value={storeForm.taxId}
+                  onChange={(e) => setStoreForm((f) => ({ ...f, taxId: e.target.value }))}
+                  placeholder="12345678"
+                  className="mt-1.5 font-mono"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>地址</Label>
+              <Textarea
+                value={storeForm.address}
+                onChange={(e) => setStoreForm((f) => ({ ...f, address: e.target.value }))}
+                className="mt-1.5"
+                rows={2}
+              />
+            </div>
+            <div>
+              <Label>營業時間</Label>
+              <Input
+                value={storeForm.hours}
+                onChange={(e) => setStoreForm((f) => ({ ...f, hours: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>店長</Label>
+                <Input
+                  value={storeForm.manager}
+                  onChange={(e) => setStoreForm((f) => ({ ...f, manager: e.target.value }))}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label>電話</Label>
+                <Input
+                  value={storeForm.phone}
+                  onChange={(e) => setStoreForm((f) => ({ ...f, phone: e.target.value }))}
+                  type="tel"
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStoreDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleStoreEdit} disabled={submitting} className="gap-1.5">
+              <SaveIcon className="size-3.5" />
+              {submitting ? "儲存中..." : "儲存"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── 新增員工 Dialog ─── */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
