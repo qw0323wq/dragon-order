@@ -318,3 +318,64 @@ export type NewOrderItem = typeof orderItems.$inferInsert;
 
 export type Receiving = typeof receiving.$inferSelect;
 export type NewReceiving = typeof receiving.$inferInsert;
+
+// ─────────────────────────────────────────────
+// BOM（配方對照表）
+// ─────────────────────────────────────────────
+/** 菜單商品（售出的菜品，不同於原料 items） */
+export const menuItems = pgTable('menu_items', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  /** 分類：鍋底 | 肉品 | 海鮮 | 火鍋料 | 特色 | 蔬菜 | 飲料 | 酒類 */
+  category: varchar('category', { length: 20 }).notNull(),
+  /** 售價（元） */
+  sellPrice: integer('sell_price').default(0).notNull(),
+  /** 每份成本（自動從 BOM 計算，元） */
+  costPerServing: numeric('cost_per_serving', { precision: 10, scale: 2 }).default('0'),
+  /** 毛利率（0~1，自動計算） */
+  marginRate: numeric('margin_rate', { precision: 5, scale: 3 }).default('0'),
+  /** 備註/說明 */
+  notes: text('notes'),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+/** BOM 明細：一道菜用了哪些食材、用量多少 */
+export const bomItems = pgTable('bom_items', {
+  id: serial('id').primaryKey(),
+  /** 所屬菜單商品 */
+  menuItemId: integer('menu_item_id')
+    .references(() => menuItems.id, { onDelete: 'cascade' })
+    .notNull(),
+  /** 使用的原料品項 */
+  itemId: integer('item_id')
+    .references(() => items.id, { onDelete: 'restrict' }),
+  /** 原料名稱（當 itemId 無法對應時用文字紀錄） */
+  ingredientName: varchar('ingredient_name', { length: 100 }).notNull(),
+  /** 用量描述（如 "120g", "5隻", "半鍋"） */
+  quantity: varchar('quantity', { length: 30 }).notNull(),
+  /** 排序（第幾項原料） */
+  sortOrder: integer('sort_order').default(0).notNull(),
+});
+
+// ── BOM relations ──
+export const menuItemsRelations = relations(menuItems, ({ many }) => ({
+  bomItems: many(bomItems),
+}));
+
+export const bomItemsRelations = relations(bomItems, ({ one }) => ({
+  menuItem: one(menuItems, {
+    fields: [bomItems.menuItemId],
+    references: [menuItems.id],
+  }),
+  item: one(items, {
+    fields: [bomItems.itemId],
+    references: [items.id],
+  }),
+}));
+
+export type MenuItem2 = typeof menuItems.$inferSelect;
+export type NewMenuItem2 = typeof menuItems.$inferInsert;
+
+export type BomItem = typeof bomItems.$inferSelect;
+export type NewBomItem = typeof bomItems.$inferInsert;

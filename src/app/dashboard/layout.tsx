@@ -18,6 +18,7 @@ import {
   Flame,
   Wallet,
   FileDown,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { label: '訂單管理', href: '/dashboard/orders', icon: ClipboardList },
   { label: '供應商', href: '/dashboard/suppliers', icon: Store },
   { label: '品項管理', href: '/dashboard/menu', icon: Soup },
+  { label: 'BOM 配方', href: '/dashboard/bom', icon: BookOpen },
   { label: '帳務', href: '/dashboard/payments', icon: Wallet },
   { label: 'POS 匯入', href: '/dashboard/import', icon: FileDown },
   { label: '設定', href: '/dashboard/settings', icon: Settings },
