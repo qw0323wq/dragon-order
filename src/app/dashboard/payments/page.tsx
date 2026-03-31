@@ -54,6 +54,7 @@ interface Store extends StoreInfo {
   manager: string | null
   phone: string | null
   sortOrder: number
+  type: string
 }
 
 interface SupplierPaymentReport {
@@ -510,7 +511,7 @@ export default function PaymentsPage() {
                 <Building2 className="size-3.5" />
                 總公司
               </TabsTrigger>
-              {stores.map((store) => (
+              {stores.filter((s) => s.type !== 'warehouse').map((store) => (
                 <TabsTrigger
                   key={store.id}
                   value={String(store.id)}
