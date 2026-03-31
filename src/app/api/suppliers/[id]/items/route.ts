@@ -7,8 +7,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { items, itemPriceHistory } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, like } from "drizzle-orm";
 import { requireAdmin } from "@/lib/api-auth";
+
+/** 品項分類 → SKU 前綴 */
+const CAT_PREFIX: Record<string, string> = {
+  '肉品': 'MT', '海鮮': 'SF', '蔬菜': 'VG', '菇類': 'MR',
+  '豆製品': 'BN', '火鍋料': 'HP', '特色': 'SP', '飲料': 'DK',
+  '酒類': 'WN', '底料': 'BS', '耗材': 'MA', '雜貨': 'GR',
+  '內臟': 'OG', '滷煮': 'BW', '甜點': 'DS',
+};
+
+/** 根據分類自動產生下一個品號 */
+async function generateSku(category: string): Promise<string> {
+  const prefix = CAT_PREFIX[category] || 'XX';
+  const existing = await db
+    .select({ sku: items.sku })
+    .from(items)
+    .where(like(items.sku, `${prefix}-%`));
+  const maxNum = existing.reduce((max, i) => {
+    const num = parseInt(i.sku?.split('-')[1] || '0');
+    return num > max ? num : max;
+  }, 0);
+  return `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
+}
 
 export async function GET(
   request: NextRequest,
@@ -56,11 +78,15 @@ export async function POST(
     return NextResponse.json({ error: "品名不能為空" }, { status: 400 });
   }
 
+  const itemCategory = category || "其他";
+  const sku = await generateSku(itemCategory);
+
   const [newItem] = await db
     .insert(items)
     .values({
       name: name.trim(),
-      category: category || "其他",
+      sku,
+      category: itemCategory,
       unit: unit || "份",
       costPrice: costPrice || 0,
       storePrice: storePrice || 0,
@@ -155,10 +181,13 @@ export async function PUT(
         priceChanges.push({ name: trimName, oldPrice: oldCost, newPrice: newCost, diff, pct });
       }
     } else {
-      // 新增品項
+      // 新增品項（自動產生品號）
+      const newCategory = ui.category || "其他";
+      const newSku = await generateSku(newCategory);
       await db.insert(items).values({
         name: trimName,
-        category: ui.category || "其他",
+        sku: newSku,
+        category: newCategory,
         unit: ui.unit || "份",
         costPrice: ui.costPrice || 0,
         storePrice: ui.storePrice || 0,

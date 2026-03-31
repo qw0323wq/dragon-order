@@ -6,8 +6,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { suppliers } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, like } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
+
+/** 供應商分類 → 代碼前綴 */
+const SUP_PREFIX: Record<string, string> = {
+  '大陸': 'CN', '肉品': 'MT', '市場': 'MK', '海鮮': 'SF',
+  '蔬菜': 'VG', '火鍋料': 'HP', '酒水': 'DK', '雜貨': 'GR', '耗材': 'MA',
+};
+
+/** 根據分類自動產生下一個供應商代碼 */
+async function generateSupplierCode(category: string): Promise<string> {
+  const prefix = SUP_PREFIX[category] || 'XX';
+  const existing = await db
+    .select({ code: suppliers.code })
+    .from(suppliers)
+    .where(like(suppliers.code, `${prefix}-%`));
+  const maxNum = existing.reduce((max, s) => {
+    const num = parseInt(s.code?.split('-')[1] || '0');
+    return num > max ? num : max;
+  }, 0);
+  return `${prefix}-${String(maxNum + 1).padStart(2, '0')}`;
+}
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
@@ -52,10 +72,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "供應商名稱不能為空" }, { status: 400 });
   }
 
+  const code = await generateSupplierCode(category || '其他');
+
   const [newSupplier] = await db
     .insert(suppliers)
     .values({
       name,
+      code,
       category,
       companyName: companyName || null,
       taxId: taxId || null,
