@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   if (view === "breakdown") {
     // 回傳每個品項在各地點的庫存明細
     const rows = await sql`
-      SELECT si.item_id, i.name, i.category, i.unit, i.spec,
+      SELECT si.item_id, i.sku, i.name, i.category, i.unit, i.spec,
              si.store_id, COALESCE(st.name, '總公司倉庫') as location_name,
              si.current_stock, si.stock_unit,
              sup.name as supplier_name
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     // 指定地點（總公司/林森/信義安和）
     const storeId = parseInt(storeParam);
     rows = await sql`
-      SELECT i.id, i.name, i.category, i.unit,
+      SELECT i.id, i.sku, i.name, i.category, i.unit,
              COALESCE(si.current_stock, 0) as current_stock,
              si.stock_unit,
              i.safety_stock, i.safety_stock_unit, i.spec,
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
   } else {
     // 全部彙總（加總所有地點）
     rows = await sql`
-      SELECT i.id, i.name, i.category, i.unit,
+      SELECT i.id, i.sku, i.name, i.category, i.unit,
              COALESCE(SUM(si.current_stock::numeric), 0) as current_stock,
              i.safety_stock, i.safety_stock_unit, i.spec,
              sup.name as supplier_name
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN store_inventory si ON si.item_id = i.id
       WHERE i.is_active = true
       ${category ? sql`AND i.category = ${category}` : sql``}
-      GROUP BY i.id, i.name, i.category, i.unit, i.safety_stock, i.safety_stock_unit, i.spec, sup.name
+      GROUP BY i.id, i.sku, i.name, i.category, i.unit, i.safety_stock, i.safety_stock_unit, i.spec, sup.name
       ORDER BY i.category, i.name
     `;
   }

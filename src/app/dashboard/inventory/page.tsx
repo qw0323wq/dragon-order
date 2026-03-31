@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 
 interface InventoryItem {
   id: number
+  sku: string | null
   name: string
   category: string
   unit: string
@@ -312,7 +313,8 @@ export default function InventoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4">品項</TableHead>
+                    <TableHead className="pl-4">品號</TableHead>
+                    <TableHead>品項</TableHead>
                     <TableHead>分類</TableHead>
                     <TableHead>供應商</TableHead>
                     <TableHead className="text-right">目前庫存</TableHead>
@@ -324,14 +326,15 @@ export default function InventoryPage() {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         沒有符合的品項
                       </TableCell>
                     </TableRow>
                   ) : (
                     filtered.map(item => (
                       <TableRow key={item.id} className={item.isLow ? 'bg-red-50/50' : ''}>
-                        <TableCell className="font-medium pl-4">
+                        <TableCell className="pl-4 text-xs text-muted-foreground font-mono">{item.sku || '-'}</TableCell>
+                        <TableCell className="font-medium">
                           {item.name}
                           {item.spec && (
                             <span className="text-xs text-muted-foreground ml-1">({item.spec.split('（')[0]})</span>
@@ -405,6 +408,7 @@ export default function InventoryPage() {
                 <div key={item.id} className={cn('p-3 space-y-1.5', item.isLow && 'bg-red-50/50')}>
                   <div className="flex items-center justify-between">
                     <div>
+                      {item.sku && <span className="font-mono text-[10px] text-muted-foreground mr-1">{item.sku}</span>}
                       <span className="font-medium text-sm">{item.name}</span>
                       <span className="text-[10px] text-muted-foreground ml-1">{item.category}</span>
                     </div>

@@ -2,6 +2,7 @@
 
 export interface Supplier {
   id: number
+  code: string | null
   name: string
   category: string
   contact: string | null

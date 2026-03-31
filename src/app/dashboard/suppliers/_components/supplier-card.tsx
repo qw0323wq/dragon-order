@@ -30,6 +30,9 @@ export function SupplierCard({ supplier, onEdit, onDelete }: SupplierCardProps) 
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
+              {supplier.code && (
+                <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{supplier.code}</span>
+              )}
               <span className="font-heading font-semibold text-base">{supplier.name}</span>
               <span className={`inline-flex h-5 items-center rounded-full px-2 text-xs font-medium ${categoryStyle}`}>
                 {supplier.category}
