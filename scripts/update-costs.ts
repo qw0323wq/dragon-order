@@ -4,8 +4,10 @@
  * 執行：npx tsx scripts/update-costs.ts
  *
  * 資料來源：
- * - 火鍋店進銷存統整表(完整版).xlsx → 品項總覽與成本（每份成本+售價+安全庫存）
- * - 食材成本｜總表 (2).xlsx → 肉品/酒水/生鮮（最新含稅報價）
+ * - data/火鍋店進銷存統整表(完整版).xlsx → 品項總覽與成本（每份成本+售價+安全庫存）
+ * - data/食材成本｜總表 (2).xlsx → 肉品/酒水/生鮮（最新含稅報價）
+ *
+ * data/ 是 symlink → 採購資料夾
  */
 
 import { config } from 'dotenv';
@@ -15,7 +17,41 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { eq } from 'drizzle-orm';
 import * as XLSX from 'xlsx';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as schema from '../src/lib/db/schema';
+
+/**
+ * 找最新版本的檔案
+ * 例如：食材成本｜總表 (2).xlsx 有多個版本：
+ *   食材成本｜總表 (2).xlsx              （原始版）
+ *   食材成本｜總表 (2)_更新20260317.xlsx
+ *   食材成本｜總表 (2)_更新20260318.xlsx
+ * → 回傳日期最大的那個，沒有帶日期的版本則作為 fallback
+ */
+function findLatestFile(dir: string, baseName: string): string {
+  const ext = path.extname(baseName);
+  const stem = path.basename(baseName, ext);
+  const files = fs.readdirSync(dir).filter(f => f.startsWith(stem) && f.endsWith(ext));
+
+  if (files.length === 0) {
+    throw new Error(`找不到檔案：${baseName}（在 ${dir}）`);
+  }
+
+  // 提取日期，排序取最新
+  const dated = files
+    .map(f => {
+      const m = f.match(/_更新(\d{8})/);
+      return { file: f, date: m ? m[1] : '00000000' };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const chosen = dated[0].file;
+  if (chosen !== baseName) {
+    console.log(`  📌 找到更新版本：${chosen}`);
+  }
+  return path.join(dir, chosen);
+}
 
 const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql, { schema });
@@ -51,8 +87,8 @@ async function run() {
   let skipped = 0;
 
   // ─── 1. 品項總覽（最完整：成本+售價+安全庫存） ───
-  console.log('📁 讀取：火鍋店進銷存統整表(完整版).xlsx');
-  const wb1 = XLSX.readFile('../火鍋店進銷存統整表(完整版).xlsx');
+  console.log('📁 讀取：火鍋店進銷存統整表(完整版)');
+  const wb1 = XLSX.readFile(findLatestFile('./data', '火鍋店進銷存統整表(完整版).xlsx'));
   const overview = XLSX.utils.sheet_to_json(wb1.Sheets['1.品項總覽與成本'], { header: 1 }) as any[][];
 
   for (let i = 1; i < overview.length; i++) {
@@ -92,7 +128,7 @@ async function run() {
 
   // ─── 2. 肉品報價（更精確的含稅成本） ───
   console.log('\n📁 讀取：食材成本總表 → 肉品');
-  const wb2 = XLSX.readFile('../食材成本｜總表 (2).xlsx');
+  const wb2 = XLSX.readFile(findLatestFile('./data', '食材成本｜總表 (2).xlsx'));
   const meat = XLSX.utils.sheet_to_json(wb2.Sheets['肉品'], { header: 1 }) as any[][];
 
   for (let i = 2; i < meat.length; i++) {

@@ -257,16 +257,18 @@ async function seed() {
   const ownerPinHash = await hash('1234', 10);
   const [owner] = await db.insert(schema.users).values({
     name: '張銘瑋',
+    employeeId: 'E001',
     phone: '0900000001',
     pinHash: ownerPinHash,
-    role: 'owner',
+    role: 'admin',
   }).returning();
-  console.log(`   ✅ 老闆帳號：${owner.name}（手機：${owner.phone}，PIN：1234）`);
+  console.log(`   ✅ 管理員帳號：${owner.name}（員工編號：E001，密碼：1234）`);
 
   // 建立測試員工帳號
   const staffPinHash = await hash('0000', 10);
   const [staff1] = await db.insert(schema.users).values({
     name: '林森店員工',
+    employeeId: 'E002',
     phone: '0900000002',
     pinHash: staffPinHash,
     role: 'staff',
@@ -274,12 +276,13 @@ async function seed() {
   }).returning();
   const [staff2] = await db.insert(schema.users).values({
     name: '信義店員工',
+    employeeId: 'E003',
     phone: '0900000003',
     pinHash: staffPinHash,
     role: 'staff',
     storeId: insertedStores[1].id,
   }).returning();
-  console.log(`   ✅ 測試員工：${staff1.name}（PIN：0000）、${staff2.name}（PIN：0000）`);
+  console.log(`   ✅ 測試員工：${staff1.name}（E002, 密碼：0000）、${staff2.name}（E003, 密碼：0000）`);
 
   console.log('\n🎉 初始資料匯入完成！');
   console.log('\n📋 登入資訊：');

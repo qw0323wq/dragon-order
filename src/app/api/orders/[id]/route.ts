@@ -43,52 +43,170 @@ export async function GET(
     return NextResponse.json({ error: "找不到訂單" }, { status: 404 });
   }
 
-  // 取得訂單明細（含品項、供應商、門市名稱）
-  const details = await db
-    .select({
-      id: orderItems.id,
-      quantity: orderItems.quantity,
-      unit: orderItems.unit,
-      unitPrice: orderItems.unitPrice,
-      subtotal: orderItems.subtotal,
-      notes: orderItems.notes,
-      itemName: items.name,
-      itemCategory: items.category,
-      supplierName: suppliers.name,
-      supplierId: suppliers.id,
-      storeName: stores.name,
-      storeId: stores.id,
-    })
-    .from(orderItems)
-    .innerJoin(items, eq(orderItems.itemId, items.id))
-    .innerJoin(suppliers, eq(items.supplierId, suppliers.id))
-    .innerJoin(stores, eq(orderItems.storeId, stores.id))
-    .where(eq(orderItems.orderId, orderId));
+  // 取得訂單明細（含品項、供應商、門市名稱、叫貨人）
+  const pgSql = (await import("postgres")).default(process.env.DATABASE_URL!, { prepare: false });
+  const details = await pgSql`
+    SELECT oi.id, oi.quantity, oi.unit, oi.unit_price, oi.subtotal, oi.notes,
+           oi.created_by as created_by_id,
+           i.name as item_name, i.category as item_category, i.supplier_notes,
+           s.name as supplier_name, s.id as supplier_id,
+           st.name as store_name, st.id as store_id,
+           u.name as created_by_name
+    FROM order_items oi
+    JOIN items i ON oi.item_id = i.id
+    JOIN suppliers s ON i.supplier_id = s.id
+    JOIN stores st ON oi.store_id = st.id
+    LEFT JOIN users u ON oi.created_by = u.id
+    WHERE oi.order_id = ${orderId}
+    ORDER BY i.category, i.name
+  `;
+  await pgSql.end();
 
-  return NextResponse.json({ order, details });
+  // 轉成前端用的 camelCase
+  const formattedDetails = details.map(d => ({
+    id: d.id,
+    quantity: d.quantity,
+    unit: d.unit,
+    unitPrice: d.unit_price,
+    subtotal: d.subtotal,
+    notes: d.notes,
+    itemName: d.item_name,
+    itemCategory: d.item_category,
+    supplierName: d.supplier_name,
+    supplierId: d.supplier_id,
+    storeName: d.store_name,
+    storeId: d.store_id,
+    createdById: d.created_by_id,
+    createdByName: d.created_by_name,
+    supplierNotes: d.supplier_notes,
+  }));
+
+  return NextResponse.json({ order, details: formattedDetails });
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(request);
-  if (!auth.ok) return auth.response;
-
   const { id } = await params;
   const orderId = parseInt(id);
   const body = await request.json();
-  const { status } = body as { status: string };
 
-  const validStatuses = ["draft", "confirmed", "ordered", "received", "closed"];
-  if (!validStatuses.includes(status)) {
-    return NextResponse.json({ error: "無效的狀態" }, { status: 400 });
+  // ── 員工送出訂單（不需要 admin 權限）──
+  if (body.action === "submit") {
+    const auth = await authenticateRequest(request);
+    if (!auth.ok) return auth.response;
+
+    const [ord] = await db
+      .select({ status: orders.status, createdBy: orders.createdBy })
+      .from(orders)
+      .where(eq(orders.id, orderId));
+
+    if (!ord) {
+      return NextResponse.json({ error: "找不到訂單" }, { status: 404 });
+    }
+    if (ord.status !== "draft") {
+      return NextResponse.json({ error: "只有編輯中的訂單可以送出" }, { status: 400 });
+    }
+
+    // 檢查：admin 可以送出任何訂單，其他人只能送出自己有參與的訂單
+    if (auth.role !== "admin" && auth.userId) {
+      const pgSql = (await import("postgres")).default(process.env.DATABASE_URL!, { prepare: false });
+      const [participation] = await pgSql`
+        SELECT 1 FROM order_items
+        WHERE order_id = ${orderId}
+          AND (created_by = ${auth.userId} ${auth.storeId ? pgSql`OR store_id = ${auth.storeId}` : pgSql``})
+        LIMIT 1
+      `;
+      await pgSql.end();
+      if (!participation) {
+        return NextResponse.json({ error: "只能送出自己參與的訂單" }, { status: 403 });
+      }
+    }
+
+    await db.update(orders).set({ status: "submitted", updatedAt: new Date() }).where(eq(orders.id, orderId));
+    return NextResponse.json({ success: true });
   }
 
-  await db
-    .update(orders)
-    .set({ status, updatedAt: new Date() })
-    .where(eq(orders.id, orderId));
+  // ── 以下操作需要管理員權限 ──
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
 
+  // 更新訂單狀態
+  if (body.status) {
+    const validStatuses = ["draft", "submitted", "ordered", "receiving", "received", "closed", "cancelled"];
+    if (!validStatuses.includes(body.status)) {
+      return NextResponse.json({ error: "無效的狀態" }, { status: 400 });
+    }
+    await db.update(orders).set({ status: body.status, updatedAt: new Date() }).where(eq(orders.id, orderId));
+    return NextResponse.json({ success: true });
+  }
+
+  // 修改品項數量
+  if (body.action === "updateItem" && body.orderItemId && body.quantity !== undefined) {
+    const qty = parseFloat(body.quantity);
+    const [item] = await db.select({ unitPrice: orderItems.unitPrice }).from(orderItems).where(eq(orderItems.id, body.orderItemId));
+    if (!item) return NextResponse.json({ error: "品項不存在" }, { status: 404 });
+    await db.update(orderItems).set({
+      quantity: String(qty),
+      subtotal: Math.round(qty * (item.unitPrice || 0)),
+    }).where(eq(orderItems.id, body.orderItemId));
+    // 更新訂單總金額
+    await recalcOrderTotal(orderId);
+    return NextResponse.json({ success: true });
+  }
+
+  // 新增品項
+  if (body.action === "addItem" && body.itemId && body.storeId) {
+    const [itemData] = await db.select({ costPrice: items.costPrice, unit: items.unit }).from(items).where(eq(items.id, body.itemId));
+    if (!itemData) return NextResponse.json({ error: "品項不存在" }, { status: 404 });
+    const qty = parseFloat(body.quantity || "1");
+    const price = itemData.costPrice || 0;
+    await db.insert(orderItems).values({
+      orderId,
+      itemId: body.itemId,
+      storeId: body.storeId,
+      quantity: String(qty),
+      unit: body.unit || itemData.unit,
+      unitPrice: price,
+      subtotal: Math.round(qty * price),
+    });
+    await recalcOrderTotal(orderId);
+    return NextResponse.json({ success: true });
+  }
+
+  // 刪除品項
+  if (body.action === "deleteItem" && body.orderItemId) {
+    await db.delete(orderItems).where(eq(orderItems.id, body.orderItemId));
+    await recalcOrderTotal(orderId);
+    return NextResponse.json({ success: true });
+  }
+
+  return NextResponse.json({ error: "無效的操作" }, { status: 400 });
+}
+
+/** DELETE — 刪除整張訂單 */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { id } = await params;
+  const orderId = parseInt(id);
+
+  // 先刪明細再刪訂單
+  await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
+  await db.delete(orders).where(eq(orders.id, orderId));
   return NextResponse.json({ success: true });
+}
+
+import { sql } from "drizzle-orm";
+
+async function recalcOrderTotal(orderId: number) {
+  const [{ total }] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${orderItems.subtotal}), 0)::int` })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+  await db.update(orders).set({ totalAmount: total, updatedAt: new Date() }).where(eq(orders.id, orderId));
 }

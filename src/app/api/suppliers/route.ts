@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
   const result = await db
     .select({
       id: suppliers.id,
+      code: suppliers.code,
       name: suppliers.name,
       category: suppliers.category,
       contact: suppliers.contact,
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
       deliveryDays: suppliers.deliveryDays,
       freeShippingMin: suppliers.freeShippingMin,
       paymentType: suppliers.paymentType,
+      minOrderAmount: suppliers.minOrderAmount,
       isActive: suppliers.isActive,
       itemsCount: sql<number>`(SELECT COUNT(*) FROM items WHERE items.supplier_id = ${suppliers.id} AND items.is_active = true)`,
     })

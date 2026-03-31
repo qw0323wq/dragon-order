@@ -4,8 +4,8 @@
     {
       "name": "dragon-order-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "runtimeArgs": ["run", "dev", "--", "--port", "5050"],
+      "port": 5050
     }
   ]
 }

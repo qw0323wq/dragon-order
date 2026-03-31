@@ -1,47 +1,47 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { login } from "@/app/actions/auth";
-import { PhoneIcon, LockIcon, LogInIcon } from "lucide-react";
+import { UserIcon, LockIcon, LogInIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 
 /**
  * 登入表單
- * 使用 useActionState 處理 Server Action 的回傳錯誤訊息
+ * 使用員工編號 + 密碼登入
  */
 export default function LoginForm() {
   const [state, formAction, isPending] = useActionState(login, null);
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <Card className="w-full max-w-sm shadow-lg border-orange-100">
+    <Card className="w-full max-w-sm shadow-lg border-primary/15">
       <CardHeader className="pb-4">
-        <CardTitle className="text-lg text-center text-gray-700">
+        <CardTitle className="text-lg text-center text-foreground">
           員工登入
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="flex flex-col gap-5">
-          {/* 手機號碼欄位 */}
+          {/* 員工編號 */}
           <div className="flex flex-col gap-2">
             <Label
-              htmlFor="phone"
-              className="text-sm font-medium text-gray-600"
+              htmlFor="employeeId"
+              className="text-sm font-medium text-muted-foreground"
             >
-              手機號碼
+              員工編號
             </Label>
             <div className="relative">
-              <PhoneIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+              <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                placeholder="09xx-xxx-xxx"
-                autoComplete="tel"
-                inputMode="tel"
-                // 大字體方便手機輸入
+                id="employeeId"
+                name="employeeId"
+                type="text"
+                placeholder="請輸入員工編號"
+                autoComplete="username"
                 className="pl-9 h-12 text-base"
                 disabled={isPending}
                 required
@@ -49,26 +49,36 @@ export default function LoginForm() {
             </div>
           </div>
 
-          {/* PIN 碼欄位 */}
+          {/* 密碼 */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="pin" className="text-sm font-medium text-gray-600">
-              4 位 PIN 碼
+            <Label htmlFor="password" className="text-sm font-medium text-muted-foreground">
+              密碼
             </Label>
             <div className="relative">
-              <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+              <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                id="pin"
-                name="pin"
-                type="password"
-                placeholder="••••"
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••"
                 autoComplete="current-password"
-                inputMode="numeric"
-                maxLength={4}
-                // 大字體，置中顯示 PIN 碼
-                className="pl-9 h-12 text-base tracking-[0.5em]"
+                className="pl-9 pr-10 h-12 text-base"
                 disabled={isPending}
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
+                tabIndex={-1}
+                aria-label={showPassword ? "隱藏密碼" : "顯示密碼"}
+              >
+                {showPassword ? (
+                  <EyeOffIcon className="size-4" />
+                ) : (
+                  <EyeIcon className="size-4" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -82,10 +92,9 @@ export default function LoginForm() {
             </p>
           )}
 
-          {/* 登入按鈕：全寬、大按鈕、火鍋紅主題色 */}
+          {/* 登入按鈕 */}
           <Button
             type="submit"
-            // CRITICAL: 使用 bg-primary（火鍋紅）讓按鈕套用主題色
             className="h-12 w-full text-base font-semibold gap-2 mt-1"
             disabled={isPending}
           >
@@ -93,16 +102,6 @@ export default function LoginForm() {
             {isPending ? "登入中..." : "登入"}
           </Button>
         </form>
-
-        {/* 測試帳號提示（開發期間顯示，正式上線請移除） */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700">
-            <p className="font-semibold mb-1">測試帳號：</p>
-            <p>老闆：0900000001 / 1234</p>
-            <p>林森店員工：0900000002 / 0000</p>
-            <p>信義店員工：0900000003 / 0000</p>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

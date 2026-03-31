@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { receiving, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { authenticateRequest } from "@/lib/api-auth";
+import postgres from "postgres";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
@@ -123,6 +124,56 @@ export async function POST(request: NextRequest) {
       results.push(inserted);
     }
   }
+
+  // 驗收完成自動入庫存（正常的品項）
+  const rawSql = postgres(process.env.DATABASE_URL!, { prepare: false });
+  for (const rec of records) {
+    if (rec.result !== '正常' && rec.result !== undefined) continue;
+
+    // 查 order_item 的品項和門市
+    const [oi] = await db.select({
+      itemId: orderItems.itemId,
+      storeId: orderItems.storeId,
+      unit: orderItems.unit,
+    }).from(orderItems).where(eq(orderItems.id, rec.orderItemId));
+    if (!oi) continue;
+
+    const qty = parseFloat(rec.receivedQty) || 0;
+    if (qty <= 0) continue;
+
+    // upsert store_inventory
+    const [existing] = await rawSql`
+      SELECT id FROM store_inventory WHERE item_id = ${oi.itemId} AND store_id = ${oi.storeId}
+    `;
+    if (existing) {
+      await rawSql`
+        UPDATE store_inventory SET current_stock = current_stock + ${qty}, updated_at = NOW()
+        WHERE item_id = ${oi.itemId} AND store_id = ${oi.storeId}
+      `;
+    } else {
+      await rawSql`
+        INSERT INTO store_inventory (item_id, store_id, current_stock, stock_unit)
+        VALUES (${oi.itemId}, ${oi.storeId}, ${qty}, ${oi.unit})
+      `;
+    }
+
+    // 同步 items.current_stock
+    const [{ total }] = await rawSql`
+      SELECT COALESCE(SUM(current_stock::numeric), 0) as total
+      FROM store_inventory WHERE item_id = ${oi.itemId}
+    `;
+    await rawSql`UPDATE items SET current_stock = ${total} WHERE id = ${oi.itemId}`;
+
+    // 記 inventory_log
+    const [stockRow] = await rawSql`
+      SELECT current_stock FROM store_inventory WHERE item_id = ${oi.itemId} AND store_id = ${oi.storeId}
+    `;
+    await rawSql`
+      INSERT INTO inventory_logs (item_id, type, quantity, unit, balance_after, store_id, source, created_by)
+      VALUES (${oi.itemId}, 'in', ${qty}, ${oi.unit}, ${stockRow?.current_stock || qty}, ${oi.storeId}, '驗收入庫', ${receivedByUserId})
+    `;
+  }
+  await rawSql.end();
 
   return NextResponse.json({ success: true, count: results.length });
 }

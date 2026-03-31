@@ -20,6 +20,38 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(allStores);
 }
 
+export async function POST(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+
+  const body = await request.json();
+  const { name, companyName, taxId, address, hours, manager, phone } = body;
+
+  if (!name?.trim()) {
+    return NextResponse.json({ error: "門市名稱不能為空" }, { status: 400 });
+  }
+
+  // 取得目前最大 sortOrder
+  const existing = await db.select().from(stores).orderBy(stores.sortOrder);
+  const maxSort = existing.length > 0 ? Math.max(...existing.map(s => s.sortOrder ?? 0)) : 0;
+
+  const [created] = await db
+    .insert(stores)
+    .values({
+      name: name.trim(),
+      companyName: companyName || null,
+      taxId: taxId || null,
+      address: address || "",
+      hours: hours || "",
+      manager: manager || null,
+      phone: phone || null,
+      sortOrder: maxSort + 1,
+    })
+    .returning();
+
+  return NextResponse.json(created, { status: 201 });
+}
+
 export async function PATCH(request: NextRequest) {
   const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;

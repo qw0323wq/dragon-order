@@ -21,42 +21,46 @@ export async function PATCH(
   const { id } = await params;
   const userId = parseInt(id);
   const body = await request.json();
-  const { name, phone, role, storeId, isActive, newPin, generateToken, revokeToken, allowedSuppliers } = body as {
+  const { name, employeeId, phone, role, storeId, isActive, newPassword, newPin, generateToken, revokeToken, allowedSuppliers } = body as {
     name?: string;
+    employeeId?: string;
     phone?: string;
     role?: string;
     storeId?: number | null;
     isActive?: boolean;
-    newPin?: string;
+    newPassword?: string;
+    newPin?: string; // 向下相容
     generateToken?: boolean;
     revokeToken?: boolean;
-    /** 可叫貨的供應商 ID 清單（空陣列 = 全部可叫） */
     allowedSuppliers?: number[];
   };
 
   // 組合要更新的欄位
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
-  if (phone !== undefined) {
-    // 檢查手機號碼是否跟其他人重複
+  if (employeeId !== undefined) {
+    // 檢查員工編號是否跟其他人重複
     const [existing] = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.phone, phone))
+      .where(eq(users.employeeId, employeeId))
       .limit(1);
     if (existing && existing.id !== userId) {
-      return NextResponse.json({ error: "此手機號碼已被使用" }, { status: 409 });
+      return NextResponse.json({ error: "此員工編號已被使用" }, { status: 409 });
     }
-    updates.phone = phone;
+    updates.employeeId = employeeId;
   }
+  if (phone !== undefined) updates.phone = phone || null;
   if (role !== undefined) updates.role = role;
   if (storeId !== undefined) updates.storeId = storeId || null;
   if (isActive !== undefined) updates.isActive = isActive;
-  if (newPin) {
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-      return NextResponse.json({ error: "PIN 碼必須是 4 位數字" }, { status: 400 });
+  // 重設密碼（支援 newPassword 和舊的 newPin）
+  const pwd = newPassword || newPin;
+  if (pwd) {
+    if (pwd.length < 4) {
+      return NextResponse.json({ error: "密碼至少 4 個字元" }, { status: 400 });
     }
-    updates.pinHash = await hash(newPin, 10);
+    updates.pinHash = await hash(pwd, 10);
   }
   // 產生新的 API Token
   if (generateToken) {

@@ -25,9 +25,6 @@ export default async function OrderPage() {
     allowedSupplierIds = dbUser?.allowedSuppliers ?? [];
   }
 
-  // 分店採購價加價比例
-  const markup = parseFloat(process.env.COST_MARKUP || "1.2");
-
   // 從 DB 讀取品項（含供應商名稱）
   // CRITICAL: staff 且 allowedSuppliers 不為空 → 只顯示該供應商的品項
   const rawItems = await db
@@ -37,6 +34,7 @@ export default async function OrderPage() {
       category: items.category,
       unit: items.unit,
       cost_price: items.costPrice,
+      store_price: items.storePrice,
       sell_price: items.sellPrice,
       aliases: items.aliases,
       supplierName: suppliers.name,
@@ -52,16 +50,21 @@ export default async function OrderPage() {
     .orderBy(items.category, items.name);
 
   // 依角色處理價格
-  // owner：顯示廠商進貨價
-  // manager：顯示分店採購價（加 20%）
+  // admin/buyer：顯示廠商進貨價
+  // manager：顯示店家採購價
   // staff：不顯示價格
+  const markup = parseFloat(process.env.COST_MARKUP || "1.2");
   const dbItems = rawItems.map((item) => {
-    if (user.role === "owner") {
+    if (user.role === "admin" || user.role === "buyer") {
       return item; // 看廠商進貨價
     } else if (user.role === "manager") {
-      return { ...item, cost_price: Math.round(item.cost_price * markup) }; // 看分店採購價
+      // 店長看店家採購價
+      const effectiveStorePrice = item.store_price > 0
+        ? item.store_price
+        : Math.round(item.cost_price * markup);
+      return { ...item, cost_price: effectiveStorePrice, store_price: 0, sell_price: item.sell_price };
     } else {
-      return { ...item, cost_price: 0, sell_price: 0 }; // 員工看不到價格
+      return { ...item, cost_price: 0, store_price: 0, sell_price: 0 }; // 員工看不到
     }
   });
 

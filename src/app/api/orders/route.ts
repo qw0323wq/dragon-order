@@ -7,17 +7,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { orders, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { authenticateRequest } from "@/lib/api-auth";
+import { authenticateRequest, getStoreScope } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
+
+  const storeScope = getStoreScope(request, auth);
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date"); // YYYY-MM-DD
   const limit = parseInt(searchParams.get("limit") ?? "10");
 
-  const baseQuery = db.select().from(orders);
+  // manager/staff 只看自己門市的訂單
+  if (storeScope) {
+    // 找出包含該門市 order_items 的訂單
+    const pgSql = (await import("postgres")).default(process.env.DATABASE_URL!, { prepare: false });
+    const result = await pgSql`
+      SELECT DISTINCT o.* FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      WHERE oi.store_id = ${storeScope}
+      ${date ? pgSql`AND o.order_date = ${date}` : pgSql``}
+      ORDER BY o.order_date DESC, o.created_at DESC
+      LIMIT ${limit}
+    `;
+    await pgSql.end();
+    return NextResponse.json(result);
+  }
 
+  const baseQuery = db.select().from(orders);
   const result = date
     ? await baseQuery.where(eq(orders.orderDate, date)).orderBy(desc(orders.createdAt)).limit(limit)
     : await baseQuery.orderBy(desc(orders.orderDate)).limit(limit);
@@ -67,7 +84,7 @@ export async function POST(request: NextRequest) {
     orderId = newOrder.id;
   }
 
-  // 寫入訂單明細
+  // 寫入訂單明細（記錄叫貨人）
   const orderItemValues = cartItems.map((item) => ({
     orderId,
     itemId: item.itemId,
@@ -76,6 +93,7 @@ export async function POST(request: NextRequest) {
     unit: item.unit,
     unitPrice: item.unitPrice,
     subtotal: Math.round(item.quantity * item.unitPrice),
+    createdBy: userId || null,
   }));
 
   await db.insert(orderItems).values(orderItemValues);

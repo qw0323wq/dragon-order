@@ -37,6 +37,8 @@ export const stores = pgTable('stores', {
   phone: varchar('phone', { length: 20 }),
   // CRITICAL: sort_order 控制前端門市顯示順序，勿隨意變更預設值
   sortOrder: integer('sort_order').default(0).notNull(),
+  /** 類型：store=門市, warehouse=倉庫 */
+  type: varchar('type', { length: 10 }).default('store').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -45,6 +47,8 @@ export const stores = pgTable('stores', {
 // ─────────────────────────────────────────────
 export const suppliers = pgTable('suppliers', {
   id: serial('id').primaryKey(),
+  /** 供應商代碼，如 VG-01（蔬菜-01） */
+  code: varchar('code', { length: 20 }).unique(),
   name: varchar('name', { length: 50 }).notNull(),
   /** 分類：肉品 | 海鮮 | 蔬菜 | 飲料 | 底料 | 雜貨 | 火鍋料 */
   category: varchar('category', { length: 20 }).notNull(),
@@ -68,6 +72,12 @@ export const suppliers = pgTable('suppliers', {
   freeShippingMin: integer('free_shipping_min').default(0).notNull(),
   /** 結帳方式：'現結' = 當天驗收後請款, '月結' = 月底統一付款 */
   paymentType: varchar('payment_type', { length: 10 }).default('月結').notNull(),
+  /** 最低起送金額（元），0 = 無門檻 */
+  minOrderAmount: integer('min_order_amount').default(0).notNull(),
+  /** 可叫貨日：1=週一...7=週日，如 [1,2,3,4,5] = 平日 */
+  orderDays: integer('order_days').array().default([1,2,3,4,5]),
+  /** 叫貨截止時間：如 '18:00' */
+  orderCutoff: varchar('order_cutoff', { length: 5 }).default('18:00'),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -77,6 +87,8 @@ export const suppliers = pgTable('suppliers', {
 // ─────────────────────────────────────────────
 export const items = pgTable('items', {
   id: serial('id').primaryKey(),
+  /** 品號，如 MT-001（肉品-001），唯一索引 */
+  sku: varchar('sku', { length: 20 }).unique(),
   name: varchar('name', { length: 100 }).notNull(),
   /** 分類：肉品 | 海鮮 | 蔬菜 | 火鍋料 | 底料 | 飲料 | 酒水 | 雜貨 */
   category: varchar('category', { length: 20 }).notNull(),
@@ -85,11 +97,22 @@ export const items = pgTable('items', {
   supplierId: integer('supplier_id')
     .references(() => suppliers.id)
     .notNull(),
-  /** 進貨價（元），整數避免浮點 */
+  /** 進貨價（元）— 總公司跟廠商買的價格 */
   costPrice: integer('cost_price').default(0).notNull(),
-  /** 售價（元），整數 */
+  /** 店家採購價（元）— 分店跟總公司買的價格。0 = 用 cost_price × COST_MARKUP */
+  storePrice: integer('store_price').default(0).notNull(),
+  /** 售價（元）— 賣給客人的價格 */
   sellPrice: integer('sell_price').default(0).notNull(),
+  /** 內部備註（出餐規格、損耗等，內部人員看） */
   spec: text('spec'),
+  /** 叫貨備註（切法、尺寸限制等，叫貨單上給供應商看） */
+  supplierNotes: text('supplier_notes'),
+  /** 最低訂購量（有些供應商要求一箱起跳） */
+  minOrderQty: numeric('min_order_qty', { precision: 10, scale: 2 }).default('1').notNull(),
+  /** 包裝規格（如「10斤/箱」「6瓶/箱」） */
+  packSize: varchar('pack_size', { length: 50 }),
+  /** 儲存方式：cold=冷藏, frozen=冷凍, room=常溫 */
+  storageType: varchar('storage_type', { length: 10 }).default('cold'),
   // CRITICAL: aliases 是 alias-matcher 的資料來源
   // 範例：['五花','豬五花','三層肉']，影響文字叫貨的匹配準確度
   aliases: text('aliases').array().default([]).notNull(),
@@ -98,6 +121,12 @@ export const items = pgTable('items', {
     .default('0')
     .notNull(),
   safetyStockUnit: varchar('safety_stock_unit', { length: 10 }),
+  /** 目前庫存量（允許小數） */
+  currentStock: numeric('current_stock', { precision: 10, scale: 2 })
+    .default('0')
+    .notNull(),
+  /** 庫存單位（斤/包/瓶/箱等，跟叫貨單位可能不同） */
+  stockUnit: varchar('stock_unit', { length: 10 }),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -108,17 +137,43 @@ export const items = pgTable('items', {
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 50 }).notNull(),
-  phone: varchar('phone', { length: 20 }).unique().notNull(),
-  /** bcrypt hash，不存明碼 */
-  pinHash: varchar('pin_hash', { length: 100 }).notNull(),
-  /** role: 'owner' | 'manager' | 'staff' */
-  role: varchar('role', { length: 10 }).default('staff').notNull(),
-  /** staff 綁定門市；owner/manager 可為 null（跨門市） */
+  /** 員工編號（登入用） */
+  employeeId: varchar('employee_id', { length: 20 }).unique().notNull(),
+  /** 手機號碼（選填，聯絡用） */
+  phone: varchar('phone', { length: 20 }),
+  /** bcrypt hash 密碼 */
+  pinHash: varchar('pin_hash', { length: 255 }).notNull(),
+  /** role: 'admin' | 'buyer' | 'manager' | 'staff' */
+  role: varchar('role', { length: 20 }).default('staff').notNull(),
+  /** staff 綁定門市；admin/buyer 可為 null（跨門市） */
   storeId: integer('store_id').references(() => stores.id),
-  /** 可叫貨的供應商 ID 清單（空陣列 = 全部可叫；owner/manager 忽略此限制） */
+  /** 可叫貨的供應商 ID 清單（空陣列 = 全部可叫；admin/buyer 忽略此限制） */
   allowedSuppliers: integer('allowed_suppliers').array().default([]).notNull(),
   /** 個人 API Token（給該使用者的 AI 助理用） */
   apiToken: varchar('api_token', { length: 64 }).unique(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
+// 角色權限
+// ─────────────────────────────────────────────
+export const rolePermissions = pgTable('role_permissions', {
+  /** role: 'admin' | 'buyer' | 'manager' | 'staff' */
+  role: varchar('role', { length: 20 }).primaryKey(),
+  /** 允許的頁面 key 陣列，['*'] 表示全部 */
+  allowedPages: text('allowed_pages').array().default([]).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
+// 門市菜單（哪間店賣哪些菜品）
+// 空表 = 該店賣所有菜品（向下相容）
+// ─────────────────────────────────────────────
+export const storeMenu = pgTable('store_menu', {
+  id: serial('id').primaryKey(),
+  storeId: integer('store_id').references(() => stores.id, { onDelete: 'cascade' }).notNull(),
+  menuItemId: integer('menu_item_id').references(() => menuItems.id, { onDelete: 'cascade' }).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -166,6 +221,8 @@ export const orderItems = pgTable('order_items', {
   /** 小計（元）= quantity * unit_price，整數四捨五入 */
   subtotal: integer('subtotal').default(0).notNull(),
   notes: text('notes'),
+  /** 叫貨人（哪個員工叫的） */
+  createdBy: integer('created_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -215,6 +272,8 @@ export const payments = pgTable('payments', {
 
 export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
+
+// 供應商叫貨單（purchaseOrders + purchaseOrderItems）定義在檔案尾部
 
 // ─────────────────────────────────────────────
 // Relations（Drizzle 關聯，供 query API 使用）
@@ -379,3 +438,249 @@ export type NewMenuItem2 = typeof menuItems.$inferInsert;
 
 export type BomItem = typeof bomItems.$inferSelect;
 export type NewBomItem = typeof bomItems.$inferInsert;
+
+// ─────────────────────────────────────────────
+// 價格歷史（追蹤進貨價波動）
+// ─────────────────────────────────────────────
+export const itemPriceHistory = pgTable('item_price_history', {
+  id: serial('id').primaryKey(),
+  itemId: integer('item_id')
+    .references(() => items.id, { onDelete: 'cascade' })
+    .notNull(),
+  /** 舊進貨價（元/kg 或原單位） */
+  oldPrice: integer('old_price').notNull(),
+  /** 新進貨價（元/kg 或原單位） */
+  newPrice: integer('new_price').notNull(),
+  /** 價差（元），正=漲、負=跌 */
+  priceDiff: integer('price_diff').notNull(),
+  /** 漲跌幅（%），如 5.2 表示漲 5.2% */
+  changePercent: numeric('change_percent', { precision: 6, scale: 2 }).default('0'),
+  /** 價格單位：'kg' | 'piece' | 'pack' | 'bottle' 等 */
+  priceUnit: varchar('price_unit', { length: 20 }).default('kg').notNull(),
+  /** 生效日期 */
+  effectiveDate: date('effective_date').notNull(),
+  /** 來源（如「以曜 115年4月報價單」） */
+  source: varchar('source', { length: 100 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const itemPriceHistoryRelations = relations(itemPriceHistory, ({ one }) => ({
+  item: one(items, {
+    fields: [itemPriceHistory.itemId],
+    references: [items.id],
+  }),
+}));
+
+export type ItemPriceHistory = typeof itemPriceHistory.$inferSelect;
+export type NewItemPriceHistory = typeof itemPriceHistory.$inferInsert;
+
+// ─────────────────────────────────────────────
+// 庫存異動紀錄
+// ─────────────────────────────────────────────
+export const inventoryLogs = pgTable('inventory_logs', {
+  id: serial('id').primaryKey(),
+  itemId: integer('item_id')
+    .references(() => items.id, { onDelete: 'cascade' })
+    .notNull(),
+  /** 異動類型：in=進貨, out=出貨/消耗, adjust=盤點調整 */
+  type: varchar('type', { length: 10 }).notNull(),
+  /** 異動數量（正數=增加，負數=減少） */
+  quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(),
+  /** 單位 */
+  unit: varchar('unit', { length: 10 }),
+  /** 異動後庫存量 */
+  balanceAfter: numeric('balance_after', { precision: 10, scale: 2 }).notNull(),
+  /** 關聯門市（哪間店的進出貨） */
+  storeId: integer('store_id').references(() => stores.id),
+  /** 來源說明（如「驗收單 #123」「盤點調整」「POS 銷售」） */
+  source: varchar('source', { length: 100 }),
+  /** 備註 */
+  notes: text('notes'),
+  /** 操作人 */
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const inventoryLogsRelations = relations(inventoryLogs, ({ one }) => ({
+  item: one(items, {
+    fields: [inventoryLogs.itemId],
+    references: [items.id],
+  }),
+  store: one(stores, {
+    fields: [inventoryLogs.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export type InventoryLog = typeof inventoryLogs.$inferSelect;
+export type NewInventoryLog = typeof inventoryLogs.$inferInsert;
+
+// ─────────────────────────────────────────────
+// 分店庫存（各門市 + 總公司倉庫各自的庫存量）
+// store_id = NULL → 總公司倉庫
+// ─────────────────────────────────────────────
+export const storeInventory = pgTable('store_inventory', {
+  id: serial('id').primaryKey(),
+  itemId: integer('item_id')
+    .references(() => items.id, { onDelete: 'cascade' })
+    .notNull(),
+  /** NULL = 總公司倉庫 */
+  storeId: integer('store_id').references(() => stores.id),
+  currentStock: numeric('current_stock', { precision: 10, scale: 2 })
+    .default('0')
+    .notNull(),
+  stockUnit: varchar('stock_unit', { length: 10 }),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const storeInventoryRelations = relations(storeInventory, ({ one }) => ({
+  item: one(items, {
+    fields: [storeInventory.itemId],
+    references: [items.id],
+  }),
+  store: one(stores, {
+    fields: [storeInventory.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export type StoreInventory = typeof storeInventory.$inferSelect;
+
+// ─────────────────────────────────────────────
+// 門市調撥/借料
+// 流程：A 店借食材給 B 店 → 記錄 → 歸還或沖銷
+// ─────────────────────────────────────────────
+export const transfers = pgTable('transfers', {
+  id: serial('id').primaryKey(),
+  /** 調撥單號（如 TR-20260330-001） */
+  transferNumber: varchar('transfer_number', { length: 30 }).unique().notNull(),
+  /** 類型：transfer=調撥, borrow=借料 */
+  type: varchar('type', { length: 10 }).notNull(),
+  /** 來源門市 */
+  fromStoreId: integer('from_store_id')
+    .references(() => stores.id)
+    .notNull(),
+  /** 目標門市 */
+  toStoreId: integer('to_store_id')
+    .references(() => stores.id)
+    .notNull(),
+  /** 狀態：pending=待確認, confirmed=已確認, returned=已歸還, settled=已沖銷 */
+  status: varchar('status', { length: 20 }).default('confirmed').notNull(),
+  /** 備註 */
+  notes: text('notes'),
+  /** 建單人 */
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  /** 歸還/沖銷時間 */
+  settledAt: timestamp('settled_at'),
+});
+
+export const transferItems = pgTable('transfer_items', {
+  id: serial('id').primaryKey(),
+  transferId: integer('transfer_id')
+    .references(() => transfers.id, { onDelete: 'cascade' })
+    .notNull(),
+  itemId: integer('item_id')
+    .references(() => items.id)
+    .notNull(),
+  quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(),
+  unit: varchar('unit', { length: 10 }),
+  /** 歸還數量（借料用） */
+  returnedQty: numeric('returned_qty', { precision: 10, scale: 2 }).default('0').notNull(),
+});
+
+export const transfersRelations = relations(transfers, ({ one, many }) => ({
+  fromStore: one(stores, { fields: [transfers.fromStoreId], references: [stores.id], relationName: 'fromStore' }),
+  toStore: one(stores, { fields: [transfers.toStoreId], references: [stores.id], relationName: 'toStore' }),
+  items: many(transferItems),
+}));
+
+export const transferItemsRelations = relations(transferItems, ({ one }) => ({
+  transfer: one(transfers, { fields: [transferItems.transferId], references: [transfers.id] }),
+  item: one(items, { fields: [transferItems.itemId], references: [items.id] }),
+}));
+
+export type Transfer = typeof transfers.$inferSelect;
+export type TransferItem = typeof transferItems.$inferSelect;
+
+// ─────────────────────────────────────────────
+// 供應商叫貨單（PO = Purchase Order）
+// 流程：各店訂單 → 按供應商拆單 → 匯出給供應商（無價格）
+// ─────────────────────────────────────────────
+export const purchaseOrders = pgTable('purchase_orders', {
+  id: serial('id').primaryKey(),
+  /** PO 編號（如 PO-20260327-001） */
+  poNumber: varchar('po_number', { length: 30 }).unique().notNull(),
+  /** 供應商 */
+  supplierId: integer('supplier_id')
+    .references(() => suppliers.id)
+    .notNull(),
+  /** 配送日期 */
+  deliveryDate: date('delivery_date').notNull(),
+  /** 狀態：draft=草稿, sent=已傳送, received=已收貨, cancelled=已取消 */
+  status: varchar('status', { length: 20 }).default('draft').notNull(),
+  /** 總金額（含各店合計，元） */
+  totalAmount: integer('total_amount').default(0).notNull(),
+  /** 備註（給供應商看的） */
+  notes: text('notes'),
+  /** 建單人 */
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
+// 供應商叫貨單明細（含門市明細）
+// ─────────────────────────────────────────────
+export const purchaseOrderItems = pgTable('purchase_order_items', {
+  id: serial('id').primaryKey(),
+  poId: integer('po_id')
+    .references(() => purchaseOrders.id, { onDelete: 'cascade' })
+    .notNull(),
+  itemId: integer('item_id')
+    .references(() => items.id)
+    .notNull(),
+  /** 門市（哪間店叫的） */
+  storeId: integer('store_id')
+    .references(() => stores.id)
+    .notNull(),
+  /** 數量 */
+  quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(),
+  /** 單位 */
+  unit: varchar('unit', { length: 10 }).notNull(),
+  /** 當時進貨價（鎖定，不受後續報價更新影響） */
+  unitPrice: integer('unit_price').default(0).notNull(),
+  /** 小計 */
+  subtotal: integer('subtotal').default(0).notNull(),
+  /** 品項備註（如「切24cm以內」） */
+  notes: text('notes'),
+  /** 關聯的門市訂單 ID（追溯用） */
+  orderItemId: integer('order_item_id').references(() => orderItems.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const purchaseOrdersRelations = relations(purchaseOrders, ({ one, many }) => ({
+  supplier: one(suppliers, {
+    fields: [purchaseOrders.supplierId],
+    references: [suppliers.id],
+  }),
+  items: many(purchaseOrderItems),
+}));
+
+export const purchaseOrderItemsRelations = relations(purchaseOrderItems, ({ one }) => ({
+  purchaseOrder: one(purchaseOrders, {
+    fields: [purchaseOrderItems.poId],
+    references: [purchaseOrders.id],
+  }),
+  item: one(items, {
+    fields: [purchaseOrderItems.itemId],
+    references: [items.id],
+  }),
+  store: one(stores, {
+    fields: [purchaseOrderItems.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;

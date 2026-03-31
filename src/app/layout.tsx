@@ -17,6 +17,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "肥龍叫貨系統",
   description: "肥龍老火鍋採購叫貨管理系統",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "肥龍叫貨",
+  },
 };
 
 // CRITICAL: viewport 必須從 metadata 分離（Next.js 16 規範），否則 themeColor 等行動裝置設定會失效
@@ -25,7 +31,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#c0392b",
+  themeColor: "#b83232",
 };
 
 export default function RootLayout({

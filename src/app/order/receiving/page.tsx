@@ -262,6 +262,15 @@ function SupplierReceivingCard({
 
 // ── 頁面主元件 ────────────────────────────────────────────────────────────────
 
+interface UserSession {
+  id: number
+  name: string
+  role: string
+  store_id: number | null
+}
+
+interface StoreOption { id: number; name: string }
+
 export default function ReceivingPage() {
   const today = formatDate(new Date())
   const [selectedDate, setSelectedDate] = useState(today)
@@ -270,13 +279,38 @@ export default function ReceivingPage() {
   const [order, setOrder] = useState<Order | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
   const [receivings, setReceivings] = useState<ReceivingRecord[]>([])
-  /** 每個 orderItemId 對應的驗收輸入 */
   const [inputs, setInputs] = useState<Record<number, ReceivingInput>>({})
 
+  // 角色 + 門市篩選
+  const [user, setUser] = useState<UserSession | null>(null)
+  const [stores, setStores] = useState<StoreOption[]>([])
+  const [storeFilter, setStoreFilter] = useState<string>('all')
+
   const isToday = selectedDate === today
+  const isAdmin = user?.role === 'admin' || user?.role === 'buyer'
+
+  // 載入使用者資訊 + 門市
+  useEffect(() => {
+    fetch('/api/me').then(r => r.ok ? r.json() : null).then(data => {
+      if (data) {
+        setUser(data)
+        // manager/staff 預設只看自己門市
+        if (data.role === 'manager' || data.role === 'staff') {
+          setStoreFilter(data.store_id ? String(data.store_id) : 'all')
+        }
+      }
+    }).catch(() => {})
+    fetch('/api/stores').then(r => r.json()).then(setStores).catch(() => {})
+  }, [])
 
   // 已驗收的 orderItemId 集合
   const receivedIds = new Set(receivings.map((r) => r.orderItemId))
+
+  // 依角色過濾品項
+  const filteredItems = items.filter(item => {
+    if (storeFilter === 'all') return true
+    return item.storeId === parseInt(storeFilter)
+  })
 
   // 載入訂單與驗收資料
   const loadData = useCallback(async (date: string) => {
@@ -373,16 +407,16 @@ export default function ReceivingPage() {
     }
   }
 
-  // 按供應商分組
+  // 按供應商分組（用過濾後的品項）
   const supplierGroups = new Map<string, OrderItem[]>()
-  for (const item of items) {
+  for (const item of filteredItems) {
     if (!supplierGroups.has(item.supplierName)) supplierGroups.set(item.supplierName, [])
     supplierGroups.get(item.supplierName)!.push(item)
   }
 
   // 統計
-  const totalItems = items.length
-  const receivedCount = items.filter((i) => receivedIds.has(i.orderItemId)).length
+  const totalItems = filteredItems.length
+  const receivedCount = filteredItems.filter((i) => receivedIds.has(i.orderItemId)).length
   const allDone = totalItems > 0 && receivedCount === totalItems
 
   return (
@@ -417,6 +451,31 @@ export default function ReceivingPage() {
           </Button>
         )}
       </div>
+
+      {/* 門市篩選（管理員/採購看全部，店長/員工只看自己店） */}
+      {isAdmin && stores.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap">
+          <button
+            onClick={() => setStoreFilter('all')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              storeFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            全部門市
+          </button>
+          {stores.map(s => (
+            <button
+              key={s.id}
+              onClick={() => setStoreFilter(String(s.id))}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                storeFilter === String(s.id) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 進度統計 */}
       {order && totalItems > 0 && (

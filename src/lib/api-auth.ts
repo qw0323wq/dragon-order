@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { verifySession } from "@/lib/session";
 
 const SESSION_COOKIE = "dragon-session";
 
@@ -46,13 +47,12 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
   // ── 方式一：Cookie session（Web 前端）──
   const sessionCookie = request.cookies.get(SESSION_COOKIE);
   if (sessionCookie?.value) {
-    try {
-      const session = JSON.parse(sessionCookie.value);
-      const role: ApiRole = session.role === "owner" || session.role === "manager" ? "admin" : "user";
+    const session = verifySession<{ id: number; name: string; role: string; store_id: number | null }>(sessionCookie.value);
+    if (session) {
+      const role: ApiRole = session.role === "admin" || session.role === "owner" || session.role === "buyer" || session.role === "manager" ? "admin" : "user";
       return { ok: true, source: "cookie", role, userId: session.id, userName: session.name, storeId: session.store_id };
-    } catch {
-      return { ok: true, source: "cookie", role: "user" };
     }
+    // 簽名無效 → 當作沒登入，繼續往下走
   }
 
   // ── 方式二/三：Bearer Token ──
@@ -101,7 +101,7 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
       .limit(1);
 
     if (user && user.isActive) {
-      const role: ApiRole = user.role === "owner" || user.role === "manager" ? "admin" : "user";
+      const role: ApiRole = user.role === "admin" || user.role === "owner" || user.role === "buyer" || user.role === "manager" ? "admin" : "user";
       return {
         ok: true,
         source: "personal-token",
@@ -119,6 +119,44 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     ok: false,
     response: NextResponse.json({ error: "API Token 無效" }, { status: 401 }),
   };
+}
+
+/**
+ * 取得使用者的門市過濾條件
+ * admin/buyer → null（看全部）
+ * manager/staff → 只看自己的 storeId
+ */
+export function getStoreFilter(auth: AuthSuccess): number | null {
+  if (auth.source === "system-key") return null; // 系統 Key 看全部
+  // 從 cookie 讀角色
+  if (auth.source === "cookie") {
+    const cookie = (auth as AuthSuccess & { _role?: string });
+    // admin/buyer 看全部，manager/staff 只看自己店
+    // 需要讀原始 role，不是 ApiRole
+    return null; // 先回 null，在呼叫端再處理
+  }
+  return auth.storeId ?? null;
+}
+
+/**
+ * 從 session cookie 讀取原始角色
+ */
+export function getSessionRole(request: NextRequest): string | null {
+  const cookie = request.cookies.get(SESSION_COOKIE);
+  if (!cookie?.value) return null;
+  const session = verifySession<{ role: string }>(cookie.value);
+  return session?.role ?? null;
+}
+
+/**
+ * 取得門市過濾 ID — manager/staff 只能看自己門市
+ * admin/buyer 回傳 null（看全部）
+ */
+export function getStoreScope(request: NextRequest, auth: AuthSuccess): number | null {
+  if (auth.source === "system-key") return null;
+  const role = getSessionRole(request);
+  if (role === "admin" || role === "buyer") return null;
+  return auth.storeId ?? null;
 }
 
 /**
