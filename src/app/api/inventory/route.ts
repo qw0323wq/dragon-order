@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import postgres from "postgres";
 import { authenticateRequest } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
@@ -50,7 +51,10 @@ export async function GET(request: NextRequest) {
   let rows;
   if (storeParam) {
     // 指定地點（總公司/林森/信義安和）
-    const storeId = parseInt(storeParam);
+    const storeId = parseIntSafe(storeParam);
+    if (storeId === null) {
+      return NextResponse.json({ error: "無效的門市 ID" }, { status: 400 });
+    }
     rows = await sql`
       SELECT i.id, i.sku, i.name, i.category, i.unit,
              COALESCE(si.current_stock, 0) as current_stock,
@@ -163,7 +167,7 @@ export async function POST(request: NextRequest) {
     await syncItemTotalStock(itemId);
 
     return NextResponse.json({
-      ok: true,
+      success: true,
       itemName: item.name,
       type: "transfer",
       quantity: transferQty,
@@ -199,7 +203,7 @@ export async function POST(request: NextRequest) {
   await syncItemTotalStock(itemId);
 
   return NextResponse.json({
-    ok: true,
+    success: true,
     itemName: item.name,
     type,
     change,

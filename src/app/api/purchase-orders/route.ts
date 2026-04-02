@@ -54,11 +54,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ purchaseOrders: [], date });
     }
 
-    // 查每張叫貨單的明細
-    const result = await Promise.all(
-      pos.map(async (po) => {
-        const poItems = await pgSql`
-          SELECT poi.id, poi.item_id, poi.store_id, poi.quantity, poi.unit,
+    // 一次查出所有叫貨單明細（避免 N+1）
+    const poIds = pos.map((po) => po.id);
+    const allPoItems = poIds.length > 0
+      ? await pgSql`
+          SELECT poi.id, poi.po_id, poi.item_id, poi.store_id, poi.quantity, poi.unit,
                  poi.unit_price, poi.subtotal, poi.notes,
                  i.name as item_name, i.category as item_category, i.unit as item_unit,
                  i.spec as item_spec, i.cost_price,
@@ -66,32 +66,41 @@ export async function GET(request: NextRequest) {
           FROM purchase_order_items poi
           JOIN items i ON poi.item_id = i.id
           JOIN stores st ON poi.store_id = st.id
-          WHERE poi.po_id = ${po.id}
+          WHERE poi.po_id = ANY(${poIds})
           ORDER BY i.category, i.name, st.name
-        `;
-        return {
-          ...po,
-          poNumber: po.po_number,
-          supplierId: po.supplier_id,
-          supplierName: po.supplier_name,
-          supplierCategory: po.supplier_category,
-          deliveryDate: po.delivery_date || po.order_date,
-          totalAmount: po.total_amount,
-          items: poItems.map(pi => ({
-            ...pi,
-            itemId: pi.item_id,
-            itemName: pi.item_name,
-            itemCategory: pi.item_category,
-            itemUnit: pi.item_unit,
-            itemSpec: pi.item_spec,
-            storeId: pi.store_id,
-            storeName: pi.store_name,
-            unitPrice: pi.unit_price,
-            costPrice: pi.cost_price,
-          })),
-        };
-      })
-    );
+        `
+      : ([] as Record<string, unknown>[]);
+
+    // 按 po_id 分組
+    const itemsByPo = new Map<number, Record<string, unknown>[]>();
+    for (const pi of allPoItems) {
+      const pid = pi.po_id as number;
+      const list = itemsByPo.get(pid) ?? [];
+      list.push(pi);
+      itemsByPo.set(pid, list);
+    }
+
+    const result = pos.map((po) => ({
+      ...po,
+      poNumber: po.po_number,
+      supplierId: po.supplier_id,
+      supplierName: po.supplier_name,
+      supplierCategory: po.supplier_category,
+      deliveryDate: po.delivery_date || po.order_date,
+      totalAmount: po.total_amount,
+      items: (itemsByPo.get(po.id as number) ?? []).map(pi => ({
+        ...pi,
+        itemId: pi.item_id,
+        itemName: pi.item_name,
+        itemCategory: pi.item_category,
+        itemUnit: pi.item_unit,
+        itemSpec: pi.item_spec,
+        storeId: pi.store_id,
+        storeName: pi.store_name,
+        unitPrice: pi.unit_price,
+        costPrice: pi.cost_price,
+      })),
+    }));
 
     await pgSql.end();
     return NextResponse.json({ purchaseOrders: result, date });
@@ -209,7 +218,7 @@ export async function POST(request: NextRequest) {
     await pgSql.end();
 
     return NextResponse.json({
-      ok: true,
+      success: true,
       date,
       supplierCount: bySupplier.size,
       purchaseOrders: createdPOs,

@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { compare } from "bcryptjs";
@@ -9,6 +9,7 @@ import { users, rolePermissions } from "@/lib/db/schema";
 import { signSession, verifySession } from "@/lib/session";
 import type { AppRole } from "@/lib/permissions";
 import { DEFAULT_PERMISSIONS } from "@/lib/permissions";
+import { rateLimit, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
 
 /** Session cookie 有效期：7 天（秒） */
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
@@ -39,6 +40,17 @@ export async function login(
 
   if (!employeeId || !password) {
     return { error: "請輸入員工編號和密碼" };
+  }
+
+  // Rate limiting：每 IP 每 15 分鐘最多 5 次登入嘗試
+  const headerStore = await headers();
+  const ip = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const { allowed } = rateLimit({
+    key: `login:${ip}`,
+    ...LOGIN_RATE_LIMIT,
+  });
+  if (!allowed) {
+    return { error: "登入嘗試過於頻繁，請 15 分鐘後再試" };
   }
 
   const [user] = await db

@@ -50,25 +50,34 @@ export async function GET(request: NextRequest) {
     `;
   }
 
-  // 載入每筆調撥的品項明細
-  const result = await Promise.all(
-    rows.map(async (t) => {
-      const items = await sql`
+  // 一次查出所有調撥明細（避免 N+1）
+  const transferIds = rows.map((t) => t.id);
+  const allItems = transferIds.length > 0
+    ? await sql`
         SELECT ti.*, i.name as item_name, i.unit as item_unit
         FROM transfer_items ti
         JOIN items i ON ti.item_id = i.id
-        WHERE ti.transfer_id = ${t.id}
-      `;
-      return {
-        ...t,
-        items: items.map((i) => ({
-          ...i,
-          quantity: parseFloat(i.quantity as string) || 0,
-          returned_qty: parseFloat(i.returned_qty as string) || 0,
-        })),
-      };
-    })
-  );
+        WHERE ti.transfer_id = ANY(${transferIds})
+      `
+    : ([] as Record<string, unknown>[]);
+
+  // 按 transfer_id 分組
+  const itemsByTransfer = new Map<number, Record<string, unknown>[]>();
+  for (const item of allItems) {
+    const tid = item.transfer_id as number;
+    const list = itemsByTransfer.get(tid) ?? [];
+    list.push(item);
+    itemsByTransfer.set(tid, list);
+  }
+
+  const result = rows.map((t) => ({
+    ...t,
+    items: (itemsByTransfer.get(t.id as number) ?? []).map((i) => ({
+      ...i,
+      quantity: parseFloat(i.quantity as string) || 0,
+      returned_qty: parseFloat(i.returned_qty as string) || 0,
+    })),
+  }));
 
   return NextResponse.json(result);
 }
@@ -165,7 +174,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({
-    ok: true,
+    success: true,
     transferNumber,
     id: transfer.id,
     type,

@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import postgres from "postgres";
 import { authenticateRequest } from "@/lib/api-auth";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
@@ -22,6 +23,10 @@ export async function GET(request: NextRequest) {
 
   let rows;
   if (storeId) {
+    const parsedStoreId = parseIntSafe(storeId);
+    if (parsedStoreId === null) {
+      return NextResponse.json({ error: "無效的門市 ID" }, { status: 400 });
+    }
     // 指定門市的庫存
     rows = await sql`
       SELECT i.id as item_id, i.name, i.category, i.unit,
@@ -30,7 +35,7 @@ export async function GET(request: NextRequest) {
              s.id as supplier_id, s.name as supplier_name
       FROM items i
       JOIN suppliers s ON i.supplier_id = s.id
-      LEFT JOIN store_inventory si ON si.item_id = i.id AND si.store_id = ${parseInt(storeId)}
+      LEFT JOIN store_inventory si ON si.item_id = i.id AND si.store_id = ${parsedStoreId}
       WHERE i.is_active = true
         AND i.safety_stock::numeric > 0
         AND COALESCE(si.current_stock, 0)::numeric < i.safety_stock::numeric
@@ -101,7 +106,7 @@ export async function GET(request: NextRequest) {
   const suppliers = Array.from(supplierMap.values());
 
   return NextResponse.json({
-    storeId: storeId ? parseInt(storeId) : null,
+    storeId: storeId ? parseIntSafe(storeId) : null,
     suppliers,
     summary: {
       totalSuppliers: suppliers.length,

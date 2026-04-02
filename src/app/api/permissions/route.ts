@@ -51,5 +51,5 @@ export async function PUT(request: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ success: true });
 }

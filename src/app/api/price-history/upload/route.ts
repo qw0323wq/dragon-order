@@ -13,8 +13,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import postgres from 'postgres';
 import { authenticateRequest } from '@/lib/api-auth';
 import * as XLSX from 'xlsx';
+import { parseIntSafe } from '@/lib/parse-int-safe';
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
+
+/** 每份克數（用於 per-kg 和 per-portion 之間的換算） */
+const GRAMS_PER_SERVING = 120;
+/** 每公斤克數 */
+const GRAMS_PER_KG = 1000;
+/** 價差容忍值（元/kg），低於此值視為價格不變 */
+const PRICE_TOLERANCE_PER_KG = 3;
 
 interface PriceRow {
   name: string;
@@ -86,6 +94,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '需要 file 和 supplier_id' }, { status: 400 });
   }
 
+  const parsedSupplierId = parseIntSafe(supplierId);
+  if (parsedSupplierId === null) {
+    return NextResponse.json({ error: '無效的供應商 ID' }, { status: 400 });
+  }
+
   // 讀取 Excel
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
@@ -105,7 +118,7 @@ export async function POST(req: NextRequest) {
   const items = await sql`
     SELECT id, name, cost_price, spec, aliases
     FROM items
-    WHERE supplier_id = ${parseInt(supplierId)} AND is_active = true
+    WHERE supplier_id = ${parsedSupplierId} AND is_active = true
   `;
 
   // 建立名稱 → item 的對照（含 aliases）
@@ -151,10 +164,10 @@ export async function POST(req: NextRequest) {
     // 計算每份成本（假設 120g/份 for per-kg items）
     // 注意：cost_price 在 DB 裡是 per portion，但報價單是 per kg
     // 這裡存的是 per-kg 報價歷史
-    const oldKgPrice = Math.round((item.cost_price / 120) * 1000); // 估算原本的 per-kg 價格
+    const oldKgPrice = Math.round((item.cost_price / GRAMS_PER_SERVING) * GRAMS_PER_KG);
     const diff = row.pricePerKg - oldKgPrice;
 
-    if (Math.abs(diff) < 3) {
+    if (Math.abs(diff) < PRICE_TOLERANCE_PER_KG) {
       // 價差小於 3 元/kg 視為不變
       results.unchanged.push({ name: row.name, price: row.pricePerKg });
       continue;
@@ -169,7 +182,7 @@ export async function POST(req: NextRequest) {
     `;
 
     // 更新品項的 per-portion cost
-    const newPortionCost = Math.round((row.pricePerKg / 1000) * 120);
+    const newPortionCost = Math.round((row.pricePerKg / GRAMS_PER_KG) * GRAMS_PER_SERVING);
     await sql`UPDATE items SET cost_price = ${newPortionCost} WHERE id = ${item.id}`;
 
     results.matched.push({

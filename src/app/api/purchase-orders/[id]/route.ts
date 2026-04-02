@@ -15,6 +15,7 @@ import {
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/api-auth";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function GET(
   request: NextRequest,
@@ -24,7 +25,10 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const poId = parseInt(id);
+  const poId = parseIntSafe(id);
+  if (poId === null) {
+    return NextResponse.json({ error: "無效的叫貨單 ID" }, { status: 400 });
+  }
 
   // 讀取叫貨單基本資訊
   const [po] = await db
@@ -89,7 +93,10 @@ export async function PATCH(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const poId = parseInt(id);
+  const poId = parseIntSafe(id);
+  if (poId === null) {
+    return NextResponse.json({ error: "無效的叫貨單 ID" }, { status: 400 });
+  }
   const body = await request.json();
   const { status, notes } = body as { status?: string; notes?: string };
 
@@ -106,7 +113,7 @@ export async function PATCH(
     .set(updates)
     .where(eq(purchaseOrders.id, poId));
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ success: true });
 }
 
 /** 產生匯出文字（無價格，含各店明細 + 備註） */

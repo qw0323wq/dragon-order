@@ -199,7 +199,7 @@ export async function PUT(
   }
 
   return NextResponse.json({
-    ok: true,
+    success: true,
     updated,
     created,
     priceChanges: priceChanges.length,

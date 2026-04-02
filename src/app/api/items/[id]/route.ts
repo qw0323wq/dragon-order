@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/api-auth";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function PATCH(
   request: NextRequest,
@@ -16,7 +17,10 @@ export async function PATCH(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const itemId = parseInt(id);
+  const itemId = parseIntSafe(id);
+  if (itemId === null) {
+    return NextResponse.json({ error: "無效的品項 ID" }, { status: 400 });
+  }
   const body = await request.json();
 
   const { name, category, unit, costPrice, storePrice, sellPrice, spec, supplierNotes, isActive } = body as {
@@ -59,7 +63,10 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const itemId = parseInt(id);
+  const itemId = parseIntSafe(id);
+  if (itemId === null) {
+    return NextResponse.json({ error: "無效的品項 ID" }, { status: 400 });
+  }
   await db.update(items).set({ isActive: false }).where(eq(items.id, itemId));
   return NextResponse.json({ success: true });
 }

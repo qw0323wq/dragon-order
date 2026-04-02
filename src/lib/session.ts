@@ -8,9 +8,15 @@
  * Edge Runtime 相容（不用 jsonwebtoken）
  */
 
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
-const SECRET = process.env.JWT_SECRET || "dragon-order-default-secret";
+// CRITICAL: JWT_SECRET 必須設定，否則任何人可偽造 session
+function getSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET environment variable is required");
+  return secret;
+}
+const SECRET: string = getSecret();
 
 /** 簽名：JSON → base64.signature */
 export function signSession(data: object): string {
@@ -27,7 +33,12 @@ export function verifySession<T = unknown>(token: string): T | null {
   const [payload, sig] = parts;
   const expected = createHmac("sha256", SECRET).update(payload).digest("base64url");
 
-  if (sig !== expected) return null; // 被竄改
+  // CRITICAL: 使用 timingSafeEqual 防止 timing attack
+  const sigBuf = Buffer.from(sig, "base64url");
+  const expectedBuf = Buffer.from(expected, "base64url");
+  if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
+    return null;
+  }
 
   try {
     const json = Buffer.from(payload, "base64url").toString("utf8");

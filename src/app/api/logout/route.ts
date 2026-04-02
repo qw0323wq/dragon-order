@@ -7,5 +7,5 @@ import { cookies } from "next/headers";
 export async function POST() {
   const cookieStore = await cookies();
   cookieStore.delete("dragon-session");
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ success: true });
 }

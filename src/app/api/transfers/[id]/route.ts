@@ -82,13 +82,13 @@ export async function PUT(
       await sql`UPDATE transfers SET status = 'returned', settled_at = NOW() WHERE id = ${id}`;
     }
 
-    return NextResponse.json({ ok: true, action: "return" });
+    return NextResponse.json({ success: true, action: "return" });
   }
 
   if (action === "settle") {
     // 直接沖銷（不歸還，當作消耗或轉讓）
     await sql`UPDATE transfers SET status = 'settled', settled_at = NOW() WHERE id = ${id}`;
-    return NextResponse.json({ ok: true, action: "settle" });
+    return NextResponse.json({ success: true, action: "settle" });
   }
 
   return NextResponse.json({ error: "無效的操作" }, { status: 400 });

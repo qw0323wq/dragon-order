@@ -9,6 +9,7 @@ import { receiving, orderItems, items, stores, suppliers } from "@/lib/db/schema
 import { eq, inArray } from "drizzle-orm";
 import { authenticateRequest } from "@/lib/api-auth";
 import postgres from "postgres";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
@@ -18,6 +19,11 @@ export async function GET(request: NextRequest) {
 
   if (!orderId) {
     return NextResponse.json({ error: "缺少 orderId" }, { status: 400 });
+  }
+
+  const parsedOrderId = parseIntSafe(orderId);
+  if (parsedOrderId === null) {
+    return NextResponse.json({ error: "無效的訂單 ID" }, { status: 400 });
   }
 
   // 取得該訂單的所有明細 + 對應的驗收紀錄
@@ -39,7 +45,7 @@ export async function GET(request: NextRequest) {
     .innerJoin(items, eq(orderItems.itemId, items.id))
     .innerJoin(suppliers, eq(items.supplierId, suppliers.id))
     .innerJoin(stores, eq(orderItems.storeId, stores.id))
-    .where(eq(orderItems.orderId, parseInt(orderId)));
+    .where(eq(orderItems.orderId, parsedOrderId));
 
   if (details.length === 0) {
     return NextResponse.json({ details: [], receivings: [] });

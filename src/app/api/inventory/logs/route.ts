@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import postgres from "postgres";
 import { authenticateRequest } from "@/lib/api-auth";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
@@ -16,13 +17,17 @@ export async function GET(request: NextRequest) {
 
   let rows;
   if (itemId) {
+    const parsedItemId = parseIntSafe(itemId);
+    if (parsedItemId === null) {
+      return NextResponse.json({ error: "無效的品項 ID" }, { status: 400 });
+    }
     rows = await sql`
       SELECT l.*, i.name as item_name, st.name as store_name, u.name as user_name
       FROM inventory_logs l
       JOIN items i ON l.item_id = i.id
       LEFT JOIN stores st ON l.store_id = st.id
       LEFT JOIN users u ON l.created_by = u.id
-      WHERE l.item_id = ${parseInt(itemId)}
+      WHERE l.item_id = ${parsedItemId}
       ORDER BY l.created_at DESC
       LIMIT 100
     `;

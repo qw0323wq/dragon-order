@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { orders, orderItems, items, stores, suppliers, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function GET(
   request: NextRequest,
@@ -16,7 +17,10 @@ export async function GET(
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  const orderId = parseInt(id);
+  const orderId = parseIntSafe(id);
+  if (orderId === null) {
+    return NextResponse.json({ error: "無效的訂單 ID" }, { status: 400 });
+  }
 
   // 取得訂單（JOIN users 取得建單人名稱）
   const [orderRow] = await db
@@ -89,7 +93,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const orderId = parseInt(id);
+  const orderId = parseIntSafe(id);
+  if (orderId === null) {
+    return NextResponse.json({ error: "無效的訂單 ID" }, { status: 400 });
+  }
   const body = await request.json();
 
   // ── 員工送出訂單（不需要 admin 權限）──
@@ -193,7 +200,10 @@ export async function DELETE(
   const auth = await requireAdmin(request);
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  const orderId = parseInt(id);
+  const orderId = parseIntSafe(id);
+  if (orderId === null) {
+    return NextResponse.json({ error: "無效的訂單 ID" }, { status: 400 });
+  }
 
   // 先刪明細再刪訂單
   await db.delete(orderItems).where(eq(orderItems.orderId, orderId));

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import postgres from 'postgres';
 import { authenticateRequest, requireAdmin } from '@/lib/api-auth';
+import { parseIntSafe } from '@/lib/parse-int-safe';
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
@@ -21,24 +22,32 @@ export async function GET(req: NextRequest) {
   let rows;
 
   if (itemId) {
+    const parsedItemId = parseIntSafe(itemId);
+    if (parsedItemId === null) {
+      return NextResponse.json({ error: '無效的品項 ID' }, { status: 400 });
+    }
     // 單品項歷史
     rows = await sql`
       SELECT h.*, i.name as item_name, s.name as supplier_name
       FROM item_price_history h
       JOIN items i ON h.item_id = i.id
       JOIN suppliers s ON i.supplier_id = s.id
-      WHERE h.item_id = ${parseInt(itemId)}
+      WHERE h.item_id = ${parsedItemId}
       ORDER BY h.effective_date DESC
       LIMIT 100
     `;
   } else if (supplierId) {
+    const parsedSupplierId = parseIntSafe(supplierId);
+    if (parsedSupplierId === null) {
+      return NextResponse.json({ error: '無效的供應商 ID' }, { status: 400 });
+    }
     // 某供應商所有品項
     rows = await sql`
       SELECT h.*, i.name as item_name, s.name as supplier_name
       FROM item_price_history h
       JOIN items i ON h.item_id = i.id
       JOIN suppliers s ON i.supplier_id = s.id
-      WHERE i.supplier_id = ${parseInt(supplierId)}
+      WHERE i.supplier_id = ${parsedSupplierId}
       ORDER BY h.effective_date DESC, i.name
       LIMIT 200
     `;
@@ -91,5 +100,5 @@ export async function POST(req: NextRequest) {
     inserted++;
   }
 
-  return NextResponse.json({ ok: true, inserted, message: `新增 ${inserted} 筆價格歷史` });
+  return NextResponse.json({ success: true, inserted, message: `新增 ${inserted} 筆價格歷史` });
 }

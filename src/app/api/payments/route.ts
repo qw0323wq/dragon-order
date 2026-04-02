@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { payments, orders, orderItems, suppliers, items, stores } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
@@ -41,7 +42,11 @@ export async function GET(request: NextRequest) {
 
   // 按供應商統計訂單金額（從 order_items 計算）
   // 可選按門市篩選
-  const storeFilter = storeId ? sql` AND ${orderItems.storeId} = ${parseInt(storeId)}` : sql``;
+  const parsedStoreId = parseIntSafe(storeId);
+  if (storeId && parsedStoreId === null) {
+    return NextResponse.json({ error: "無效的門市 ID" }, { status: 400 });
+  }
+  const storeFilter = parsedStoreId !== null ? sql` AND ${orderItems.storeId} = ${parsedStoreId}` : sql``;
 
   const supplierAmounts = await db
     .select({
@@ -103,16 +108,16 @@ export async function GET(request: NextRequest) {
 
   // 如果有指定門市，取得門市資訊
   let storeInfo = null;
-  if (storeId) {
+  if (parsedStoreId !== null) {
     const [store] = await db
       .select({ id: stores.id, name: stores.name, companyName: stores.companyName, taxId: stores.taxId })
       .from(stores)
-      .where(eq(stores.id, parseInt(storeId)))
+      .where(eq(stores.id, parsedStoreId))
       .limit(1);
     storeInfo = store || null;
   }
 
-  return NextResponse.json({ month, storeId: storeId ? parseInt(storeId) : null, storeInfo, suppliers: supplierReport, summary });
+  return NextResponse.json({ month, storeId: parsedStoreId, storeInfo, suppliers: supplierReport, summary });
 }
 
 export async function POST(request: NextRequest) {
