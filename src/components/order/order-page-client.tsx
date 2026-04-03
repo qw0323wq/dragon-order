@@ -27,12 +27,16 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import {
   LogOutIcon, SearchIcon, ShoppingCartIcon, PlusIcon,
   ScanTextIcon, SendIcon, XIcon, ArrowLeftIcon, CalendarIcon,
   ClipboardList, ClipboardCheck, CheckCircle2, AlertTriangle, Loader2,
   ChevronDownIcon, ChevronUpIcon, Clock, Trash2, UtensilsCrossed, PackageCheck,
+  MoreHorizontal, AlertTriangleIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "./item-card";
@@ -101,6 +105,9 @@ export default function OrderPageClient({
   const [hasParsed, setHasParsed] = useState(false);
 
   const [isPending, startTransition] = useTransition();
+
+  // Tab 切換
+  const [activeTab, setActiveTab] = useState("list");
 
   // Header 收合
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
@@ -359,39 +366,52 @@ export default function OrderPageClient({
 
       {/* ===== 主要內容 ===== */}
       <main ref={mainRef} className="px-3 pt-3 pb-28">
-        <Tabs defaultValue="list">
-          {/* Tab 切換列（可左右滑動） */}
-          <div className="overflow-x-auto -mx-3 px-3 mb-3 scrollbar-hide">
-            <TabsList className="w-max min-w-full">
-              <TabsTrigger value="list" className="gap-1 text-sm px-3">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          {/* Tab 切換列：前 4 個固定 + 「更多」收納後 3 個 */}
+          <div className="flex items-center gap-1.5 mb-3">
+            <TabsList className="flex-1">
+              <TabsTrigger value="list" className="flex-1 gap-1 text-sm">
                 <ShoppingCartIcon className="size-4" />
                 叫貨
               </TabsTrigger>
-              <TabsTrigger value="text" className="gap-1 text-sm px-3">
+              <TabsTrigger value="text" className="flex-1 gap-1 text-sm">
                 <ScanTextIcon className="size-4" />
                 文字
               </TabsTrigger>
-              <TabsTrigger value="my-orders" className="gap-1 text-sm px-3">
+              <TabsTrigger value="my-orders" className="flex-1 gap-1 text-sm">
                 <ClipboardList className="size-4" />
                 訂單
               </TabsTrigger>
-              <TabsTrigger value="receiving" className="gap-1 text-sm px-3">
+              <TabsTrigger value="receiving" className="flex-1 gap-1 text-sm">
                 <ClipboardCheck className="size-4" />
                 驗收
               </TabsTrigger>
-              <TabsTrigger value="waste" className="gap-1 text-sm px-3">
-                <Trash2 className="size-4" />
-                報廢
-              </TabsTrigger>
-              <TabsTrigger value="meal" className="gap-1 text-sm px-3">
-                <UtensilsCrossed className="size-4" />
-                員工餐
-              </TabsTrigger>
-              <TabsTrigger value="stocktake" className="gap-1 text-sm px-3">
-                <PackageCheck className="size-4" />
-                盤點
-              </TabsTrigger>
             </TabsList>
+
+            {/* 更多功能下拉選單 */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className={`shrink-0 flex items-center justify-center size-10 rounded-xl border transition-colors cursor-pointer ${
+                  ['waste', 'meal', 'stocktake'].includes(activeTab)
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-muted text-muted-foreground border-border hover:bg-accent'
+                }`}>
+                <MoreHorizontal className="size-5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => setActiveTab('waste')} className="gap-2 text-base py-3">
+                  <Trash2 className="size-4 text-orange-500" />
+                  報廢
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('meal')} className="gap-2 text-base py-3">
+                  <UtensilsCrossed className="size-4 text-purple-500" />
+                  員工餐
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab('stocktake')} className="gap-2 text-base py-3">
+                  <PackageCheck className="size-4 text-blue-500" />
+                  盤點
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* ===== Tab 1: 清單模式 ===== */}
@@ -681,7 +701,23 @@ export default function OrderPageClient({
             </>
           )}
 
-          <SheetFooter>
+          <SheetFooter className="flex-col gap-2">
+            {/* 門市未選時在 Sheet 內提示選擇 */}
+            {!selectedStoreId && (
+              <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-xl w-full">
+                <AlertTriangleIcon className="size-5 text-orange-500 shrink-0" />
+                <Select value={selectedStoreId} onValueChange={(v) => setSelectedStoreId(v ?? "")}>
+                  <SelectTrigger className="flex-1 h-11 rounded-xl text-base">
+                    <SelectValue placeholder="請先選擇門市" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stores.map((store) => (
+                      <SelectItem key={store.id} value={String(store.id)}>{store.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <Button
               onClick={handleSubmitOrder}
               className="w-full h-14 text-lg font-bold gap-2 rounded-xl"
@@ -766,7 +802,7 @@ function MyOrdersTab({ userId, storeId }: { userId: number; storeId: number }) {
                 <Badge className={`text-xs ${st.color}`}>{st.label}</Badge>
                 <span className="text-sm text-muted-foreground">{o.items.length} 項</span>
               </div>
-              <span className="text-sm text-muted-foreground">{isExpanded ? '收合 ▲' : '展開 ▼'}</span>
+              <ChevronDownIcon className={`size-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
             </button>
 
             {isExpanded && (
@@ -806,6 +842,7 @@ const RESULT_COLORS: Record<string, string> = { 正常: 'text-green-600', 短缺
 
 function ReceivingTab({ storeId }: { storeId: number }) {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [items, setItems] = useState<Array<{
     orderItemId: number; itemName: string; quantity: string; unit: string
     supplierName: string; isReceived: boolean; receivedResult?: string
@@ -813,15 +850,20 @@ function ReceivingTab({ storeId }: { storeId: number }) {
   const [inputs, setInputs] = useState<Record<number, RecInput>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
+  function loadData() {
     setLoading(true)
+    setError('')
     const today = new Date().toISOString().slice(0, 10)
     fetch(`/api/orders?date=${today}&limit=1`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then(async (ords) => {
         if (ords.length === 0) { setItems([]); return }
         const ord = ords[0]
         const recRes = await fetch(`/api/receiving?orderId=${ord.id}`)
+        if (!recRes.ok) throw new Error(`HTTP ${recRes.status}`)
         const { details, receivings } = await recRes.json()
         const recMap = new Map<number, { result: string }>()
         for (const r of (receivings || [])) recMap.set(r.orderItemId, r)
@@ -842,9 +884,11 @@ function ReceivingTab({ storeId }: { storeId: number }) {
         }
         setInputs(newInputs)
       })
-      .catch(() => {})
+      .catch((e) => { setError(`載入失敗：${e.message}`) })
       .finally(() => setLoading(false))
-  }, [storeId])
+  }
+
+  useEffect(() => { loadData() }, [storeId])
 
   function updateInput(id: number, field: keyof RecInput, value: string) {
     setInputs(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
@@ -882,6 +926,15 @@ function ReceivingTab({ storeId }: { storeId: number }) {
   }
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
+  if (error) return (
+    <div className="text-center py-12 space-y-3">
+      <AlertTriangleIcon className="size-8 text-orange-500 mx-auto" />
+      <p className="text-base text-red-500">{error}</p>
+      <Button variant="outline" onClick={loadData} className="h-11 rounded-xl gap-2">
+        <Loader2 className="size-4" /> 重新載入
+      </Button>
+    </div>
+  )
   if (items.length === 0) return <div className="text-center py-12 text-muted-foreground text-base">今天沒有待驗收的品項</div>
 
   const bySupplier = new Map<string, typeof items>()
@@ -916,10 +969,12 @@ function ReceivingTab({ storeId }: { storeId: number }) {
                 const input = inputs[item.orderItemId]
                 const orderedQty = parseFloat(item.quantity)
                 return (
-                  <div key={item.orderItemId} className={`px-4 py-3 space-y-2 ${item.isReceived ? 'opacity-60' : ''}`}>
+                  <div key={item.orderItemId} className={`px-4 py-3 space-y-2 flex gap-3 ${item.isReceived ? 'bg-green-50/50' : ''}`}>
+                    <div className={`w-1 rounded-full shrink-0 self-stretch ${item.isReceived ? 'bg-green-400' : 'bg-transparent'}`} />
+                    <div className="flex-1 space-y-2">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-base font-medium">{item.itemName}</span>
+                        <span className={`text-base font-medium ${item.isReceived ? 'line-through text-muted-foreground' : ''}`}>{item.itemName}</span>
                         <span className="text-sm text-muted-foreground ml-2">訂 {orderedQty} {item.unit}</span>
                       </div>
                       {item.isReceived && (
@@ -963,6 +1018,7 @@ function ReceivingTab({ storeId }: { storeId: number }) {
                         onChange={e => updateInput(item.orderItemId, 'issue', e.target.value)}
                       />
                     )}
+                    </div>{/* end flex-1 wrapper */}
                   </div>
                 )
               })}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,12 @@ import {
 } from "@/components/ui/select";
 import {
   SearchIcon, Loader2, XIcon, Trash2, UtensilsCrossed, ClipboardCheck,
+  CheckCircle2,
 } from "lucide-react";
 import type { MenuItem, Store } from "@/lib/mock-data";
 
 // ─────────────────────────────────────────
-// 共用型別
+// 共用
 // ─────────────────────────────────────────
 
 interface TabProps {
@@ -21,6 +22,144 @@ interface TabProps {
   stores: Store[];
   storeId: number;
   userName: string;
+}
+
+/** 最近使用品項（localStorage） */
+const RECENT_WASTE_KEY = "dragon-order-recent-waste";
+const RECENT_MEAL_KEY = "dragon-order-recent-meal";
+const MAX_RECENT = 6;
+
+function getRecentIds(key: string): number[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(key) || "[]"); }
+  catch { return []; }
+}
+function saveRecentIds(key: string, ids: number[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(key, JSON.stringify(ids.slice(0, MAX_RECENT)));
+}
+
+/** 快捷數量按鈕 */
+function QuickQtyButtons({ onSelect }: { onSelect: (v: string) => void }) {
+  return (
+    <div className="flex gap-2">
+      {[1, 2, 5, 10].map((v) => (
+        <button
+          key={v}
+          onClick={() => onSelect(String(v))}
+          className="shrink-0 w-12 h-12 rounded-xl bg-muted text-sm font-bold border border-border active:bg-accent transition-colors"
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** 品項搜尋列表（取代 Select 下拉） */
+function ItemSearchList({
+  items,
+  searchQuery,
+  setSearchQuery,
+  selectedItemId,
+  setSelectedItemId,
+  recentIds,
+  allItems,
+}: {
+  items: MenuItem[];
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  selectedItemId: string;
+  setSelectedItemId: (v: string) => void;
+  recentIds: number[];
+  allItems: MenuItem[];
+}) {
+  const recentItems = useMemo(() =>
+    recentIds.map(id => allItems.find(i => i.id === id)).filter((i): i is MenuItem => !!i),
+    [recentIds, allItems]
+  );
+
+  const selectedItem = allItems.find((i) => String(i.id) === selectedItemId);
+
+  return (
+    <>
+      {/* 搜尋框 */}
+      <div className="relative">
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="搜尋品項..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 h-12 text-base rounded-xl"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground p-1"
+          >
+            <XIcon className="size-4" />
+          </button>
+        )}
+      </div>
+
+      {/* 已選擇的品項 */}
+      {selectedItem && !searchQuery && (
+        <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+          <CheckCircle2 className="size-5 text-primary shrink-0" />
+          <span className="text-base font-semibold flex-1">{selectedItem.name}</span>
+          <button
+            onClick={() => setSelectedItemId("")}
+            className="text-muted-foreground p-1"
+          >
+            <XIcon className="size-4" />
+          </button>
+        </div>
+      )}
+
+      {/* 最近使用（沒搜尋、沒選擇時顯示） */}
+      {!searchQuery && !selectedItemId && recentItems.length > 0 && (
+        <div className="space-y-1.5">
+          <span className="text-xs text-muted-foreground font-medium px-1">最近使用</span>
+          <div className="flex flex-wrap gap-2">
+            {recentItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedItemId(String(item.id))}
+                className="px-3 py-2 rounded-xl border border-border bg-card text-sm font-medium active:bg-accent transition-colors"
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 搜尋結果列表（有搜尋詞時顯示） */}
+      {searchQuery && (
+        <div className="space-y-1 max-h-48 overflow-y-auto">
+          {items.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">找不到品項</div>
+          ) : (
+            items.slice(0, 12).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => { setSelectedItemId(String(item.id)); setSearchQuery(""); }}
+                className={`w-full flex justify-between items-center px-4 h-12 rounded-xl border text-left transition-colors active:bg-accent ${
+                  selectedItemId === String(item.id)
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border bg-card"
+                }`}
+              >
+                <span className="font-medium text-base">{item.name}</span>
+                <span className="text-muted-foreground text-sm">{item.category}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </>
+  );
 }
 
 // ─────────────────────────────────────────
@@ -40,8 +179,10 @@ export function WasteTab({ items, storeId }: TabProps) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [recentIds, setRecentIds] = useState<number[]>([]);
 
-  // 搜尋篩選品項
+  useEffect(() => { setRecentIds(getRecentIds(RECENT_WASTE_KEY)); }, []);
+
   const filteredItems = useMemo(() => {
     if (!searchQuery) return items;
     return items.filter(
@@ -81,6 +222,13 @@ export function WasteTab({ items, storeId }: TabProps) {
       if (res.ok) {
         const data = await res.json();
         toast.success(`${data.itemName} 報廢 ${quantity} ${selectedItem?.unit || ""} 完成`);
+        // 更新最近使用
+        const id = parseInt(selectedItemId);
+        setRecentIds((prev) => {
+          const next = [id, ...prev.filter((x) => x !== id)].slice(0, MAX_RECENT);
+          saveRecentIds(RECENT_WASTE_KEY, next);
+          return next;
+        });
         setSelectedItemId("");
         setQuantity("");
         setReason("expired");
@@ -103,59 +251,35 @@ export function WasteTab({ items, storeId }: TabProps) {
         食材報廢登記（過期、損壞等），會自動扣除庫存
       </div>
 
-      {/* 品項搜尋 */}
-      <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="搜尋品項..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 h-12 text-base rounded-xl"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground p-1"
-          >
-            <XIcon className="size-4" />
-          </button>
-        )}
-      </div>
+      {/* 品項搜尋+選擇（合併為列表模式） */}
+      <ItemSearchList
+        items={filteredItems}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedItemId={selectedItemId}
+        setSelectedItemId={setSelectedItemId}
+        recentIds={recentIds}
+        allItems={items}
+      />
 
-      {/* 品項選擇 */}
-      <Select value={selectedItemId} onValueChange={(v) => setSelectedItemId(v ?? "")}>
-        <SelectTrigger className="h-12 text-base rounded-xl">
-          <SelectValue placeholder="選擇品項" />
-        </SelectTrigger>
-        <SelectContent className="max-h-60">
-          {filteredItems.map((item) => (
-            <SelectItem key={item.id} value={String(item.id)}>
-              {item.name}
-              <span className="text-muted-foreground ml-1 text-sm">
-                ({item.category})
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* 數量 */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <Input
-            type="number"
-            step="0.5"
-            min="0"
-            placeholder="數量"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            className="h-12 text-base text-center rounded-xl"
-          />
+      {/* 數量 + 快捷按鈕 */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="數量"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="h-12 text-base text-center rounded-xl"
+            />
+          </div>
+          <span className="text-base text-muted-foreground shrink-0 w-12">
+            {selectedItem?.unit || "單位"}
+          </span>
         </div>
-        <span className="text-base text-muted-foreground shrink-0 w-12">
-          {selectedItem?.unit || "單位"}
-        </span>
+        <QuickQtyButtons onSelect={setQuantity} />
       </div>
 
       {/* 原因 */}
@@ -185,11 +309,7 @@ export function WasteTab({ items, storeId }: TabProps) {
         className="w-full h-14 text-lg font-bold gap-2 rounded-xl"
         disabled={submitting || !selectedItemId || !quantity}
       >
-        {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : (
-          <Trash2 className="size-5" />
-        )}
+        {submitting ? <Loader2 className="size-5 animate-spin" /> : <Trash2 className="size-5" />}
         送出報廢
       </Button>
     </div>
@@ -206,6 +326,9 @@ export function MealTab({ items, storeId, userName }: TabProps) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [recentIds, setRecentIds] = useState<number[]>([]);
+
+  useEffect(() => { setRecentIds(getRecentIds(RECENT_MEAL_KEY)); }, []);
 
   const filteredItems = useMemo(() => {
     if (!searchQuery) return items;
@@ -245,6 +368,12 @@ export function MealTab({ items, storeId, userName }: TabProps) {
       if (res.ok) {
         const data = await res.json();
         toast.success(`${data.itemName} 員工餐 ${quantity} ${selectedItem?.unit || ""} 已登記`);
+        const id = parseInt(selectedItemId);
+        setRecentIds((prev) => {
+          const next = [id, ...prev.filter((x) => x !== id)].slice(0, MAX_RECENT);
+          saveRecentIds(RECENT_MEAL_KEY, next);
+          return next;
+        });
         setSelectedItemId("");
         setQuantity("");
         setNotes("");
@@ -272,59 +401,35 @@ export function MealTab({ items, storeId, userName }: TabProps) {
         <span className="font-semibold">{userName}</span>
       </div>
 
-      {/* 品項搜尋 */}
-      <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="搜尋品項..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 h-12 text-base rounded-xl"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground p-1"
-          >
-            <XIcon className="size-4" />
-          </button>
-        )}
-      </div>
+      {/* 品項搜尋+選擇 */}
+      <ItemSearchList
+        items={filteredItems}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedItemId={selectedItemId}
+        setSelectedItemId={setSelectedItemId}
+        recentIds={recentIds}
+        allItems={items}
+      />
 
-      {/* 品項選擇 */}
-      <Select value={selectedItemId} onValueChange={(v) => setSelectedItemId(v ?? "")}>
-        <SelectTrigger className="h-12 text-base rounded-xl">
-          <SelectValue placeholder="選擇品項" />
-        </SelectTrigger>
-        <SelectContent className="max-h-60">
-          {filteredItems.map((item) => (
-            <SelectItem key={item.id} value={String(item.id)}>
-              {item.name}
-              <span className="text-muted-foreground ml-1 text-sm">
-                ({item.category})
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* 數量 */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <Input
-            type="number"
-            step="0.5"
-            min="0"
-            placeholder="數量"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            className="h-12 text-base text-center rounded-xl"
-          />
+      {/* 數量 + 快捷按鈕 */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="數量"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="h-12 text-base text-center rounded-xl"
+            />
+          </div>
+          <span className="text-base text-muted-foreground shrink-0 w-12">
+            {selectedItem?.unit || "單位"}
+          </span>
         </div>
-        <span className="text-base text-muted-foreground shrink-0 w-12">
-          {selectedItem?.unit || "單位"}
-        </span>
+        <QuickQtyButtons onSelect={setQuantity} />
       </div>
 
       {/* 備註 */}
@@ -340,11 +445,7 @@ export function MealTab({ items, storeId, userName }: TabProps) {
         className="w-full h-14 text-lg font-bold gap-2 rounded-xl"
         disabled={submitting || !selectedItemId || !quantity}
       >
-        {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : (
-          <UtensilsCrossed className="size-5" />
-        )}
+        {submitting ? <Loader2 className="size-5 animate-spin" /> : <UtensilsCrossed className="size-5" />}
         送出登記
       </Button>
     </div>
@@ -371,8 +472,8 @@ export function StocktakeTab({ storeId }: TabProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-  // 載入庫存資料
   async function loadInventory() {
     if (!storeId) {
       toast.error("請先在頂部選擇門市");
@@ -385,7 +486,6 @@ export function StocktakeTab({ storeId }: TabProps) {
         const data: InventoryItem[] = await res.json();
         setInventoryItems(data);
         setLoaded(true);
-        // 預填空值
         const initial: Record<number, string> = {};
         for (const item of data) {
           initial[item.id] = "";
@@ -401,7 +501,6 @@ export function StocktakeTab({ storeId }: TabProps) {
     }
   }
 
-  // 篩選品項
   const categories = useMemo(() => {
     const cats = new Set(inventoryItems.map((i) => i.category));
     return Array.from(cats).sort();
@@ -415,13 +514,11 @@ export function StocktakeTab({ storeId }: TabProps) {
     });
   }, [inventoryItems, categoryFilter, searchQuery]);
 
-  // 計算有填寫的品項數
   const filledCount = Object.values(counts).filter(
     (v) => v !== "" && v !== undefined
   ).length;
 
   async function handleSubmit() {
-    // 只送有填寫的品項
     const toSubmit = Object.entries(counts)
       .filter(([, val]) => val !== "" && val !== undefined)
       .map(([id, val]) => ({
@@ -435,12 +532,15 @@ export function StocktakeTab({ storeId }: TabProps) {
     }
 
     setSubmitting(true);
+    setProgress({ current: 0, total: toSubmit.length });
     let successCount = 0;
     let failCount = 0;
 
-    for (const entry of toSubmit) {
+    for (let i = 0; i < toSubmit.length; i++) {
+      const entry = toSubmit[i];
+      setProgress({ current: i + 1, total: toSubmit.length });
       try {
-        const item = inventoryItems.find((i) => i.id === entry.itemId);
+        const item = inventoryItems.find((it) => it.id === entry.itemId);
         const res = await fetch("/api/inventory", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -453,26 +553,19 @@ export function StocktakeTab({ storeId }: TabProps) {
             source: "定期盤點",
           }),
         });
-        if (res.ok) {
-          successCount++;
-        } else {
-          failCount++;
-        }
+        if (res.ok) successCount++;
+        else failCount++;
       } catch {
         failCount++;
       }
     }
 
-    if (successCount > 0) {
-      toast.success(`盤點完成：${successCount} 項已更新`);
-    }
-    if (failCount > 0) {
-      toast.error(`${failCount} 項更新失敗`);
-    }
+    if (successCount > 0) toast.success(`盤點完成：${successCount} 項已更新`);
+    if (failCount > 0) toast.error(`${failCount} 項更新失敗`);
 
-    // 重新載入
     await loadInventory();
     setSubmitting(false);
+    setProgress({ current: 0, total: 0 });
   }
 
   if (!loaded) {
@@ -487,11 +580,7 @@ export function StocktakeTab({ storeId }: TabProps) {
           className="w-full h-14 text-lg font-bold gap-2 rounded-xl"
           disabled={loading || !storeId}
         >
-          {loading ? (
-            <Loader2 className="size-5 animate-spin" />
-          ) : (
-            <ClipboardCheck className="size-5" />
-          )}
+          {loading ? <Loader2 className="size-5 animate-spin" /> : <ClipboardCheck className="size-5" />}
           {!storeId ? "請先選擇門市" : "開始盤點"}
         </Button>
       </div>
@@ -524,9 +613,7 @@ export function StocktakeTab({ storeId }: TabProps) {
           <SelectContent>
             <SelectItem value="">全部</SelectItem>
             {categories.map((cat) => (
-              <SelectItem key={cat} value={cat}>
-                {cat}
-              </SelectItem>
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -550,26 +637,19 @@ export function StocktakeTab({ storeId }: TabProps) {
                 <div className="text-sm text-muted-foreground">
                   系統：{item.current_stock} {item.unit}
                   {diff !== null && diff !== 0 && (
-                    <span
-                      className={`ml-2 font-semibold ${diff > 0 ? "text-green-600" : "text-red-600"}`}
-                    >
-                      {diff > 0 ? "+" : ""}
-                      {diff.toFixed(1)}
+                    <span className={`ml-2 font-semibold ${diff > 0 ? "text-green-600" : "text-red-600"}`}>
+                      {diff > 0 ? "+" : ""}{diff.toFixed(1)}
                     </span>
                   )}
                 </div>
               </div>
               <Input
-                type="number"
-                step="0.5"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 placeholder="實際"
                 value={counts[item.id] || ""}
                 onChange={(e) =>
-                  setCounts((prev) => ({
-                    ...prev,
-                    [item.id]: e.target.value,
-                  }))
+                  setCounts((prev) => ({ ...prev, [item.id]: e.target.value }))
                 }
                 className="w-20 h-11 text-center text-base rounded-xl"
               />
@@ -581,18 +661,23 @@ export function StocktakeTab({ storeId }: TabProps) {
         })}
       </div>
 
-      {/* 送出 */}
+      {/* 送出（含進度） */}
       <Button
         onClick={handleSubmit}
         className="w-full h-14 text-lg font-bold gap-2 rounded-xl"
         disabled={submitting || filledCount === 0}
       >
         {submitting ? (
-          <Loader2 className="size-5 animate-spin" />
+          <>
+            <Loader2 className="size-5 animate-spin" />
+            {progress.total > 0 ? `${progress.current} / ${progress.total}` : "送出中..."}
+          </>
         ) : (
-          <ClipboardCheck className="size-5" />
+          <>
+            <ClipboardCheck className="size-5" />
+            送出盤點（{filledCount} 項）
+          </>
         )}
-        送出盤點（{filledCount} 項）
       </Button>
     </div>
   );
