@@ -32,12 +32,13 @@ import {
   LogOutIcon, SearchIcon, ShoppingCartIcon, PlusIcon,
   ScanTextIcon, SendIcon, XIcon, ArrowLeftIcon, CalendarIcon,
   ClipboardList, ClipboardCheck, CheckCircle2, AlertTriangle, Loader2,
-  ChevronDownIcon, ChevronUpIcon, Clock,
+  ChevronDownIcon, ChevronUpIcon, Clock, Trash2, UtensilsCrossed, PackageCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "./item-card";
 import { ParsedLineCard } from "./parsed-line-card";
 import { CartItemRow } from "./cart-item-row";
+import { WasteTab, MealTab, StocktakeTab } from "./inventory-tabs";
 
 interface OrderPageClientProps {
   user: SessionUser;
@@ -359,25 +360,39 @@ export default function OrderPageClient({
       {/* ===== 主要內容 ===== */}
       <main ref={mainRef} className="px-3 pt-3 pb-28">
         <Tabs defaultValue="list">
-          {/* Tab 切換列 */}
-          <TabsList className="w-full mb-3">
-            <TabsTrigger value="list" className="flex-1 gap-1.5 text-sm">
-              <ShoppingCartIcon className="size-4" />
-              叫貨
-            </TabsTrigger>
-            <TabsTrigger value="text" className="flex-1 gap-1.5 text-sm">
-              <ScanTextIcon className="size-4" />
-              文字
-            </TabsTrigger>
-            <TabsTrigger value="my-orders" className="flex-1 gap-1.5 text-sm">
-              <ClipboardList className="size-4" />
-              訂單
-            </TabsTrigger>
-            <TabsTrigger value="receiving" className="flex-1 gap-1.5 text-sm">
-              <ClipboardCheck className="size-4" />
-              驗收
-            </TabsTrigger>
-          </TabsList>
+          {/* Tab 切換列（可左右滑動） */}
+          <div className="overflow-x-auto -mx-3 px-3 mb-3 scrollbar-hide">
+            <TabsList className="w-max min-w-full">
+              <TabsTrigger value="list" className="gap-1 text-sm px-3">
+                <ShoppingCartIcon className="size-4" />
+                叫貨
+              </TabsTrigger>
+              <TabsTrigger value="text" className="gap-1 text-sm px-3">
+                <ScanTextIcon className="size-4" />
+                文字
+              </TabsTrigger>
+              <TabsTrigger value="my-orders" className="gap-1 text-sm px-3">
+                <ClipboardList className="size-4" />
+                訂單
+              </TabsTrigger>
+              <TabsTrigger value="receiving" className="gap-1 text-sm px-3">
+                <ClipboardCheck className="size-4" />
+                驗收
+              </TabsTrigger>
+              <TabsTrigger value="waste" className="gap-1 text-sm px-3">
+                <Trash2 className="size-4" />
+                報廢
+              </TabsTrigger>
+              <TabsTrigger value="meal" className="gap-1 text-sm px-3">
+                <UtensilsCrossed className="size-4" />
+                員工餐
+              </TabsTrigger>
+              <TabsTrigger value="stocktake" className="gap-1 text-sm px-3">
+                <PackageCheck className="size-4" />
+                盤點
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ===== Tab 1: 清單模式 ===== */}
           <TabsContent value="list">
@@ -557,6 +572,36 @@ export default function OrderPageClient({
           {/* ===== Tab 4: 驗收 ===== */}
           <TabsContent value="receiving">
             <ReceivingTab storeId={parseInt(selectedStoreId) || 0} />
+          </TabsContent>
+
+          {/* ===== Tab 5: 報廢 ===== */}
+          <TabsContent value="waste">
+            <WasteTab
+              items={items}
+              stores={stores}
+              storeId={parseInt(selectedStoreId) || 0}
+              userName={user.name}
+            />
+          </TabsContent>
+
+          {/* ===== Tab 6: 員工餐 ===== */}
+          <TabsContent value="meal">
+            <MealTab
+              items={items}
+              stores={stores}
+              storeId={parseInt(selectedStoreId) || 0}
+              userName={user.name}
+            />
+          </TabsContent>
+
+          {/* ===== Tab 7: 盤點 ===== */}
+          <TabsContent value="stocktake">
+            <StocktakeTab
+              items={items}
+              stores={stores}
+              storeId={parseInt(selectedStoreId) || 0}
+              userName={user.name}
+            />
           </TabsContent>
         </Tabs>
       </main>

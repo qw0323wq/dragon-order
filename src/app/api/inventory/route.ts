@@ -112,14 +112,15 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { itemId, type, quantity, unit, storeId, source, notes } = body as {
+  const { itemId, type, quantity, unit, storeId, source, notes, reason } = body as {
     itemId: number;
-    type: "in" | "out" | "adjust" | "transfer";
+    type: "in" | "out" | "adjust" | "transfer" | "waste" | "meal";
     quantity: number;
     unit?: string;
     storeId: number;
     source?: string;
     notes?: string;
+    reason?: string; // 報廢原因：expired/damaged/other
   };
 
   if (!itemId || !type || quantity === undefined || !storeId) {
@@ -176,19 +177,29 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // 一般進出貨/盤點
+  // 一般進出貨/盤點/報廢/員工餐
   const currentStock = await getStoreStock(itemId, storeId);
 
   let change: number;
   if (type === "in") {
     change = Math.abs(quantity);
-  } else if (type === "out") {
+  } else if (type === "out" || type === "waste" || type === "meal") {
+    // 報廢和員工餐跟出貨一樣扣庫存
     change = -Math.abs(quantity);
   } else {
+    // adjust：盤點
     change = quantity - currentStock;
   }
 
   const newStock = type === "adjust" ? quantity : currentStock + change;
+
+  // 自動產生 source 說明
+  const WASTE_REASONS: Record<string, string> = { expired: '過期', damaged: '損壞', other: '其他' };
+  const autoSource = type === "waste"
+    ? `報廢（${WASTE_REASONS[reason || 'other'] || reason || '其他'}）`
+    : type === "meal"
+    ? '員工餐'
+    : source || null;
 
   // 更新分店庫存
   await upsertStoreStock(itemId, storeId, change, unit, type === "adjust" ? quantity : undefined);
@@ -196,7 +207,7 @@ export async function POST(request: NextRequest) {
   // 記錄異動
   await sql`
     INSERT INTO inventory_logs (item_id, type, quantity, unit, balance_after, store_id, source, notes, created_by)
-    VALUES (${itemId}, ${type}, ${change}, ${unit || null}, ${newStock}, ${storeId}, ${source || null}, ${notes || null}, ${userId})
+    VALUES (${itemId}, ${type}, ${change}, ${unit || null}, ${newStock}, ${storeId}, ${autoSource}, ${notes || null}, ${userId})
   `;
 
   // 同步 items.current_stock

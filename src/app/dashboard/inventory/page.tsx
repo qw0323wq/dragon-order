@@ -66,12 +66,16 @@ const TYPE_LABELS: Record<string, string> = {
   out: '出貨',
   adjust: '盤點',
   transfer: '撥貨',
+  waste: '報廢',
+  meal: '員工餐',
 }
 
 const TYPE_COLORS: Record<string, string> = {
   in: 'text-green-600',
   out: 'text-red-600',
   adjust: 'text-blue-600',
+  waste: 'text-orange-600',
+  meal: 'text-purple-600',
 }
 
 interface StoreOption {
