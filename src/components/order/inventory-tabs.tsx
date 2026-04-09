@@ -163,7 +163,7 @@ function ItemSearchList({
 }
 
 // ─────────────────────────────────────────
-// 報廢 Tab
+// 共用庫存動作 Tab（報廢/員工餐共用）
 // ─────────────────────────────────────────
 
 const WASTE_REASONS = [
@@ -172,7 +172,50 @@ const WASTE_REASONS = [
   { value: "other", label: "其他" },
 ];
 
-export function WasteTab({ items, storeId }: TabProps) {
+interface ActionConfig {
+  /** API 送出的 type 欄位 */
+  type: "waste" | "meal";
+  /** localStorage key */
+  recentKey: string;
+  /** 頂部提示列 */
+  banner: { bg: string; text: string; icon: React.ReactNode; message: string };
+  /** 按鈕文字 */
+  buttonText: string;
+  /** 按鈕 icon */
+  buttonIcon: React.ReactNode;
+  /** toast 動詞 */
+  successVerb: string;
+  /** toast 失敗 */
+  errorText: string;
+  /** 是否顯示原因下拉 */
+  showReason?: boolean;
+  /** 是否顯示用餐人 */
+  showUserName?: boolean;
+}
+
+const WASTE_CONFIG: ActionConfig = {
+  type: "waste",
+  recentKey: RECENT_WASTE_KEY,
+  banner: { bg: "bg-orange-50 text-orange-700", text: "orange", icon: <Trash2 className="size-4 shrink-0" />, message: "食材報廢登記（過期、損壞等），會自動扣除庫存" },
+  buttonText: "送出報廢",
+  buttonIcon: <Trash2 className="size-5" />,
+  successVerb: "報廢",
+  errorText: "報廢失敗",
+  showReason: true,
+};
+
+const MEAL_CONFIG: ActionConfig = {
+  type: "meal",
+  recentKey: RECENT_MEAL_KEY,
+  banner: { bg: "bg-purple-50 text-purple-700", text: "purple", icon: <UtensilsCrossed className="size-4 shrink-0" />, message: "員工用餐登記，會自動扣除庫存" },
+  buttonText: "送出登記",
+  buttonIcon: <UtensilsCrossed className="size-5" />,
+  successVerb: "員工餐",
+  errorText: "登記失敗",
+  showUserName: true,
+};
+
+function InventoryActionTab({ items, storeId, userName, config }: TabProps & { config: ActionConfig }) {
   const [selectedItemId, setSelectedItemId] = useState<string>("");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("expired");
@@ -181,7 +224,7 @@ export function WasteTab({ items, storeId }: TabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [recentIds, setRecentIds] = useState<number[]>([]);
 
-  useEffect(() => { setRecentIds(getRecentIds(RECENT_WASTE_KEY)); }, []);
+  useEffect(() => { setRecentIds(getRecentIds(config.recentKey)); }, [config.recentKey]);
 
   const filteredItems = useMemo(() => {
     if (!searchQuery) return items;
@@ -211,22 +254,21 @@ export function WasteTab({ items, storeId }: TabProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemId: parseInt(selectedItemId),
-          type: "waste",
+          type: config.type,
           quantity: parseFloat(quantity),
           unit: selectedItem?.unit || null,
           storeId,
-          reason,
+          ...(config.showReason && { reason }),
           notes: notes || null,
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        toast.success(`${data.itemName} 報廢 ${quantity} ${selectedItem?.unit || ""} 完成`);
-        // 更新最近使用
+        toast.success(`${data.itemName} ${config.successVerb} ${quantity} ${selectedItem?.unit || ""} 完成`);
         const id = parseInt(selectedItemId);
         setRecentIds((prev) => {
           const next = [id, ...prev.filter((x) => x !== id)].slice(0, MAX_RECENT);
-          saveRecentIds(RECENT_WASTE_KEY, next);
+          saveRecentIds(config.recentKey, next);
           return next;
         });
         setSelectedItemId("");
@@ -235,10 +277,10 @@ export function WasteTab({ items, storeId }: TabProps) {
         setNotes("");
       } else {
         const data = await res.json();
-        toast.error(data.error || "報廢失敗");
+        toast.error(data.error || config.errorText);
       }
     } catch {
-      toast.error("報廢失敗");
+      toast.error(config.errorText);
     } finally {
       setSubmitting(false);
     }
@@ -246,12 +288,19 @@ export function WasteTab({ items, storeId }: TabProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 p-3 bg-orange-50 text-orange-700 rounded-xl text-sm font-medium">
-        <Trash2 className="size-4 shrink-0" />
-        食材報廢登記（過期、損壞等），會自動扣除庫存
+      <div className={`flex items-center gap-2 p-3 rounded-xl text-sm font-medium ${config.banner.bg}`}>
+        {config.banner.icon}
+        {config.banner.message}
       </div>
 
-      {/* 品項搜尋+選擇（合併為列表模式） */}
+      {/* 用餐人（僅員工餐顯示） */}
+      {config.showUserName && (
+        <div className="flex items-center gap-2 p-3 bg-muted rounded-xl text-base">
+          <span className="text-muted-foreground">用餐人：</span>
+          <span className="font-semibold">{userName}</span>
+        </div>
+      )}
+
       <ItemSearchList
         items={filteredItems}
         searchQuery={searchQuery}
@@ -282,21 +331,22 @@ export function WasteTab({ items, storeId }: TabProps) {
         <QuickQtyButtons onSelect={setQuantity} />
       </div>
 
-      {/* 原因 */}
-      <Select value={reason} onValueChange={(v) => setReason(v ?? "expired")}>
-        <SelectTrigger className="h-12 text-base rounded-xl">
-          <SelectValue placeholder="報廢原因" />
-        </SelectTrigger>
-        <SelectContent>
-          {WASTE_REASONS.map((r) => (
-            <SelectItem key={r.value} value={r.value}>
-              {r.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* 原因（僅報廢顯示） */}
+      {config.showReason && (
+        <Select value={reason} onValueChange={(v) => setReason(v ?? "expired")}>
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue placeholder="報廢原因" />
+          </SelectTrigger>
+          <SelectContent>
+            {WASTE_REASONS.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
-      {/* 備註 */}
       <Input
         placeholder="備註（選填）"
         value={notes}
@@ -309,147 +359,21 @@ export function WasteTab({ items, storeId }: TabProps) {
         className="w-full h-14 text-lg font-bold gap-2 rounded-xl"
         disabled={submitting || !selectedItemId || !quantity}
       >
-        {submitting ? <Loader2 className="size-5 animate-spin" /> : <Trash2 className="size-5" />}
-        送出報廢
+        {submitting ? <Loader2 className="size-5 animate-spin" /> : config.buttonIcon}
+        {config.buttonText}
       </Button>
     </div>
   );
 }
 
-// ─────────────────────────────────────────
-// 員工餐 Tab
-// ─────────────────────────────────────────
+/** 報廢 Tab — 使用共用 InventoryActionTab */
+export function WasteTab(props: TabProps) {
+  return <InventoryActionTab {...props} config={WASTE_CONFIG} />;
+}
 
-export function MealTab({ items, storeId, userName }: TabProps) {
-  const [selectedItemId, setSelectedItemId] = useState<string>("");
-  const [quantity, setQuantity] = useState("");
-  const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [recentIds, setRecentIds] = useState<number[]>([]);
-
-  useEffect(() => { setRecentIds(getRecentIds(RECENT_MEAL_KEY)); }, []);
-
-  const filteredItems = useMemo(() => {
-    if (!searchQuery) return items;
-    return items.filter(
-      (item) =>
-        item.name.includes(searchQuery) ||
-        item.aliases.some((a) => a.includes(searchQuery))
-    );
-  }, [items, searchQuery]);
-
-  const selectedItem = items.find((i) => String(i.id) === selectedItemId);
-
-  async function handleSubmit() {
-    if (!selectedItemId || !quantity || parseFloat(quantity) <= 0) {
-      toast.error("請選擇品項並填入數量");
-      return;
-    }
-    if (!storeId) {
-      toast.error("請先在頂部選擇門市");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/inventory", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId: parseInt(selectedItemId),
-          type: "meal",
-          quantity: parseFloat(quantity),
-          unit: selectedItem?.unit || null,
-          storeId,
-          notes: notes || null,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        toast.success(`${data.itemName} 員工餐 ${quantity} ${selectedItem?.unit || ""} 已登記`);
-        const id = parseInt(selectedItemId);
-        setRecentIds((prev) => {
-          const next = [id, ...prev.filter((x) => x !== id)].slice(0, MAX_RECENT);
-          saveRecentIds(RECENT_MEAL_KEY, next);
-          return next;
-        });
-        setSelectedItemId("");
-        setQuantity("");
-        setNotes("");
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "登記失敗");
-      }
-    } catch {
-      toast.error("登記失敗");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 p-3 bg-purple-50 text-purple-700 rounded-xl text-sm font-medium">
-        <UtensilsCrossed className="size-4 shrink-0" />
-        員工用餐登記，會自動扣除庫存
-      </div>
-
-      {/* 用餐人 */}
-      <div className="flex items-center gap-2 p-3 bg-muted rounded-xl text-base">
-        <span className="text-muted-foreground">用餐人：</span>
-        <span className="font-semibold">{userName}</span>
-      </div>
-
-      {/* 品項搜尋+選擇 */}
-      <ItemSearchList
-        items={filteredItems}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedItemId={selectedItemId}
-        setSelectedItemId={setSelectedItemId}
-        recentIds={recentIds}
-        allItems={items}
-      />
-
-      {/* 數量 + 快捷按鈕 */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <Input
-              type="text"
-              inputMode="decimal"
-              placeholder="數量"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className="h-12 text-base text-center rounded-xl"
-            />
-          </div>
-          <span className="text-base text-muted-foreground shrink-0 w-12">
-            {selectedItem?.unit || "單位"}
-          </span>
-        </div>
-        <QuickQtyButtons onSelect={setQuantity} />
-      </div>
-
-      {/* 備註 */}
-      <Input
-        placeholder="備註（選填）"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        className="h-12 text-base rounded-xl"
-      />
-
-      <Button
-        onClick={handleSubmit}
-        className="w-full h-14 text-lg font-bold gap-2 rounded-xl"
-        disabled={submitting || !selectedItemId || !quantity}
-      >
-        {submitting ? <Loader2 className="size-5 animate-spin" /> : <UtensilsCrossed className="size-5" />}
-        送出登記
-      </Button>
-    </div>
-  );
+/** 員工餐 Tab — 使用共用 InventoryActionTab */
+export function MealTab(props: TabProps) {
+  return <InventoryActionTab {...props} config={MEAL_CONFIG} />;
 }
 
 // ─────────────────────────────────────────
