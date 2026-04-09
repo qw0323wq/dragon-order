@@ -8,7 +8,8 @@ import { db } from "@/lib/db";
 import { users, stores } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
-import { requireAdmin, VALID_ROLES } from "@/lib/api-auth";
+import { requireAdmin } from "@/lib/api-auth";
+import { createUserSchema, parseBody } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
@@ -44,26 +45,9 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { name, employeeId, password, phone, role, storeId } = body as {
-    name: string;
-    employeeId: string;
-    password: string;
-    phone?: string;
-    role: string;
-    storeId: number | null;
-  };
-
-  if (!name || !employeeId || !password) {
-    return NextResponse.json({ error: "姓名、員工編號、密碼為必填" }, { status: 400 });
-  }
-  if (password.length < 4) {
-    return NextResponse.json({ error: "密碼至少 4 個字元" }, { status: 400 });
-  }
-
-  // Role 白名單驗證
-  if (role && !(VALID_ROLES as readonly string[]).includes(role)) {
-    return NextResponse.json({ error: `無效的角色，允許值: ${VALID_ROLES.join(", ")}` }, { status: 400 });
-  }
+  const parsed = parseBody(createUserSchema, body);
+  if (!parsed.ok) return parsed.response;
+  const { name, employeeId, password, phone, role, storeId } = parsed.data;
 
   // 檢查員工編號是否重複
   const [existing] = await db

@@ -521,10 +521,14 @@ export function StocktakeTab({ storeId }: TabProps) {
   async function handleSubmit() {
     const toSubmit = Object.entries(counts)
       .filter(([, val]) => val !== "" && val !== undefined)
-      .map(([id, val]) => ({
-        itemId: parseInt(id),
-        actualStock: parseFloat(val),
-      }));
+      .map(([id, val]) => {
+        const item = inventoryItems.find((it) => it.id === parseInt(id));
+        return {
+          itemId: parseInt(id),
+          quantity: parseFloat(val),
+          unit: item?.unit || undefined,
+        };
+      });
 
     if (toSubmit.length === 0) {
       toast.error("請至少填寫一個品項的實際庫存");
@@ -533,35 +537,30 @@ export function StocktakeTab({ storeId }: TabProps) {
 
     setSubmitting(true);
     setProgress({ current: 0, total: toSubmit.length });
-    let successCount = 0;
-    let failCount = 0;
 
-    for (let i = 0; i < toSubmit.length; i++) {
-      const entry = toSubmit[i];
-      setProgress({ current: i + 1, total: toSubmit.length });
-      try {
-        const item = inventoryItems.find((it) => it.id === entry.itemId);
-        const res = await fetch("/api/inventory", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            itemId: entry.itemId,
-            type: "adjust",
-            quantity: entry.actualStock,
-            unit: item?.unit || null,
-            storeId,
-            source: "定期盤點",
-          }),
-        });
-        if (res.ok) successCount++;
-        else failCount++;
-      } catch {
-        failCount++;
+    try {
+      // CRITICAL: 一次批次送出，不再逐筆 fetch（100 品項從 100 次 → 1 次）
+      const res = await fetch("/api/inventory/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeId,
+          items: toSubmit,
+          source: "定期盤點",
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProgress({ current: toSubmit.length, total: toSubmit.length });
+        toast.success(`盤點完成：${data.updated} 項已更新（${toSubmit.length - data.updated} 項無差異跳過）`);
+      } else {
+        const data = await res.json().catch(() => ({ error: "盤點失敗" }));
+        toast.error(data.error || "盤點失敗，請重試");
       }
+    } catch {
+      toast.error("網路錯誤，盤點失敗");
     }
-
-    if (successCount > 0) toast.success(`盤點完成：${successCount} 項已更新`);
-    if (failCount > 0) toast.error(`${failCount} 項更新失敗`);
 
     await loadInventory();
     setSubmitting(false);

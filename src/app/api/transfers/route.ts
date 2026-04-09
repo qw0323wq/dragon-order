@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest, requireManagerOrAbove } from "@/lib/api-auth";
+import { createTransferSchema, parseBody } from "@/lib/validations";
 import { verifySession } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
@@ -94,20 +95,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { type, fromStoreId, toStoreId, items, notes } = body as {
-    type: "transfer" | "borrow";
-    fromStoreId: number;
-    toStoreId: number;
-    items: { itemId: number; quantity: number; unit?: string }[];
-    notes?: string;
-  };
-
-  if (!type || !fromStoreId || !toStoreId || !items?.length) {
-    return NextResponse.json(
-      { error: "需要 type, fromStoreId, toStoreId, items" },
-      { status: 400 }
-    );
-  }
+  const parsed = parseBody(createTransferSchema, body);
+  if (!parsed.ok) return parsed.response;
+  const { type, fromStoreId, toStoreId, items, notes } = parsed.data;
 
   if (fromStoreId === toStoreId) {
     return NextResponse.json(

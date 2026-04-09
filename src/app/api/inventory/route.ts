@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest, requireManagerOrAbove } from "@/lib/api-auth";
+import { inventoryAdjustSchema, parseBody } from "@/lib/validations";
 import { verifySession } from "@/lib/session";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
@@ -111,23 +112,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { itemId, type, quantity, unit, storeId, source, notes, reason } = body as {
-    itemId: number;
-    type: "in" | "out" | "adjust" | "transfer" | "waste" | "meal";
-    quantity: number;
-    unit?: string;
-    storeId: number;
-    source?: string;
-    notes?: string;
-    reason?: string; // 報廢原因：expired/damaged/other
-  };
-
-  if (!itemId || !type || quantity === undefined || !storeId) {
-    return NextResponse.json(
-      { error: "需要 itemId, type, quantity, storeId" },
-      { status: 400 }
-    );
-  }
+  const parsed = parseBody(inventoryAdjustSchema, body);
+  if (!parsed.ok) return parsed.response;
+  const { itemId, type, quantity, unit, storeId, source, notes, reason } = parsed.data;
 
   // 確認品項存在
   const [item] = await sql`SELECT name FROM items WHERE id = ${itemId}`;

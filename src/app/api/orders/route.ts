@@ -8,6 +8,7 @@ import { db, rawSql } from "@/lib/db";
 import { orders, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { authenticateRequest, getStoreScope } from "@/lib/api-auth";
+import { createOrderSchema, parseBody } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
@@ -44,18 +45,12 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { storeId, items: cartItems, orderDate: customDate } = body as {
-    storeId: number;
-    items: Array<{ itemId: number; quantity: number; unit: string; unitPrice: number }>;
-    orderDate?: string; // 可指定日期（補 key 過去訂單用）
-  };
+  const parsed = parseBody(createOrderSchema, body);
+  if (!parsed.ok) return parsed.response;
+  const { storeId, items: cartItems, orderDate: customDate } = parsed.data;
 
   // CRITICAL: userId 從認證結果取得，不信任 body（防止冒充他人下單）
   const userId = auth.userId ?? null;
-
-  if (!storeId || !cartItems?.length) {
-    return NextResponse.json({ error: "缺少門市或品項" }, { status: 400 });
-  }
 
   // 使用指定日期或今天
   const targetDate = customDate || new Date().toISOString().slice(0, 10);
