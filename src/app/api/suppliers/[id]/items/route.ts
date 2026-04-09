@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { items, itemPriceHistory } from "@/lib/db/schema";
 import { eq, and, like } from "drizzle-orm";
 import { requireAdmin } from "@/lib/api-auth";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 /** 品項分類 → SKU 前綴 */
 const CAT_PREFIX: Record<string, string> = {
@@ -40,7 +41,10 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const supplierId = parseInt(id);
+  const supplierId = parseIntSafe(id);
+  if (supplierId === null) {
+    return NextResponse.json({ error: "無效的供應商 ID" }, { status: 400 });
+  }
 
   const supplierItems = await db
     .select({
@@ -70,7 +74,10 @@ export async function POST(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const supplierId = parseInt(id);
+  const supplierId = parseIntSafe(id);
+  if (supplierId === null) {
+    return NextResponse.json({ error: "無效的供應商 ID" }, { status: 400 });
+  }
   const body = await request.json();
   const { name, category, unit, costPrice, storePrice, sellPrice, spec } = body;
 
@@ -115,7 +122,10 @@ export async function PUT(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const supplierId = parseInt(id);
+  const supplierId = parseIntSafe(id);
+  if (supplierId === null) {
+    return NextResponse.json({ error: "無效的供應商 ID" }, { status: 400 });
+  }
   const body = await request.json();
   const { items: uploadItems } = body as {
     items: {

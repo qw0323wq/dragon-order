@@ -5,11 +5,10 @@
  * POST /api/price-history — 批次新增價格歷史紀錄
  */
 import { NextRequest, NextResponse } from 'next/server';
-import postgres from 'postgres';
+import { rawSql as sql } from '@/lib/db';
 import { authenticateRequest, requireAdmin } from '@/lib/api-auth';
 import { parseIntSafe } from '@/lib/parse-int-safe';
 
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 export async function GET(req: NextRequest) {
   const auth = await authenticateRequest(req);

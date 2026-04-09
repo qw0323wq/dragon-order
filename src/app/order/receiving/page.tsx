@@ -299,8 +299,8 @@ export default function ReceivingPage() {
           setStoreFilter(data.store_id ? String(data.store_id) : 'all')
         }
       }
-    }).catch(() => {})
-    fetch('/api/stores').then(r => r.json()).then(setStores).catch(() => {})
+    }).catch(() => toast.error('載入資料失敗'))
+    fetch('/api/stores').then(r => r.json()).then(setStores).catch(() => toast.error('載入門市失敗'))
   }, [])
 
   // 已驗收的 orderItemId 集合

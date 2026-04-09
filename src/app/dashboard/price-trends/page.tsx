@@ -42,7 +42,7 @@ export default function PriceTrendsPage() {
     fetch('/api/suppliers')
       .then((r) => r.json())
       .then((data) => setSuppliers(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .catch(() => { /* price data fetch failed */ })
 
     loadHistory()
   }, [])

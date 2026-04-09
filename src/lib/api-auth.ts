@@ -13,10 +13,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
+
+/** Timing-safe string comparison to prevent timing attacks on API keys */
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 const SESSION_COOKIE = "dragon-session";
 
@@ -69,20 +76,20 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
 
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
-  // 方式二：系統 Key（全域）
+  // 方式二：系統 Key（全域）— 使用 timing-safe 比對防止計時攻擊
   const adminKey = process.env.API_KEY_ADMIN;
-  if (adminKey && token === adminKey) {
+  if (adminKey && safeCompare(token, adminKey)) {
     return { ok: true, source: "system-key", role: "admin" };
   }
 
   const userKey = process.env.API_KEY_USER;
-  if (userKey && token === userKey) {
+  if (userKey && safeCompare(token, userKey)) {
     return { ok: true, source: "system-key", role: "user" };
   }
 
   // 向下相容舊 Key
   const legacyKey = process.env.API_KEY;
-  if (legacyKey && token === legacyKey) {
+  if (legacyKey && safeCompare(token, legacyKey)) {
     return { ok: true, source: "system-key", role: "admin" };
   }
 
@@ -122,23 +129,6 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
 }
 
 /**
- * 取得使用者的門市過濾條件
- * admin/buyer → null（看全部）
- * manager/staff → 只看自己的 storeId
- */
-export function getStoreFilter(auth: AuthSuccess): number | null {
-  if (auth.source === "system-key") return null; // 系統 Key 看全部
-  // 從 cookie 讀角色
-  if (auth.source === "cookie") {
-    const cookie = (auth as AuthSuccess & { _role?: string });
-    // admin/buyer 看全部，manager/staff 只看自己店
-    // 需要讀原始 role，不是 ApiRole
-    return null; // 先回 null，在呼叫端再處理
-  }
-  return auth.storeId ?? null;
-}
-
-/**
  * 從 session cookie 讀取原始角色
  */
 export function getSessionRole(request: NextRequest): string | null {
@@ -159,6 +149,10 @@ export function getStoreScope(request: NextRequest, auth: AuthSuccess): number |
   return auth.storeId ?? null;
 }
 
+/** 合法角色白名單 */
+export const VALID_ROLES = ["admin", "buyer", "manager", "staff"] as const;
+export type UserRole = (typeof VALID_ROLES)[number];
+
 /**
  * 要求管理員權限
  */
@@ -171,6 +165,31 @@ export async function requireAdmin(request: NextRequest): Promise<AuthResult> {
       ok: false,
       response: NextResponse.json(
         { error: "權限不足，需要管理員權限" },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return auth;
+}
+
+/**
+ * 要求 manager 以上權限（庫存異動、調撥、驗收等操作用）
+ * admin/buyer/manager 可通過，staff 被拒絕
+ */
+export async function requireManagerOrAbove(request: NextRequest): Promise<AuthResult> {
+  const auth = await authenticateRequest(request);
+  if (!auth.ok) return auth;
+
+  // system-key 直接通過
+  if (auth.source === "system-key") return auth;
+
+  const role = getSessionRole(request);
+  if (role === "staff") {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "權限不足，此操作需要店長以上權限" },
         { status: 403 }
       ),
     };

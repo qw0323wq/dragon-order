@@ -2,11 +2,10 @@
  * GET /api/inventory/logs?item_id=xx — 查詢某品項的庫存異動紀錄
  */
 import { NextRequest, NextResponse } from "next/server";
-import postgres from "postgres";
+import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);

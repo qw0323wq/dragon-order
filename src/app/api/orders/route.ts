@@ -4,7 +4,7 @@
  * POST /api/orders — 建立/更新訂單（員工叫貨送出）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, rawSql } from "@/lib/db";
 import { orders, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { authenticateRequest, getStoreScope } from "@/lib/api-auth";
@@ -21,16 +21,14 @@ export async function GET(request: NextRequest) {
   // manager/staff 只看自己門市的訂單
   if (storeScope) {
     // 找出包含該門市 order_items 的訂單
-    const pgSql = (await import("postgres")).default(process.env.DATABASE_URL!, { prepare: false });
-    const result = await pgSql`
+    const result = await rawSql`
       SELECT DISTINCT o.* FROM orders o
       JOIN order_items oi ON oi.order_id = o.id
       WHERE oi.store_id = ${storeScope}
-      ${date ? pgSql`AND o.order_date = ${date}` : pgSql``}
+      ${date ? rawSql`AND o.order_date = ${date}` : rawSql``}
       ORDER BY o.order_date DESC, o.created_at DESC
       LIMIT ${limit}
     `;
-    await pgSql.end();
     return NextResponse.json(result);
   }
 
@@ -46,12 +44,14 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { storeId, items: cartItems, userId, orderDate: customDate } = body as {
+  const { storeId, items: cartItems, orderDate: customDate } = body as {
     storeId: number;
     items: Array<{ itemId: number; quantity: number; unit: string; unitPrice: number }>;
-    userId: number;
     orderDate?: string; // 可指定日期（補 key 過去訂單用）
   };
+
+  // CRITICAL: userId 從認證結果取得，不信任 body（防止冒充他人下單）
+  const userId = auth.userId ?? null;
 
   if (!storeId || !cartItems?.length) {
     return NextResponse.json({ error: "缺少門市或品項" }, { status: 400 });
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     unit: item.unit,
     unitPrice: item.unitPrice,
     subtotal: Math.round(item.quantity * item.unitPrice),
-    createdBy: userId || null,
+    createdBy: userId,
   }));
 
   await db.insert(orderItems).values(orderItemValues);

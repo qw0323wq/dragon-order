@@ -4,11 +4,10 @@
  * POST /api/receiving — 寫入/更新驗收紀錄
  */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, rawSql } from "@/lib/db";
 import { receiving, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
-import { authenticateRequest } from "@/lib/api-auth";
-import postgres from "postgres";
+import { authenticateRequest, requireManagerOrAbove } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function GET(request: NextRequest) {
@@ -62,7 +61,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authenticateRequest(request);
+  // CRITICAL: 驗收操作需要 manager 以上權限
+  const auth = await requireManagerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   // CRITICAL: 從認證結果取得驗收人 ID（個人 token 或 cookie session 都有值）
@@ -132,7 +132,6 @@ export async function POST(request: NextRequest) {
   }
 
   // 驗收完成自動入庫存（正常的品項）
-  const rawSql = postgres(process.env.DATABASE_URL!, { prepare: false });
   for (const rec of records) {
     if (rec.result !== '正常' && rec.result !== undefined) continue;
 
@@ -179,7 +178,6 @@ export async function POST(request: NextRequest) {
       VALUES (${oi.itemId}, 'in', ${qty}, ${oi.unit}, ${stockRow?.current_stock || qty}, ${oi.storeId}, '驗收入庫', ${receivedByUserId})
     `;
   }
-  await rawSql.end();
 
   return NextResponse.json({ success: true, count: results.length });
 }

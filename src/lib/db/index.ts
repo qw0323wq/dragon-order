@@ -14,6 +14,12 @@ const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 export const db = drizzle(client, { schema });
 
+/**
+ * 共用的 raw postgres.js client — 需要寫原生 SQL 時使用
+ * CRITICAL: 所有 API route 必須用這個，不要各自 new postgres()，否則連線池爆炸
+ */
+export { client as rawSql };
+
 /** DB 實例型別，供需要傳遞 db 的函式使用 */
 export type DB = typeof db;
 

@@ -142,7 +142,7 @@ function BomDialog({
     fetch("/api/items")
       .then((r) => r.json())
       .then((data: ItemOption[]) => setAllItems(data))
-      .catch(() => {});
+      .catch(() => toast.error('載入資料失敗'));
   }, []);
 
   useEffect(() => {

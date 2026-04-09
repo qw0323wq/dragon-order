@@ -89,7 +89,7 @@ export default function PurchaseOrdersPage() {
     fetch('/api/me')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setUserRole(data.role) })
-      .catch(() => {})
+      .catch(() => toast.error('載入資料失敗'))
   }, [])
 
   const fetchPOs = useCallback(async () => {

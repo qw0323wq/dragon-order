@@ -5,7 +5,7 @@
  * POST /api/purchase-orders                  — 從 order_items 產生叫貨單
  */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, rawSql } from "@/lib/db";
 import {
   purchaseOrders,
   purchaseOrderItems,
@@ -25,12 +25,10 @@ export async function GET(request: NextRequest) {
 
   const date = request.nextUrl.searchParams.get("date");
 
-  const pgSql = (await import("postgres")).default(process.env.DATABASE_URL!, { prepare: false });
-
   try {
     // 查叫貨單（用 order_date 篩選）
     const pos = date
-      ? await pgSql`
+      ? await rawSql`
           SELECT po.id, po.po_number, po.supplier_id, po.order_date, po.delivery_date,
                  po.status, po.total_amount, po.notes, po.created_at,
                  s.name as supplier_name, s.category as supplier_category
@@ -39,7 +37,7 @@ export async function GET(request: NextRequest) {
           WHERE po.order_date = ${date}
           ORDER BY s.category, s.name
         `
-      : await pgSql`
+      : await rawSql`
           SELECT po.id, po.po_number, po.supplier_id, po.order_date, po.delivery_date,
                  po.status, po.total_amount, po.notes, po.created_at,
                  s.name as supplier_name, s.category as supplier_category
@@ -50,14 +48,13 @@ export async function GET(request: NextRequest) {
         `;
 
     if (pos.length === 0) {
-      await pgSql.end();
       return NextResponse.json({ purchaseOrders: [], date });
     }
 
     // 一次查出所有叫貨單明細（避免 N+1）
     const poIds = pos.map((po) => po.id);
     const allPoItems = poIds.length > 0
-      ? await pgSql`
+      ? await rawSql`
           SELECT poi.id, poi.po_id, poi.item_id, poi.store_id, poi.quantity, poi.unit,
                  poi.unit_price, poi.subtotal, poi.notes,
                  i.name as item_name, i.category as item_category, i.unit as item_unit,
@@ -102,10 +99,8 @@ export async function GET(request: NextRequest) {
       })),
     }));
 
-    await pgSql.end();
     return NextResponse.json({ purchaseOrders: result, date });
   } catch (err) {
-    await pgSql.end();
     console.error("PO GET error:", err);
     return NextResponse.json({ purchaseOrders: [], date, error: "查詢失敗" });
   }
@@ -126,12 +121,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "請提供 date" }, { status: 400 });
   }
 
-  // 用 raw SQL 避免 Drizzle template 問題
-  const pgSql = (await import("postgres")).default(process.env.DATABASE_URL!, { prepare: false });
-
   try {
     // 1. 讀取該日所有訂單品項（draft 也算，排除 cancelled）
-    const rawItems = await pgSql`
+    const rawItems = await rawSql`
       SELECT oi.item_id, oi.store_id, oi.quantity, oi.unit, oi.unit_price, oi.notes,
              i.supplier_id, i.supplier_notes, i.cost_price
       FROM order_items oi
@@ -142,7 +134,6 @@ export async function POST(request: NextRequest) {
     `;
 
     if (rawItems.length === 0) {
-      await pgSql.end();
       return NextResponse.json(
         { error: `${date} 沒有訂單品項（請先從叫貨頁送出訂單）` },
         { status: 404 }
@@ -161,7 +152,7 @@ export async function POST(request: NextRequest) {
 
     // 3. 產生 PO 編號
     const dateStr = date.replace(/-/g, "");
-    const [{ count: existingCount }] = await pgSql`
+    const [{ count: existingCount }] = await rawSql`
       SELECT COUNT(*)::int as count FROM purchase_orders WHERE order_date = ${date}
     `;
     let poIndex = (existingCount as number) + 1;
@@ -171,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     for (const [supplierId, supplierItems] of bySupplier) {
       // 檢查是否已存在
-      const [existing] = await pgSql`
+      const [existing] = await rawSql`
         SELECT id FROM purchase_orders
         WHERE supplier_id = ${supplierId} AND order_date = ${date} AND status != 'cancelled'
         LIMIT 1
@@ -183,7 +174,7 @@ export async function POST(request: NextRequest) {
       if (existing) {
         poId = existing.id as number;
         poNumber = `PO-${dateStr}-existing`;
-        await pgSql`DELETE FROM purchase_order_items WHERE po_id = ${poId}`;
+        await rawSql`DELETE FROM purchase_order_items WHERE po_id = ${poId}`;
       } else {
         poNumber = `PO-${dateStr}-${String(poIndex).padStart(3, "0")}`;
         poIndex++;
@@ -194,7 +185,7 @@ export async function POST(request: NextRequest) {
           return sum + Math.round(qty * price);
         }, 0);
 
-        const [newPO] = await pgSql`
+        const [newPO] = await rawSql`
           INSERT INTO purchase_orders (po_number, supplier_id, order_date, delivery_date, total_amount, status, created_by)
           VALUES (${poNumber}, ${supplierId}, ${date}, ${date}, ${totalAmount}, 'draft', ${auth.userId ?? null})
           RETURNING id
@@ -206,7 +197,7 @@ export async function POST(request: NextRequest) {
       for (const si of supplierItems) {
         const qty = parseFloat(si.quantity as string) || 0;
         const price = (si.cost_price as number) || 0;
-        await pgSql`
+        await rawSql`
           INSERT INTO purchase_order_items (po_id, item_id, store_id, quantity, unit, unit_price, subtotal, notes)
           VALUES (${poId}, ${si.item_id}, ${si.store_id}, ${si.quantity}, ${si.unit}, ${price}, ${Math.round(qty * price)}, ${si.notes || si.supplier_notes || null})
         `;
@@ -214,8 +205,6 @@ export async function POST(request: NextRequest) {
 
       createdPOs.push({ id: poId, poNumber });
     }
-
-    await pgSql.end();
 
     return NextResponse.json({
       success: true,
@@ -225,7 +214,6 @@ export async function POST(request: NextRequest) {
       message: `已產生 ${bySupplier.size} 張叫貨單`,
     });
   } catch (err) {
-    await pgSql.end();
     console.error("PO generation error:", err);
     return NextResponse.json({ error: "產生叫貨單失敗" }, { status: 500 });
   }

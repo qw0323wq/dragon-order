@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { users, stores } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
-import { requireAdmin } from "@/lib/api-auth";
+import { requireAdmin, VALID_ROLES } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
@@ -58,6 +58,11 @@ export async function POST(request: NextRequest) {
   }
   if (password.length < 4) {
     return NextResponse.json({ error: "密碼至少 4 個字元" }, { status: 400 });
+  }
+
+  // Role 白名單驗證
+  if (role && !(VALID_ROLES as readonly string[]).includes(role)) {
+    return NextResponse.json({ error: `無效的角色，允許值: ${VALID_ROLES.join(", ")}` }, { status: 400 });
   }
 
   // 檢查員工編號是否重複

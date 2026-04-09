@@ -2,21 +2,23 @@
  * PUT /api/transfers/[id] — 歸還/沖銷借料
  */
 import { NextRequest, NextResponse } from "next/server";
-import postgres from "postgres";
-import { authenticateRequest } from "@/lib/api-auth";
+import { rawSql as sql } from "@/lib/db";
+import { requireManagerOrAbove } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
-
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await authenticateRequest(request);
+  // CRITICAL: 歸還/沖銷操作需要 manager 以上權限
+  const auth = await requireManagerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const { id: idStr } = await params;
   const id = parseInt(idStr);
+  if (isNaN(id)) {
+    return NextResponse.json({ error: "無效的 ID" }, { status: 400 });
+  }
 
   let userId: number | null = null;
   if (auth.source === "cookie") {

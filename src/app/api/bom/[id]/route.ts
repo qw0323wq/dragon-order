@@ -5,10 +5,8 @@
  * DELETE /api/bom/[id] — 刪除菜品（cascade 刪除 BOM 明細）
  */
 import { NextRequest, NextResponse } from "next/server";
-import postgres from "postgres";
+import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
-
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 export async function PUT(
   request: NextRequest,

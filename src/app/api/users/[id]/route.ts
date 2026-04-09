@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
-import { requireAdmin } from "@/lib/api-auth";
+import { requireAdmin, VALID_ROLES } from "@/lib/api-auth";
 
 export async function PATCH(
   request: NextRequest,
@@ -51,7 +51,13 @@ export async function PATCH(
     updates.employeeId = employeeId;
   }
   if (phone !== undefined) updates.phone = phone || null;
-  if (role !== undefined) updates.role = role;
+  if (role !== undefined) {
+    // Role 白名單驗證
+    if (!(VALID_ROLES as readonly string[]).includes(role)) {
+      return NextResponse.json({ error: `無效的角色，允許值: ${VALID_ROLES.join(", ")}` }, { status: 400 });
+    }
+    updates.role = role;
+  }
   if (storeId !== undefined) updates.storeId = storeId || null;
   if (isActive !== undefined) updates.isActive = isActive;
   // 重設密碼（支援 newPassword 和舊的 newPin）

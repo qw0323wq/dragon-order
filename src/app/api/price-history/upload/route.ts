@@ -10,12 +10,10 @@
  * Body: FormData { file: xlsx, supplier_id: string, effective_date?: string }
  */
 import { NextRequest, NextResponse } from 'next/server';
-import postgres from 'postgres';
-import { authenticateRequest } from '@/lib/api-auth';
+import { rawSql as sql } from '@/lib/db';
+import { requireAdmin } from '@/lib/api-auth';
 import * as XLSX from 'xlsx';
 import { parseIntSafe } from '@/lib/parse-int-safe';
-
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 /** 每份克數（用於 per-kg 和 per-portion 之間的換算） */
 const GRAMS_PER_SERVING = 120;
@@ -81,7 +79,8 @@ function parseGenericQuote(sheet: XLSX.WorkSheet): PriceRow[] {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await authenticateRequest(req);
+  // CRITICAL: 報價上傳會修改進貨價，僅限管理員操作
+  const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
 
   const formData = await req.formData();

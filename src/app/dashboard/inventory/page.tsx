@@ -118,7 +118,7 @@ export default function InventoryPage() {
   useEffect(() => {
     fetch('/api/stores').then(r => r.json()).then((data: { id: number; name: string }[]) => {
       setStores(data.map(s => ({ value: String(s.id), label: s.name })))
-    }).catch(() => {})
+    }).catch(() => toast.error('載入資料失敗'))
   }, [])
 
   const [error, setError] = useState(false)

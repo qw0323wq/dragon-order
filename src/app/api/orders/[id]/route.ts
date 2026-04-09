@@ -4,7 +4,7 @@
  * PATCH /api/orders/[id] — 更新訂單狀態
  */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, rawSql } from "@/lib/db";
 import { orders, orderItems, items, stores, suppliers, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
@@ -48,8 +48,7 @@ export async function GET(
   }
 
   // 取得訂單明細（含品項、供應商、門市名稱、叫貨人）
-  const pgSql = (await import("postgres")).default(process.env.DATABASE_URL!, { prepare: false });
-  const details = await pgSql`
+  const details = await rawSql`
     SELECT oi.id, oi.quantity, oi.unit, oi.unit_price, oi.subtotal, oi.notes,
            oi.created_by as created_by_id,
            i.name as item_name, i.category as item_category, i.supplier_notes,
@@ -64,7 +63,6 @@ export async function GET(
     WHERE oi.order_id = ${orderId}
     ORDER BY i.category, i.name
   `;
-  await pgSql.end();
 
   // 轉成前端用的 camelCase
   const formattedDetails = details.map(d => ({
@@ -118,14 +116,12 @@ export async function PATCH(
 
     // 檢查：admin 可以送出任何訂單，其他人只能送出自己有參與的訂單
     if (auth.role !== "admin" && auth.userId) {
-      const pgSql = (await import("postgres")).default(process.env.DATABASE_URL!, { prepare: false });
-      const [participation] = await pgSql`
+      const [participation] = await rawSql`
         SELECT 1 FROM order_items
         WHERE order_id = ${orderId}
-          AND (created_by = ${auth.userId} ${auth.storeId ? pgSql`OR store_id = ${auth.storeId}` : pgSql``})
+          AND (created_by = ${auth.userId} ${auth.storeId ? rawSql`OR store_id = ${auth.storeId}` : rawSql``})
         LIMIT 1
       `;
-      await pgSql.end();
       if (!participation) {
         return NextResponse.json({ error: "只能送出自己參與的訂單" }, { status: 403 });
       }

@@ -8,12 +8,10 @@
  * POST /api/inventory                     — 庫存異動（進貨/出貨/撥貨/盤點）
  */
 import { NextRequest, NextResponse } from "next/server";
-import postgres from "postgres";
-import { authenticateRequest } from "@/lib/api-auth";
+import { rawSql as sql } from "@/lib/db";
+import { authenticateRequest, requireManagerOrAbove } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
 import { parseIntSafe } from "@/lib/parse-int-safe";
-
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
@@ -100,7 +98,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authenticateRequest(request);
+  // CRITICAL: 庫存異動需要 manager 以上權限（staff 不能直接操作庫存）
+  const auth = await requireManagerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   let userId: number | null = null;
@@ -136,45 +135,61 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "品項不存在" }, { status: 404 });
   }
 
-  // 撥貨模式（總倉→分店 或 分店→分店）
+  // 撥貨模式（總倉→分店 或 分店→分店）— 包在 transaction 確保原子性
   if (type === "transfer") {
     const { toStoreId } = body as { toStoreId?: number };
     if (!toStoreId) {
       return NextResponse.json({ error: "撥貨需要 toStoreId" }, { status: 400 });
     }
 
-    const transferQty = Math.abs(quantity);
+    try {
+      const result = await sql.begin(async (_tx) => {
+        // postgres.js v3 TransactionSql 型別不支援 tagged template，用 any cast
+        const tx = _tx as unknown as typeof sql;
+        const transferQty = Math.abs(quantity);
 
-    // 從來源扣庫存
-    await upsertStoreStock(itemId, storeId, -transferQty, unit);
-    // 到目標加庫存
-    await upsertStoreStock(itemId, toStoreId, transferQty, unit);
+        // 從來源扣庫存
+        await upsertStoreStockTx(tx, itemId, storeId, -transferQty, unit);
+        // 到目標加庫存
+        await upsertStoreStockTx(tx, itemId, toStoreId, transferQty, unit);
 
-    // 取得最新庫存
-    const fromStock = await getStoreStock(itemId, storeId);
-    const toStock = await getStoreStock(itemId, toStoreId);
+        // 取得最新庫存
+        const [fromRow] = await tx`SELECT current_stock FROM store_inventory WHERE item_id = ${itemId} AND store_id = ${storeId}`;
+        const [toRow] = await tx`SELECT current_stock FROM store_inventory WHERE item_id = ${itemId} AND store_id = ${toStoreId}`;
+        const fromStock = parseFloat(fromRow?.current_stock as string) || 0;
+        const toStock = parseFloat(toRow?.current_stock as string) || 0;
 
-    // 記錄兩筆 log
-    await sql`
-      INSERT INTO inventory_logs (item_id, type, quantity, unit, balance_after, store_id, source, notes, created_by)
-      VALUES (${itemId}, 'out', ${-transferQty}, ${unit || null}, ${fromStock}, ${storeId}, ${source || '撥貨轉出'}, ${notes || null}, ${userId})
-    `;
-    await sql`
-      INSERT INTO inventory_logs (item_id, type, quantity, unit, balance_after, store_id, source, notes, created_by)
-      VALUES (${itemId}, 'in', ${transferQty}, ${unit || null}, ${toStock}, ${toStoreId}, ${source || '撥貨轉入'}, ${notes || null}, ${userId})
-    `;
+        // 記錄兩筆 log
+        await tx`
+          INSERT INTO inventory_logs (item_id, type, quantity, unit, balance_after, store_id, source, notes, created_by)
+          VALUES (${itemId}, 'out', ${-transferQty}, ${unit || null}, ${fromStock}, ${storeId}, ${source || '撥貨轉出'}, ${notes || null}, ${userId})
+        `;
+        await tx`
+          INSERT INTO inventory_logs (item_id, type, quantity, unit, balance_after, store_id, source, notes, created_by)
+          VALUES (${itemId}, 'in', ${transferQty}, ${unit || null}, ${toStock}, ${toStoreId}, ${source || '撥貨轉入'}, ${notes || null}, ${userId})
+        `;
 
-    // 更新 items.current_stock（全部加總）
-    await syncItemTotalStock(itemId);
+        // 更新 items.current_stock（全部加總）
+        const [{ total }] = await tx`
+          SELECT COALESCE(SUM(current_stock::numeric), 0) as total
+          FROM store_inventory WHERE item_id = ${itemId}
+        `;
+        await tx`UPDATE items SET current_stock = ${total} WHERE id = ${itemId}`;
 
-    return NextResponse.json({
-      success: true,
-      itemName: item.name,
-      type: "transfer",
-      quantity: transferQty,
-      fromStock,
-      toStock,
-    });
+        return { transferQty, fromStock, toStock };
+      });
+
+      return NextResponse.json({
+        success: true,
+        itemName: item.name,
+        type: "transfer",
+        quantity: result.transferQty,
+        fromStock: result.fromStock,
+        toStock: result.toStock,
+      });
+    } catch {
+      return NextResponse.json({ error: "撥貨失敗，已自動回滾" }, { status: 500 });
+    }
   }
 
   // 一般進出貨/盤點/報廢/員工餐
@@ -223,6 +238,24 @@ export async function POST(request: NextRequest) {
 }
 
 // ── 輔助函式 ──
+
+/** Transaction 版本的 upsertStoreStock */
+async function upsertStoreStockTx(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx: any,
+  itemId: number,
+  storeId: number,
+  change: number,
+  unit?: string,
+) {
+  const [existing] = await tx`SELECT id FROM store_inventory WHERE item_id = ${itemId} AND store_id = ${storeId}`;
+  if (existing) {
+    await tx`UPDATE store_inventory SET current_stock = current_stock + ${change}, updated_at = NOW() WHERE item_id = ${itemId} AND store_id = ${storeId}`;
+  } else {
+    const value = Math.max(0, change);
+    await tx`INSERT INTO store_inventory (item_id, store_id, current_stock, stock_unit) VALUES (${itemId}, ${storeId}, ${value}, ${unit || null})`;
+  }
+}
 
 /** 取得某品項在某地點的庫存 */
 async function getStoreStock(itemId: number, storeId: number): Promise<number> {

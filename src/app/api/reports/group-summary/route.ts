@@ -5,10 +5,9 @@
  * 各店採購金額比較、品項用量排名、成本佔比
  */
 import { NextRequest, NextResponse } from "next/server";
-import postgres from "postgres";
+import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);

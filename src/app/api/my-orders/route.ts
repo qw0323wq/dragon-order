@@ -3,11 +3,10 @@
  * 自動根據 session 的 userId + storeId 過濾
  */
 import { NextRequest, NextResponse } from "next/server";
-import postgres from "postgres";
+import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
 
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);

@@ -101,7 +101,7 @@ export default function TransfersPage() {
     ]).then(([s, i]) => {
       setStores(s)
       setAllItems(i)
-    }).catch(() => {})
+    }).catch(() => toast.error('載入資料失敗'))
   }, [])
 
   // 新增調撥
