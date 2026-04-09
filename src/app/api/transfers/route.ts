@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest, requireManagerOrAbove } from "@/lib/api-auth";
+import { notifyTransferDone } from "@/lib/line-notify";
 import { createTransferSchema, parseBody } from "@/lib/validations";
 import { verifySession } from "@/lib/session";
 
@@ -170,6 +171,15 @@ export async function POST(request: NextRequest) {
 
       return { transferNumber, id: transfer.id };
     });
+
+    // LINE 通知（非阻塞）
+    notifyTransferDone({
+      transferNumber: result.transferNumber,
+      type,
+      fromStore: String(fromStoreId),
+      toStore: String(toStoreId),
+      itemCount: items.length,
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

@@ -8,6 +8,7 @@ import { db, rawSql } from "@/lib/db";
 import { orders, orderItems, items, stores, suppliers, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
+import { notifyOrderSubmitted } from "@/lib/line-notify";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function GET(
@@ -128,6 +129,16 @@ export async function PATCH(
     }
 
     await db.update(orders).set({ status: "submitted", updatedAt: new Date() }).where(eq(orders.id, orderId));
+
+    // LINE 通知（非阻塞，推播失敗不影響送出）
+    notifyOrderSubmitted({
+      userName: auth.userName || "未知",
+      storeName: "門市",
+      itemCount: 0,
+      totalAmount: 0,
+      orderDate: orderId.toString(),
+    }).catch(() => {});
+
     return NextResponse.json({ success: true });
   }
 

@@ -17,6 +17,10 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/api-auth";
+import { createLogger } from "@/lib/logger";
+import { notifyPOGenerated } from "@/lib/line-notify";
+
+const log = createLogger("purchase-orders");
 
 /** GET — 讀取叫貨單列表（支援 date/status 篩選） */
 export async function GET(request: NextRequest) {
@@ -101,7 +105,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ purchaseOrders: result, date });
   } catch (err) {
-    console.error("PO GET error:", err);
+    log.error({ err, date }, "PO GET error");
     return NextResponse.json({ purchaseOrders: [], date, error: "查詢失敗" });
   }
 }
@@ -206,6 +210,13 @@ export async function POST(request: NextRequest) {
       createdPOs.push({ id: poId, poNumber });
     }
 
+    // LINE 通知（非阻塞）
+    notifyPOGenerated({
+      date,
+      supplierCount: bySupplier.size,
+      poNumbers: createdPOs.map((po) => po.poNumber),
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       date,
@@ -214,7 +225,7 @@ export async function POST(request: NextRequest) {
       message: `已產生 ${bySupplier.size} 張叫貨單`,
     });
   } catch (err) {
-    console.error("PO generation error:", err);
+    log.error({ err, date }, "PO generation error");
     return NextResponse.json({ error: "產生叫貨單失敗" }, { status: 500 });
   }
 }
