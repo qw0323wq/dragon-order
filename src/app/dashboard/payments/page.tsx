@@ -86,34 +86,8 @@ interface MonthlyReport {
   }
 }
 
-// ── 月份工具 ─────────────────────────────────────────────────────────────────
-
-/** 格式化月份為 YYYY-MM */
-function formatMonth(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}`
-}
-
-/** 格式化月份為顯示用：YYYY 年 MM 月 */
-function formatMonthDisplay(month: string): string {
-  const [y, m] = month.split('-')
-  return `${y} 年 ${parseInt(m)} 月`
-}
-
-/** 月份加減 */
-function addMonths(month: string, delta: number): string {
-  const [y, m] = month.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return formatMonth(d)
-}
-
-// ── 金額格式化 ────────────────────────────────────────────────────────────────
-
-/** 格式化為新台幣顯示，如 $12,345 */
-function fmtAmount(n: number): string {
-  return `$${n.toLocaleString()}`
-}
+// ── 共用工具（從 lib/format 匯入）──
+import { formatMonth, formatMonthDisplay, addMonths, formatCurrency as fmtAmount } from "@/lib/format";
 
 // ── Tab 識別碼型別 ─────────────────────────────────────────────────────────
 

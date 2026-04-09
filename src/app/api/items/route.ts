@@ -12,10 +12,21 @@ import { eq } from "drizzle-orm";
 import { authenticateRequest } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
 import { getEffectiveStorePrice } from "@/lib/permissions";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
+
+  const { searchParams } = new URL(request.url);
+  const limitParam = searchParams.get("limit");
+  const offsetParam = searchParams.get("offset");
+  const category = searchParams.get("category");
+  const search = searchParams.get("search");
+
+  // 分頁參數（向下相容：不帶 limit 時回傳全部）
+  const limit = limitParam ? parseIntSafe(limitParam) : null;
+  const offset = offsetParam ? (parseIntSafe(offsetParam) ?? 0) : 0;
 
   const allItems = await db
     .select({
@@ -53,11 +64,25 @@ export async function GET(request: NextRequest) {
     userRole = auth.role === "admin" ? "admin" : "staff";
   }
 
-  const result = allItems.map((item) => {
+  // 伺服器端篩選（分類、搜尋）
+  let filtered = allItems;
+  if (category) {
+    filtered = filtered.filter((item) => item.category === category);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        item.sku?.toLowerCase().includes(q) ||
+        item.aliases?.some((a) => a.toLowerCase().includes(q))
+    );
+  }
+
+  const result = filtered.map((item) => {
     const effectiveStorePrice = getEffectiveStorePrice(item.costPrice, item.storePrice);
 
     if (userRole === "admin" || userRole === "buyer") {
-      // 管理員/採購：看進貨價 + 店家採購價 + 售價
       return {
         ...item,
         costPrice: item.costPrice,
@@ -65,7 +90,6 @@ export async function GET(request: NextRequest) {
         sellPrice: item.sellPrice,
       };
     } else if (userRole === "manager") {
-      // 店長：店家採購價當作他的成本，看不到進貨價
       return {
         ...item,
         costPrice: effectiveStorePrice,
@@ -73,7 +97,6 @@ export async function GET(request: NextRequest) {
         sellPrice: item.sellPrice,
       };
     } else {
-      // 員工：看不到任何價格
       return {
         ...item,
         costPrice: 0,
@@ -83,5 +106,15 @@ export async function GET(request: NextRequest) {
     }
   });
 
+  // 分頁回傳（帶 limit 參數時）
+  if (limit !== null && limit > 0) {
+    const paginated = result.slice(offset, offset + limit);
+    return NextResponse.json({
+      data: paginated,
+      meta: { total: result.length, limit, offset, hasMore: offset + limit < result.length },
+    });
+  }
+
+  // 向下相容：不帶 limit 時回傳全部陣列
   return NextResponse.json(result);
 }

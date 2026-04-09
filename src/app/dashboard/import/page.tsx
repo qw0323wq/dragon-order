@@ -78,12 +78,8 @@ interface ParsedFile {
   matchedRows?: MatchedItemRow[]
 }
 
-// ── 輔助函式 ─────────────────────────────────────────────────────────────────
-
-/** 格式化金額（加千分位） */
-function fmtMoney(n: number): string {
-  return '$' + n.toLocaleString('zh-TW')
-}
+// ── 共用工具（從 lib/format 匯入）──
+import { formatCurrency as fmtMoney } from "@/lib/format";
 
 /** 類型中文標籤 */
 const TYPE_LABEL: Record<string, string> = {

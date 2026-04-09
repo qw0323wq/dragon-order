@@ -107,27 +107,8 @@ interface Order {
   itemCount?: number
 }
 
-// ── 月份工具函式 ───────────────────────────────────────────────────────────────
-
-/** 將 Date 格式化為 YYYY-MM */
-function formatMonth(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}`
-}
-
-/** 格式化為顯示用：YYYY 年 MM 月 */
-function formatMonthDisplay(month: string): string {
-  const [y, m] = month.split('-')
-  return `${y} 年 ${parseInt(m)} 月`
-}
-
-/** 月份加減，delta 為正負整數（月） */
-function addMonths(month: string, delta: number): string {
-  const [y, m] = month.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return formatMonth(d)
-}
+// ── 共用工具（從 lib/format 匯入）──
+import { formatMonth, formatMonthDisplay, addMonths } from "@/lib/format";
 
 // ── 訂單狀態對照表 ────────────────────────────────────────────────────────────
 

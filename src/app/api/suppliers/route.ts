@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { suppliers } from "@/lib/db/schema";
 import { eq, sql, like } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
+import { parseIntSafe } from "@/lib/parse-int-safe";
 
 /** 供應商分類 → 代碼前綴 */
 const SUP_PREFIX: Record<string, string> = {
@@ -32,8 +33,18 @@ async function generateSupplierCode(category: string): Promise<string> {
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
+
+  const { searchParams } = new URL(request.url);
+  const limitParam = searchParams.get("limit");
+  const offsetParam = searchParams.get("offset");
+  const category = searchParams.get("category");
+  const search = searchParams.get("search");
+
+  const limit = limitParam ? parseIntSafe(limitParam) : null;
+  const offset = offsetParam ? (parseIntSafe(offsetParam) ?? 0) : 0;
+
   // 取得供應商 + 各供應商的品項數量
-  const result = await db
+  const allSuppliers = await db
     .select({
       id: suppliers.id,
       code: suppliers.code,
@@ -58,7 +69,32 @@ export async function GET(request: NextRequest) {
     .where(eq(suppliers.isActive, true))
     .orderBy(suppliers.name);
 
-  return NextResponse.json(result);
+  // 伺服器端篩選
+  let filtered = allSuppliers;
+  if (category) {
+    filtered = filtered.filter((s) => s.category === category);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.code?.toLowerCase().includes(q) ||
+        s.contact?.toLowerCase().includes(q)
+    );
+  }
+
+  // 分頁回傳（帶 limit 參數時）
+  if (limit !== null && limit > 0) {
+    const paginated = filtered.slice(offset, offset + limit);
+    return NextResponse.json({
+      data: paginated,
+      meta: { total: filtered.length, limit, offset, hasMore: offset + limit < filtered.length },
+    });
+  }
+
+  // 向下相容：不帶 limit 時回傳全部陣列
+  return NextResponse.json(filtered);
 }
 
 export async function POST(request: NextRequest) {
