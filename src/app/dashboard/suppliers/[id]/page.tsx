@@ -70,6 +70,9 @@ export default function SupplierDetailPage() {
   const [uploadResult, setUploadResult] = useState<{ updated: number; created: number } | null>(null)
   const [showInactive, setShowInactive] = useState(false)
 
+  // 預約改價排程（key: itemId）
+  const [pendingSchedules, setPendingSchedules] = useState<Record<number, { newCostPrice: number; effectiveDate: string }>>({})
+
   const fetchData = useCallback(async () => {
     try {
       const [suppRes, itemsRes] = await Promise.all([
@@ -80,6 +83,17 @@ export default function SupplierDetailPage() {
       const supplier = (suppliers as { id: number; name: string }[]).find(s => s.id === supplierId)
       setSupplierName(supplier?.name || `供應商 #${supplierId}`)
       setItems(await itemsRes.json())
+
+      // 載入該供應商品項的 pending 排程
+      const schedRes = await fetch(`/api/price-schedule?status=pending&supplier_id=${supplierId}`)
+      const schedData = await schedRes.json()
+      const map: Record<number, { newCostPrice: number; effectiveDate: string }> = {}
+      if (Array.isArray(schedData)) {
+        for (const s of schedData) {
+          map[s.itemId] = { newCostPrice: s.newCostPrice, effectiveDate: s.effectiveDate }
+        }
+      }
+      setPendingSchedules(map)
     } catch {
       toast.error('載入失敗')
     } finally {
@@ -359,7 +373,14 @@ export default function SupplierDetailPage() {
                       <Badge variant="secondary" className="text-xs">{item.category}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">{item.unit}</TableCell>
-                    <TableCell className="text-right">${item.costPrice}</TableCell>
+                    <TableCell className="text-right">
+                      ${item.costPrice}
+                      {pendingSchedules[item.id] && (
+                        <span className="ml-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                          {pendingSchedules[item.id].effectiveDate.slice(5)} 起→${pendingSchedules[item.id].newCostPrice}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       {item.storePrice > 0 ? `$${item.storePrice}` : <span className="text-muted-foreground text-xs">自動</span>}
                     </TableCell>

@@ -475,6 +475,47 @@ export type ItemPriceHistory = typeof itemPriceHistory.$inferSelect;
 export type NewItemPriceHistory = typeof itemPriceHistory.$inferInsert;
 
 // ─────────────────────────────────────────────
+// 預約改價排程
+// ─────────────────────────────────────────────
+export const scheduledPriceChanges = pgTable('scheduled_price_changes', {
+  id: serial('id').primaryKey(),
+  itemId: integer('item_id')
+    .references(() => items.id, { onDelete: 'cascade' })
+    .notNull(),
+  /** 新進貨價（元） */
+  newCostPrice: integer('new_cost_price').notNull(),
+  /** 新店家採購價（元），null = 不改 */
+  newStorePrice: integer('new_store_price'),
+  /** 生效日期 */
+  effectiveDate: date('effective_date').notNull(),
+  /** 來源（如「鉊玖通知」「以曜4月報價」） */
+  source: varchar('source', { length: 100 }),
+  /** 備註 */
+  notes: text('notes'),
+  /** 狀態：pending=待執行 / applied=已生效 / cancelled=已取消 */
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  /** 建立者 */
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  /** 實際執行時間 */
+  appliedAt: timestamp('applied_at'),
+});
+
+export const scheduledPriceChangesRelations = relations(scheduledPriceChanges, ({ one }) => ({
+  item: one(items, {
+    fields: [scheduledPriceChanges.itemId],
+    references: [items.id],
+  }),
+  creator: one(users, {
+    fields: [scheduledPriceChanges.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export type ScheduledPriceChange = typeof scheduledPriceChanges.$inferSelect;
+export type NewScheduledPriceChange = typeof scheduledPriceChanges.$inferInsert;
+
+// ─────────────────────────────────────────────
 // 庫存異動紀錄
 // ─────────────────────────────────────────────
 export const inventoryLogs = pgTable('inventory_logs', {

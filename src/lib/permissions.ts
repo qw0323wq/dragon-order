@@ -25,6 +25,7 @@ export const ALL_PAGES = [
   { key: 'transfers', label: '調撥/借料', href: '/dashboard/transfers' },
   { key: 'reports', label: '營運報表', href: '/dashboard/reports' },
   { key: 'price-trends', label: '價格走勢', href: '/dashboard/price-trends' },
+  { key: 'price-schedule', label: '預約改價', href: '/dashboard/price-schedule' },
   { key: 'import', label: 'POS 匯入', href: '/dashboard/import' },
   { key: 'settings', label: '設定', href: '/dashboard/settings' },
   { key: 'order', label: '叫貨頁', href: '/order' },
@@ -35,7 +36,7 @@ export type PageKey = (typeof ALL_PAGES)[number]['key'];
 /** 預設權限（初始化 role_permissions 表用） */
 export const DEFAULT_PERMISSIONS: Record<AppRole, string[]> = {
   admin: ['*'], // 全部頁面
-  buyer: ['dashboard', 'orders', 'suppliers', 'menu', 'bom', 'payments', 'purchase-orders', 'inventory', 'transfers', 'reports', 'price-trends', 'order'],
+  buyer: ['dashboard', 'orders', 'suppliers', 'menu', 'bom', 'payments', 'purchase-orders', 'inventory', 'transfers', 'reports', 'price-trends', 'price-schedule', 'order'],
   manager: ['dashboard', 'orders', 'menu', 'payments', 'transfers', 'order'],
   staff: ['order'],
 };
