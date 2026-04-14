@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin } = body;
+  const { name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin, orderCutoff, minOrderAmount, orderDays } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "供應商名稱不能為空" }, { status: 400 });
@@ -127,6 +127,9 @@ export async function POST(request: NextRequest) {
       deliveryDays: deliveryDays || 1,
       freeShippingMin: freeShippingMin || 0,
       paymentType: paymentType || '月結',
+      ...(orderCutoff !== undefined && { orderCutoff }),
+      ...(minOrderAmount !== undefined && { minOrderAmount }),
+      ...(orderDays !== undefined && { orderDays }),
     })
     .returning();
 
@@ -138,7 +141,7 @@ export async function PATCH(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { id, name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin } = body;
+  const { id, name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin, orderCutoff, minOrderAmount, orderDays } = body;
 
   if (!id) {
     return NextResponse.json({ error: "缺少供應商 ID" }, { status: 400 });
@@ -160,6 +163,9 @@ export async function PATCH(request: NextRequest) {
       ...(deliveryDays !== undefined && { deliveryDays }),
       ...(freeShippingMin !== undefined && { freeShippingMin }),
       ...(paymentType && { paymentType }),
+      ...(orderCutoff !== undefined && { orderCutoff }),
+      ...(minOrderAmount !== undefined && { minOrderAmount }),
+      ...(orderDays !== undefined && { orderDays }),
     })
     .where(eq(suppliers.id, id))
     .returning();
