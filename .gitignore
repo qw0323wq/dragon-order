@@ -39,6 +39,11 @@ yarn-error.log*
 # data (symlink to 採購資料夾)
 /data
 
+# 採購 / 廠商敏感資料（含聯絡、費用、報價）
+/suppliers/
+*.xlsx
+*.xls
+
 # vercel
 .vercel
 
