@@ -44,6 +44,9 @@ yarn-error.log*
 *.xlsx
 *.xls
 
+# 報價排程計畫檔（preview 產出的衍生物，不需 commit）
+/scripts/plans/
+
 # vercel
 .vercel
 
