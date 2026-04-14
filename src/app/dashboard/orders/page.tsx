@@ -418,6 +418,7 @@ function DetailTabWithFilter({ details }: { details: OrderDetail[] }) {
                   <th className="text-left py-2 font-normal">供應商</th>
                   <th className="text-right py-2 font-normal">數量</th>
                   <th className="text-left py-2 font-normal">單位</th>
+                  <th className="text-right py-2 font-normal">單價</th>
                   <th className="text-right py-2 pr-4 font-normal">小計</th>
                 </tr>
               </thead>
@@ -430,11 +431,12 @@ function DetailTabWithFilter({ details }: { details: OrderDetail[] }) {
                     <td className="py-2 text-xs text-muted-foreground">{d.supplierName}</td>
                     <td className="py-2 text-right tabular-nums">{parseFloat(d.quantity)}</td>
                     <td className="py-2 text-xs text-muted-foreground">{d.unit}</td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">${d.unitPrice}</td>
                     <td className="py-2 text-right tabular-nums pr-4">${d.subtotal}</td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-border font-semibold">
-                  <td className="py-2 pl-4" colSpan={storeFilter === 'all' ? 5 : 4}>合計</td>
+                  <td className="py-2 pl-4" colSpan={storeFilter === 'all' ? 6 : 5}>合計</td>
                   <td className="py-2 text-right pr-4" colSpan={2}>${total.toLocaleString()}</td>
                 </tr>
               </tbody>

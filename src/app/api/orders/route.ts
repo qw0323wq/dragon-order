@@ -79,17 +79,28 @@ export async function POST(request: NextRequest) {
     orderId = newOrder.id;
   }
 
+  // CRITICAL: 從 DB 查真實 cost_price，不信任前端傳的 unitPrice（員工/店長角色可能為 0）
+  const itemIds = cartItems.map((item) => item.itemId);
+  const dbItems = await db
+    .select({ id: items.id, costPrice: items.costPrice })
+    .from(items)
+    .where(sql`${items.id} IN ${itemIds}`);
+  const priceMap = new Map(dbItems.map((i) => [i.id, i.costPrice]));
+
   // 寫入訂單明細（記錄叫貨人）
-  const orderItemValues = cartItems.map((item) => ({
-    orderId,
-    itemId: item.itemId,
-    storeId,
-    quantity: String(item.quantity),
-    unit: item.unit,
-    unitPrice: item.unitPrice,
-    subtotal: Math.round(item.quantity * item.unitPrice),
-    createdBy: userId,
-  }));
+  const orderItemValues = cartItems.map((item) => {
+    const realPrice = priceMap.get(item.itemId) ?? 0;
+    return {
+      orderId,
+      itemId: item.itemId,
+      storeId,
+      quantity: String(item.quantity),
+      unit: item.unit,
+      unitPrice: realPrice,
+      subtotal: Math.round(item.quantity * realPrice),
+      createdBy: userId,
+    };
+  });
 
   await db.insert(orderItems).values(orderItemValues);
 

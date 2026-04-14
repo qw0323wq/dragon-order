@@ -105,6 +105,7 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
                 <TableRow>
                   <TableHead>品項</TableHead>
                   <TableHead className="text-right">數量</TableHead>
+                  <TableHead className="text-right">單價</TableHead>
                   <TableHead className="text-right">小計</TableHead>
                   {storeItems.some(i => i.supplierNotes) && (
                     <TableHead>叫貨備註</TableHead>
@@ -131,6 +132,9 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
                         ) : (
                           <span>{qtyStr} {item.unit}</span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${item.unitPrice.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         ${item.subtotal.toLocaleString()}
