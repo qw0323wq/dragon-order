@@ -10,7 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import type { OrderDetail, SupplierPaymentInfo } from './types'
-import { sumBy } from '@/lib/format'
+import { sumBy, formatCurrency } from '@/lib/format'
 
 interface PaymentTabProps {
   details: OrderDetail[]
@@ -82,13 +82,13 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-muted-foreground">採購總計</p>
-            <p className="text-xl font-bold text-primary font-heading">${grandTotal.toLocaleString()}</p>
+            <p className="text-xl font-bold text-primary font-heading">{formatCurrency(grandTotal)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-muted-foreground">已付金額</p>
-            <p className="text-xl font-bold text-green-600 font-heading">${paidTotal.toLocaleString()}</p>
+            <p className="text-xl font-bold text-green-600 font-heading">{formatCurrency(paidTotal)}</p>
           </CardContent>
         </Card>
       </div>
@@ -119,7 +119,7 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                         {s.paymentType}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-semibold">${s.totalAmount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(s.totalAmount)}</TableCell>
                     <TableCell>
                       {isPaid ? (
                         <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
@@ -146,7 +146,7 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
               })}
               <TableRow className="bg-muted/50 font-semibold">
                 <TableCell colSpan={2}>合計</TableCell>
-                <TableCell className="text-right text-primary">${grandTotal.toLocaleString()}</TableCell>
+                <TableCell className="text-right text-primary">{formatCurrency(grandTotal)}</TableCell>
                 <TableCell />
               </TableRow>
             </TableBody>

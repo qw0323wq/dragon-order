@@ -8,6 +8,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Plus, Search, Pencil } from 'lucide-react'
+import { formatCurrency } from '@/lib/format'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -282,13 +283,13 @@ export default function MenuPage() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">{item.supplierName}</TableCell>
                         <TableCell className="text-right text-muted-foreground">
-                          {item.costPrice > 0 ? `$${item.costPrice.toLocaleString()}` : '-'}
+                          {item.costPrice > 0 ? formatCurrency(item.costPrice) : '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {item.storePrice > 0 ? `$${item.storePrice.toLocaleString()}` : '-'}
+                          {item.storePrice > 0 ? formatCurrency(item.storePrice) : '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {item.sellPrice > 0 ? `$${item.sellPrice.toLocaleString()}` : '-'}
+                          {item.sellPrice > 0 ? formatCurrency(item.sellPrice) : '-'}
                         </TableCell>
                         <TableCell className="text-right">
                           {margin > 0 ? (

@@ -13,7 +13,7 @@ import {
   Download, Printer, Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
-import { sumBy } from '@/lib/format'
+import { sumBy, formatCurrency } from '@/lib/format'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -256,7 +256,7 @@ export default function OrdersPage() {
         {order && (
           <div className="text-right">
             <p className="text-xs text-muted-foreground">採購總計</p>
-            <p className="text-xl font-bold font-heading text-primary">${grandTotal.toLocaleString()}</p>
+            <p className="text-xl font-bold font-heading text-primary">{formatCurrency(grandTotal)}</p>
           </div>
         )}
       </div>
@@ -438,7 +438,7 @@ function DetailTabWithFilter({ details }: { details: OrderDetail[] }) {
                 ))}
                 <tr className="border-t-2 border-border font-semibold">
                   <td className="py-2 pl-4" colSpan={storeFilter === 'all' ? 6 : 5}>合計</td>
-                  <td className="py-2 text-right pr-4" colSpan={2}>${total.toLocaleString()}</td>
+                  <td className="py-2 text-right pr-4" colSpan={2}>{formatCurrency(total)}</td>
                 </tr>
               </tbody>
             </table>

@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { Supplier } from './types'
 import { CATEGORY_COLORS, PAYMENT_TYPE_STYLES } from './types'
+import { formatCurrency } from '@/lib/format'
 
 interface SupplierCardProps {
   supplier: Supplier
@@ -93,7 +94,7 @@ export function SupplierCard({ supplier, onEdit, onDelete }: SupplierCardProps) 
                 )}
                 {supplier.freeShippingMin != null && supplier.freeShippingMin > 0 && (
                   <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                    <ShoppingCart className="size-3.5" /> 滿 ${supplier.freeShippingMin.toLocaleString()} 免運
+                    <ShoppingCart className="size-3.5" /> 滿 {formatCurrency(supplier.freeShippingMin)} 免運
                   </div>
                 )}
               </div>

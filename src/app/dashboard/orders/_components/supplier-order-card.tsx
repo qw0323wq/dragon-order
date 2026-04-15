@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { sumBy } from '@/lib/format'
+import { sumBy, formatCurrency } from '@/lib/format'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -92,7 +92,7 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
             )}
           </div>
           <span className="text-sm font-semibold text-primary">
-            小計 ${subtotal.toLocaleString()}
+            小計 {formatCurrency(subtotal)}
           </span>
         </div>
       </CardHeader>
@@ -135,10 +135,10 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
                         )}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        ${item.unitPrice.toLocaleString()}
+                        {formatCurrency(item.unitPrice)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        ${item.subtotal.toLocaleString()}
+                        {formatCurrency(item.subtotal)}
                       </TableCell>
                       {storeItems.some(i => i.supplierNotes) && (
                         <TableCell className="text-xs text-muted-foreground">

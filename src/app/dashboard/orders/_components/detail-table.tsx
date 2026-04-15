@@ -6,6 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import type { OrderDetail } from './types'
+import { formatCurrency } from '@/lib/format'
 
 interface DetailTableProps {
   details: OrderDetail[]
@@ -42,14 +43,14 @@ export function DetailTable({ details, grandTotal }: DetailTableProps) {
                   <TableCell className="text-sm">{d.storeName}</TableCell>
                   <TableCell className="text-right">{qtyStr}</TableCell>
                   <TableCell className="text-muted-foreground">{d.unit}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">${d.unitPrice}</TableCell>
-                  <TableCell className="text-right font-semibold text-primary">${d.subtotal.toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{formatCurrency(d.unitPrice)}</TableCell>
+                  <TableCell className="text-right font-semibold text-primary">{formatCurrency(d.subtotal)}</TableCell>
                 </TableRow>
               )
             })}
             <TableRow className="bg-muted/50">
               <TableCell colSpan={6} className="font-semibold text-right">總計</TableCell>
-              <TableCell className="text-right font-bold text-primary text-base">${grandTotal.toLocaleString()}</TableCell>
+              <TableCell className="text-right font-bold text-primary text-base">{formatCurrency(grandTotal)}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
