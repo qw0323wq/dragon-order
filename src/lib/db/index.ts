@@ -10,7 +10,21 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from './schema';
 
 // CRITICAL: DATABASE_URL 格式：postgresql://user:pass@host:port/db
-const client = postgres(process.env.DATABASE_URL!, { prepare: false });
+// CRITICAL: types.numeric 自訂 parser — postgres.js 預設把 numeric 回成 string（避 JS number 精度），
+//   但本系統金額用 numeric(10,2) < 8 位數，安全在 JS number 範圍內，
+//   parseFloat 後 raw SQL / Drizzle 回的 numeric 統一是 number type，
+//   下游 sumBy / formatCurrency / 比較運算都不會踩雷。
+const client = postgres(process.env.DATABASE_URL!, {
+  prepare: false,
+  types: {
+    numeric: {
+      to: 1700, // PG type OID for numeric
+      from: [1700],
+      parse: (value: string) => parseFloat(value),
+      serialize: (value: number) => String(value),
+    },
+  },
+});
 
 export const db = drizzle(client, { schema });
 
