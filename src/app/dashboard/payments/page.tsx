@@ -87,7 +87,7 @@ interface MonthlyReport {
 }
 
 // ── 共用工具（從 lib/format 匯入）──
-import { formatMonth, formatMonthDisplay, addMonths, formatCurrency as fmtAmount } from "@/lib/format";
+import { formatMonth, formatMonthDisplay, addMonths, formatCurrency as fmtAmount, sumBy } from "@/lib/format";
 
 // ── Tab 識別碼型別 ─────────────────────────────────────────────────────────
 
@@ -148,9 +148,9 @@ function HQSupplierTable({ suppliers, paymentType, markingPaid, onMarkPaid }: HQ
   if (suppliers.length === 0) return null
 
   const isMonthly = paymentType === '月結'
-  const subtotalAmount = suppliers.reduce((s, r) => s + r.totalAmount, 0)
-  const subtotalPaid = suppliers.reduce((s, r) => s + r.paidAmount, 0)
-  const subtotalUnpaid = suppliers.reduce((s, r) => s + r.unpaidAmount, 0)
+  const subtotalAmount = sumBy(suppliers, r => r.totalAmount)
+  const subtotalPaid = sumBy(suppliers, r => r.paidAmount)
+  const subtotalUnpaid = sumBy(suppliers, r => r.unpaidAmount)
 
   return (
     <Card>
@@ -258,9 +258,9 @@ interface StoreTableProps {
 function StoreSupplierTable({ suppliers }: StoreTableProps) {
   if (suppliers.length === 0) return null
 
-  const subtotalAmount = suppliers.reduce((s, r) => s + r.totalAmount, 0)
-  const subtotalPaid = suppliers.reduce((s, r) => s + r.paidAmount, 0)
-  const subtotalUnpaid = suppliers.reduce((s, r) => s + r.unpaidAmount, 0)
+  const subtotalAmount = sumBy(suppliers, r => r.totalAmount)
+  const subtotalPaid = sumBy(suppliers, r => r.paidAmount)
+  const subtotalUnpaid = sumBy(suppliers, r => r.unpaidAmount)
 
   return (
     <Card>

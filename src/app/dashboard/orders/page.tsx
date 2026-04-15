@@ -13,6 +13,7 @@ import {
   Download, Printer, Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
+import { sumBy } from '@/lib/format'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -97,7 +98,7 @@ export default function OrdersPage() {
   useEffect(() => { if (viewMode === 'purchase-orders') fetchPOs() }, [viewMode, fetchPOs])
 
   const supplierGroups = useMemo(() => groupBySupplier(details), [details])
-  const grandTotal = useMemo(() => details.reduce((sum, d) => sum + d.subtotal, 0), [details])
+  const grandTotal = useMemo(() => sumBy(details, d => d.subtotal), [details])
 
   function toggleOrdered(supplier: string) {
     setOrderedSuppliers(prev => {
@@ -382,7 +383,7 @@ function DetailTabWithFilter({ details }: { details: OrderDetail[] }) {
   const [storeFilter, setStoreFilter] = useState('all')
   const storeNames = [...new Set(details.map(d => d.storeName))].sort()
   const filtered = storeFilter === 'all' ? details : details.filter(d => d.storeName === storeFilter)
-  const total = filtered.reduce((s, d) => s + d.subtotal, 0)
+  const total = sumBy(filtered, d => d.subtotal)
 
   return (
     <div className="space-y-3">

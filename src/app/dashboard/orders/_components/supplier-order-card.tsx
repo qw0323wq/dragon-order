@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { sumBy } from '@/lib/format'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -53,7 +54,7 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
       onRefresh?.()
     } else { toast.error('刪除失敗') }
   }
-  const subtotal = items.reduce((sum, i) => sum + i.subtotal, 0)
+  const subtotal = sumBy(items, i => i.subtotal)
 
   async function handleCopy() {
     const text = buildOrderText(items)

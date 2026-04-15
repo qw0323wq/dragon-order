@@ -10,6 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import type { OrderDetail, SupplierPaymentInfo } from './types'
+import { sumBy } from '@/lib/format'
 
 interface PaymentTabProps {
   details: OrderDetail[]
@@ -69,10 +70,11 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
     }
   }
 
-  const grandTotal = supplierPayments.reduce((sum, s) => sum + s.totalAmount, 0)
-  const paidTotal = supplierPayments
-    .filter((s) => paidSuppliers.has(s.supplierId))
-    .reduce((sum, s) => sum + s.totalAmount, 0)
+  const grandTotal = sumBy(supplierPayments, s => s.totalAmount)
+  const paidTotal = sumBy(
+    supplierPayments.filter((s) => paidSuppliers.has(s.supplierId)),
+    s => s.totalAmount,
+  )
 
   return (
     <div className="space-y-4">
