@@ -1,0 +1,48 @@
+name: Apply Price Schedule (daily 05:00 Taipei)
+
+# 觸發 dragon-order 的 price-schedule cron endpoint，套用當天到期的預約改價。
+# 主要觸發器：每天 UTC 21:00 = 台北 05:00（早於員工 15:30 上班叫貨）
+# 備援：Vercel cron 同時跑也無妨（應用層冪等）
+
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch: # 允許從 GitHub UI 或 gh CLI 手動觸發
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger price-schedule cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PROD_URL: ${{ vars.PROD_URL }}
+        run: |
+          if [ -z "$CRON_SECRET" ] || [ -z "$PROD_URL" ]; then
+            echo "::error::CRON_SECRET (secret) 或 PROD_URL (variable) 未設定"
+            exit 1
+          fi
+
+          echo "🔌 POST $PROD_URL/api/cron/apply-price-schedule"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$PROD_URL/api/cron/apply-price-schedule")
+
+          body=$(echo "$response" | sed '$d')
+          status=$(echo "$response" | tail -n 1)
+
+          echo "HTTP $status"
+          echo "Body: $body"
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Cron endpoint 回 HTTP $status (預期 200)"
+            exit 1
+          fi
+
+          applied=$(echo "$body" | grep -oE '"applied":[0-9]+' | grep -oE '[0-9]+' || echo "0")
+          if [ "$applied" -gt 0 ]; then
+            echo "::notice::🎉 套用了 $applied 筆預約改價"
+          else
+            echo "::notice::無到期排程，正常結束"
+          fi
