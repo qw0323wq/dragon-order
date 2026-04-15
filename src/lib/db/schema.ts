@@ -79,6 +79,8 @@ export const suppliers = pgTable('suppliers', {
   orderDays: integer('order_days').array().default([1,2,3,4,5]),
   /** 叫貨截止時間：如 '18:00' */
   orderCutoff: varchar('order_cutoff', { length: 5 }).default('18:00'),
+  /** 銀行帳戶資訊（自由格式：銀行 + 分行 + 帳號 + 戶名） */
+  bankAccount: text('bank_account'),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
