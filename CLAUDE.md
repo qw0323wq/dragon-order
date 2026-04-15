@@ -72,7 +72,9 @@
 | `scripts/migrate-roles.ts` | 角色系統遷移（owner→admin、補 employeeId） |
 
 ## 關鍵設計決策
-- 🚫 金額全部用 integer（元），**不可改成 float**，避免浮點誤差
+- 💰 金額用 `numeric(10,2)` (Drizzle `mode: 'number'`)，支援報價單小數價（如 $63.3/公斤）
+  - 客戶端聚合多筆要小心浮點誤差，建議：① 後端 SQL SUM (decimal 精準) ② 用 `Number((a + b).toFixed(2))` ③ 用 dinero.js / decimal.js
+  - 2026-04-15 從 integer 遷移到 numeric(10,2)：DB ALTER + Drizzle schema + Phase 1 完成；Phase 3-5 (UI 顯示一致 / 客戶端聚合精度) 待補
 - 🚫 aliases 是 text[]，是文字叫貨匹配的核心，格式不可改
 - 門市：林森店、信義安和店（兩間）
 - 訂單狀態機：draft → confirmed → ordered → received → closed

@@ -2,7 +2,8 @@
  * Drizzle ORM Schema — 肥龍老火鍋採購系統
  *
  * 設計決策：
- * - 金額全部用 integer（元），避免浮點誤差
+ * - 金額用 numeric(10,2)，支援報價單小數價（如 $63.3/公斤），mode:'number' 直接回 JS number
+ *   ⚠️ 客戶端聚合多筆要小心浮點誤差，建議交給 SQL SUM 或用 Decimal lib
  * - 數量用 numeric(10,2)，支援半斤 0.5 等小數
  * - aliases 用 text[]，給 alias-matcher 做模糊匹配
  * - no_delivery_days 用 integer[]，0=週日, 1=週一 ... 6=週六
@@ -98,11 +99,11 @@ export const items = pgTable('items', {
     .references(() => suppliers.id)
     .notNull(),
   /** 進貨價（元）— 總公司跟廠商買的價格 */
-  costPrice: integer('cost_price').default(0).notNull(),
+  costPrice: numeric('cost_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 店家採購價（元）— 分店跟總公司買的價格。0 = 用 cost_price × COST_MARKUP */
-  storePrice: integer('store_price').default(0).notNull(),
+  storePrice: numeric('store_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 售價（元）— 賣給客人的價格 */
-  sellPrice: integer('sell_price').default(0).notNull(),
+  sellPrice: numeric('sell_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 內部備註（出餐規格、損耗等，內部人員看） */
   spec: text('spec'),
   /** 叫貨備註（切法、尺寸限制等，叫貨單上給供應商看） */
@@ -217,9 +218,9 @@ export const orderItems = pgTable('order_items', {
   quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(),
   unit: varchar('unit', { length: 10 }).notNull(),
   /** 單價（元），從 items.cost_price 複製，允許當下調整 */
-  unitPrice: integer('unit_price').default(0).notNull(),
+  unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 小計（元）= quantity * unit_price，整數四捨五入 */
-  subtotal: integer('subtotal').default(0).notNull(),
+  subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   notes: text('notes'),
   /** 叫貨人（哪個員工叫的） */
   createdBy: integer('created_by').references(() => users.id),
@@ -258,7 +259,7 @@ export const payments = pgTable('payments', {
     .references(() => suppliers.id)
     .notNull(),
   /** 應付金額（元） */
-  amount: integer('amount').default(0).notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 付款狀態：'unpaid' | 'pending' | 'paid' */
   status: varchar('status', { length: 20 }).default('unpaid').notNull(),
   /** 結帳方式：'現結' | '月結'（從供應商複製） */
@@ -388,7 +389,7 @@ export const menuItems = pgTable('menu_items', {
   /** 分類：鍋底 | 肉品 | 海鮮 | 火鍋料 | 特色 | 蔬菜 | 飲料 | 酒類 */
   category: varchar('category', { length: 20 }).notNull(),
   /** 售價（元） */
-  sellPrice: integer('sell_price').default(0).notNull(),
+  sellPrice: numeric('sell_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 每份成本（自動從 BOM 計算，元） */
   costPerServing: numeric('cost_per_serving', { precision: 10, scale: 2 }).default('0'),
   /** 毛利率（0~1，自動計算） */
@@ -448,11 +449,11 @@ export const itemPriceHistory = pgTable('item_price_history', {
     .references(() => items.id, { onDelete: 'cascade' })
     .notNull(),
   /** 舊進貨價（元/kg 或原單位） */
-  oldPrice: integer('old_price').notNull(),
+  oldPrice: numeric('old_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
   /** 新進貨價（元/kg 或原單位） */
-  newPrice: integer('new_price').notNull(),
+  newPrice: numeric('new_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
   /** 價差（元），正=漲、負=跌 */
-  priceDiff: integer('price_diff').notNull(),
+  priceDiff: numeric('price_diff', { precision: 10, scale: 2, mode: 'number' }).notNull(),
   /** 漲跌幅（%），如 5.2 表示漲 5.2% */
   changePercent: numeric('change_percent', { precision: 6, scale: 2 }).default('0'),
   /** 價格單位：'kg' | 'piece' | 'pack' | 'bottle' 等 */
@@ -483,9 +484,9 @@ export const scheduledPriceChanges = pgTable('scheduled_price_changes', {
     .references(() => items.id, { onDelete: 'cascade' })
     .notNull(),
   /** 新進貨價（元） */
-  newCostPrice: integer('new_cost_price').notNull(),
+  newCostPrice: numeric('new_cost_price', { precision: 10, scale: 2, mode: 'number' }).notNull(),
   /** 新店家採購價（元），null = 不改 */
-  newStorePrice: integer('new_store_price'),
+  newStorePrice: numeric('new_store_price', { precision: 10, scale: 2, mode: 'number' }),
   /** 生效日期 */
   effectiveDate: date('effective_date').notNull(),
   /** 來源（如「鉊玖通知」「以曜4月報價」） */
@@ -690,9 +691,9 @@ export const purchaseOrderItems = pgTable('purchase_order_items', {
   /** 單位 */
   unit: varchar('unit', { length: 10 }).notNull(),
   /** 當時進貨價（鎖定，不受後續報價更新影響） */
-  unitPrice: integer('unit_price').default(0).notNull(),
+  unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 小計 */
-  subtotal: integer('subtotal').default(0).notNull(),
+  subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 品項備註（如「切24cm以內」） */
   notes: text('notes'),
   /** 關聯的門市訂單 ID（追溯用） */
