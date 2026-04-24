@@ -5,7 +5,7 @@
  * PATCH /api/payments — 更新付款狀態（標記已付款）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, rawSql } from "@/lib/db";
 import { payments, orders, orderItems, suppliers, items, stores } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
@@ -173,19 +173,41 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "無效的付款狀態" }, { status: 400 });
   }
 
-  const [updated] = await db
-    .update(payments)
-    .set({
-      status,
-      paidAt: status === "paid" ? new Date() : null,
-      notes: notes ?? undefined,
-    })
-    .where(eq(payments.id, paymentId))
-    .returning();
+  // CRITICAL: 付款狀態變更包 transaction + SELECT FOR UPDATE 鎖行
+  // 避免兩人同時點「已付」造成重複標記或 paidAt 被覆蓋
+  try {
+    const result = await rawSql.begin(async (_tx) => {
+      const tx = _tx as unknown as typeof rawSql;
 
-  if (!updated) {
-    return NextResponse.json({ error: "找不到付款紀錄" }, { status: 404 });
+      const [existing] = await tx`
+        SELECT id, status, paid_at FROM payments WHERE id = ${paymentId} FOR UPDATE
+      `;
+
+      if (!existing) return { notFound: true as const };
+
+      // 冪等：已是目標狀態則直接回既有紀錄，不重寫 paid_at
+      if (existing.status === status) {
+        const [row] = await tx`SELECT * FROM payments WHERE id = ${paymentId}`;
+        return { alreadyInStatus: true as const, row };
+      }
+
+      const [row] = await tx`
+        UPDATE payments SET
+          status = ${status},
+          paid_at = ${status === "paid" ? new Date() : null},
+          notes = ${notes ?? existing.notes ?? null}
+        WHERE id = ${paymentId}
+        RETURNING *
+      `;
+      return { updated: true as const, row };
+    });
+
+    if ("notFound" in result) {
+      return NextResponse.json({ error: "找不到付款紀錄" }, { status: 404 });
+    }
+    return NextResponse.json(result.row);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "付款更新失敗";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  return NextResponse.json(updated);
 }

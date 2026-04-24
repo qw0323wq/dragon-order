@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
 import { notifyOrderSubmitted } from "@/lib/line-notify";
 import { parseIntSafe } from "@/lib/parse-int-safe";
+import { roundMoney } from "@/lib/format";
 
 export async function GET(
   request: NextRequest,
@@ -163,7 +164,8 @@ export async function PATCH(
     if (!item) return NextResponse.json({ error: "品項不存在" }, { status: 404 });
     await db.update(orderItems).set({
       quantity: String(qty),
-      subtotal: Math.round(qty * (item.unitPrice || 0)),
+      // 保留 2 位小數（numeric(10,2)）
+      subtotal: roundMoney(qty * (item.unitPrice || 0)),
     }).where(eq(orderItems.id, body.orderItemId));
     // 更新訂單總金額
     await recalcOrderTotal(orderId);
@@ -183,7 +185,8 @@ export async function PATCH(
       quantity: String(qty),
       unit: body.unit || itemData.unit,
       unitPrice: price,
-      subtotal: Math.round(qty * price),
+      // 保留 2 位小數
+      subtotal: roundMoney(qty * price),
     });
     await recalcOrderTotal(orderId);
     return NextResponse.json({ success: true });

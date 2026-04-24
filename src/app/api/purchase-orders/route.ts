@@ -19,6 +19,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/api-auth";
 import { createLogger } from "@/lib/logger";
 import { notifyPOGenerated } from "@/lib/line-notify";
+import { roundMoney, sumBy } from "@/lib/format";
 
 const log = createLogger("purchase-orders");
 
@@ -154,63 +155,76 @@ export async function POST(request: NextRequest) {
       bySupplier.set(sid, list);
     }
 
-    // 3. 產生 PO 編號
-    const dateStr = date.replace(/-/g, "");
-    const [{ count: existingCount }] = await rawSql`
-      SELECT COUNT(*)::int as count FROM purchase_orders WHERE order_date = ${date}
-    `;
-    let poIndex = (existingCount as number) + 1;
+    // CRITICAL: 整個 PO 生成包在 transaction 裡
+    // 原 bug：DELETE 舊明細後 INSERT 失敗會 orphan（PO 存在但沒明細）
+    // 修：transaction 讓 DELETE + INSERT 原子，失敗整批 rollback
+    const createdPOs = await rawSql.begin(async (_tx) => {
+      const tx = _tx as unknown as typeof rawSql;
 
-    // 4. 為每個供應商建立叫貨單
-    const createdPOs: { id: number; poNumber: string }[] = [];
-
-    for (const [supplierId, supplierItems] of bySupplier) {
-      // 檢查是否已存在
-      const [existing] = await rawSql`
-        SELECT id FROM purchase_orders
-        WHERE supplier_id = ${supplierId} AND order_date = ${date} AND status != 'cancelled'
-        LIMIT 1
+      // 3. 產生 PO 編號（tx 內）
+      const dateStr = date.replace(/-/g, "");
+      const [{ count: existingCount }] = await tx`
+        SELECT COUNT(*)::int as count FROM purchase_orders WHERE order_date = ${date}
       `;
+      let poIndex = (existingCount as number) + 1;
 
-      let poId: number;
-      let poNumber: string;
+      const created: { id: number; poNumber: string }[] = [];
 
-      if (existing) {
-        poId = existing.id as number;
-        poNumber = `PO-${dateStr}-existing`;
-        await rawSql`DELETE FROM purchase_order_items WHERE po_id = ${poId}`;
-      } else {
-        poNumber = `PO-${dateStr}-${String(poIndex).padStart(3, "0")}`;
-        poIndex++;
+      for (const [supplierId, supplierItems] of bySupplier) {
+        // 鎖定該供應商當日 PO 紀錄（若已存在），避併發重複 INSERT
+        const [existing] = await tx`
+          SELECT id FROM purchase_orders
+          WHERE supplier_id = ${supplierId} AND order_date = ${date} AND status != 'cancelled'
+          FOR UPDATE
+        `;
 
-        const totalAmount = supplierItems.reduce((sum, si) => {
+        let poId: number;
+        let poNumber: string;
+
+        // 計算 total_amount（保留 2 位小數）
+        const totalAmount = roundMoney(
+          sumBy(supplierItems, (si) => {
+            const qty = parseFloat(si.quantity as string) || 0;
+            const price = (si.cost_price as number) || 0;
+            return qty * price;
+          })
+        );
+
+        if (existing) {
+          // 重新產生：先刪舊明細（CASCADE 不觸發，因為 PO 保留），再插新的
+          poId = existing.id as number;
+          poNumber = `PO-${dateStr}-existing`;
+          await tx`DELETE FROM purchase_order_items WHERE po_id = ${poId}`;
+          await tx`UPDATE purchase_orders SET total_amount = ${totalAmount} WHERE id = ${poId}`;
+        } else {
+          poNumber = `PO-${dateStr}-${String(poIndex).padStart(3, "0")}`;
+          poIndex++;
+
+          const [newPO] = await tx`
+            INSERT INTO purchase_orders (po_number, supplier_id, order_date, delivery_date, total_amount, status, created_by)
+            VALUES (${poNumber}, ${supplierId}, ${date}, ${date}, ${totalAmount}, 'draft', ${auth.userId ?? null})
+            RETURNING id
+          `;
+          poId = newPO.id as number;
+        }
+
+        // 5. 插入明細（subtotal 保留 2 位小數）
+        for (const si of supplierItems) {
           const qty = parseFloat(si.quantity as string) || 0;
           const price = (si.cost_price as number) || 0;
-          return sum + Math.round(qty * price);
-        }, 0);
+          await tx`
+            INSERT INTO purchase_order_items (po_id, item_id, store_id, quantity, unit, unit_price, subtotal, notes)
+            VALUES (${poId}, ${si.item_id}, ${si.store_id}, ${si.quantity}, ${si.unit}, ${price}, ${roundMoney(qty * price)}, ${si.notes || si.supplier_notes || null})
+          `;
+        }
 
-        const [newPO] = await rawSql`
-          INSERT INTO purchase_orders (po_number, supplier_id, order_date, delivery_date, total_amount, status, created_by)
-          VALUES (${poNumber}, ${supplierId}, ${date}, ${date}, ${totalAmount}, 'draft', ${auth.userId ?? null})
-          RETURNING id
-        `;
-        poId = newPO.id as number;
+        created.push({ id: poId, poNumber });
       }
 
-      // 5. 插入明細
-      for (const si of supplierItems) {
-        const qty = parseFloat(si.quantity as string) || 0;
-        const price = (si.cost_price as number) || 0;
-        await rawSql`
-          INSERT INTO purchase_order_items (po_id, item_id, store_id, quantity, unit, unit_price, subtotal, notes)
-          VALUES (${poId}, ${si.item_id}, ${si.store_id}, ${si.quantity}, ${si.unit}, ${price}, ${Math.round(qty * price)}, ${si.notes || si.supplier_notes || null})
-        `;
-      }
+      return created;
+    });
 
-      createdPOs.push({ id: poId, poNumber });
-    }
-
-    // LINE 通知（非阻塞）
+    // LINE 通知（非阻塞，在 transaction 外）
     notifyPOGenerated({
       date,
       supplierCount: bySupplier.size,
@@ -226,6 +240,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     log.error({ err, date }, "PO generation error");
-    return NextResponse.json({ error: "產生叫貨單失敗" }, { status: 500 });
+    return NextResponse.json({ error: "產生叫貨單失敗，已自動回滾" }, { status: 500 });
   }
 }
