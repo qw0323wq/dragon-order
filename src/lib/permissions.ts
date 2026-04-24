@@ -20,7 +20,8 @@ export const ALL_PAGES = [
   { key: 'menu', label: '品項管理', href: '/dashboard/menu' },
   { key: 'bom', label: 'BOM 配方', href: '/dashboard/bom' },
   { key: 'payments', label: '帳務', href: '/dashboard/payments' },
-  { key: 'purchase-orders', label: '叫貨單', href: '/dashboard/purchase-orders' },
+  // P2-C8: /purchase-orders 已整合到 /orders 的「叫貨單」tab，移除獨立 entry
+  // 原 purchase-orders key 保留在 role_permissions 表不移除（DB 資料相容），只是 sidebar 不再顯示
   { key: 'inventory', label: '庫存管理', href: '/dashboard/inventory' },
   { key: 'transfers', label: '調撥/借料', href: '/dashboard/transfers' },
   { key: 'reports', label: '營運報表', href: '/dashboard/reports' },
@@ -36,7 +37,7 @@ export type PageKey = (typeof ALL_PAGES)[number]['key'];
 /** 預設權限（初始化 role_permissions 表用） */
 export const DEFAULT_PERMISSIONS: Record<AppRole, string[]> = {
   admin: ['*'], // 全部頁面
-  buyer: ['dashboard', 'orders', 'suppliers', 'menu', 'bom', 'payments', 'purchase-orders', 'inventory', 'transfers', 'reports', 'price-trends', 'price-schedule', 'order'],
+  buyer: ['dashboard', 'orders', 'suppliers', 'menu', 'bom', 'payments', 'inventory', 'transfers', 'reports', 'price-trends', 'price-schedule', 'order'],
   manager: ['dashboard', 'orders', 'menu', 'payments', 'transfers', 'order'],
   staff: ['order'],
 };

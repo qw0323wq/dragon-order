@@ -45,10 +45,23 @@ type ViewMode = 'summary' | 'detail' | 'purchase-orders' | 'receiving' | 'paymen
 interface ItemOption { id: number; name: string; unit: string; category: string; costPrice: number }
 interface StoreOption { id: number; name: string }
 
+const VALID_VIEW_MODES: ViewMode[] = ['summary', 'detail', 'purchase-orders', 'receiving', 'payment']
+
 export default function OrdersPage() {
   const today = formatDate(new Date())
   const [selectedDate, setSelectedDate] = useState(today)
   const [viewMode, setViewMode] = useState<ViewMode>('summary')
+
+  // P2-C8: /purchase-orders 導過來會帶 ?tab=purchase-orders，進頁後切到對應 tab
+  // 用 useEffect 避免 useSearchParams 的 Suspense 要求（wrap 整頁太繁瑣）
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const urlTab = params.get('tab') as ViewMode | null
+    if (urlTab && VALID_VIEW_MODES.includes(urlTab)) {
+      setViewMode(urlTab)
+    }
+  }, [])
   const [orderedSuppliers, setOrderedSuppliers] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [order, setOrder] = useState<Order | null>(null)
