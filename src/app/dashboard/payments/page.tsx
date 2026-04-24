@@ -87,7 +87,9 @@ interface MonthlyReport {
 }
 
 // ── 共用工具（從 lib/format 匯入）──
-import { formatMonth, formatMonthDisplay, addMonths, formatCurrency as fmtAmount, sumBy } from "@/lib/format";
+import { formatMonth, formatMonthDisplay, formatCurrency as fmtAmount, sumBy } from "@/lib/format";
+import { MonthSelector } from "@/components/month-selector";
+import { SkeletonTable } from "@/components/ui/skeleton";
 
 // ── Tab 識別碼型別 ─────────────────────────────────────────────────────────
 
@@ -500,39 +502,15 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ── 月份選擇（列印時隱藏） ────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 print:hidden">
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-9"
-          onClick={() => setSelectedMonth((m) => addMonths(m, -1))}
-        >
-          <ChevronLeft className="size-4" />
-        </Button>
-        <div className="text-sm font-semibold min-w-[120px] text-center">
-          {formatMonthDisplay(selectedMonth)}
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-9"
-          onClick={() => setSelectedMonth((m) => addMonths(m, 1))}
-          disabled={isCurrentMonth}
-        >
-          <ChevronRight className="size-4" />
-        </Button>
-        {!isCurrentMonth && (
-          <Button variant="ghost" size="sm" onClick={() => setSelectedMonth(currentMonth)}>
-            回本月
-          </Button>
-        )}
+      {/* ── 月份選擇（列印時隱藏；統一 MonthSelector 元件） ───────────────── */}
+      <div className="print:hidden">
+        <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
       </div>
 
-      {/* ── 載入中 ───────────────────────────────────────────────────────── */}
+      {/* ── 載入中骨架屏 ─────────────────────────────────────────────────── */}
       {loading && (
-        <div className="flex items-center justify-center py-20 print:hidden">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <div className="print:hidden">
+          <SkeletonTable rows={6} cols={5} />
         </div>
       )}
 

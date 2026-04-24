@@ -22,8 +22,6 @@ import {
   Legend,
 } from 'recharts'
 import {
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   ShoppingCart,
   PackageSearch,
@@ -31,6 +29,8 @@ import {
   DollarSign,
   Store,
 } from 'lucide-react'
+import { MonthSelector } from '@/components/month-selector'
+import { SkeletonStatCard, SkeletonTable } from '@/components/ui/skeleton'
 import {
   Card,
   CardContent,
@@ -306,44 +306,19 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground mt-0.5">採購概況統計</p>
         </div>
 
-        {/* 月份選擇器（與帳務頁樣式一致） */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-9"
-            onClick={() => setSelectedMonth((m) => addMonths(m, -1))}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <div className="text-sm font-semibold min-w-[120px] text-center">
-            {formatMonthDisplay(selectedMonth)}
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-9"
-            disabled={isCurrentMonth}
-            onClick={() => setSelectedMonth((m) => addMonths(m, 1))}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-          {!isCurrentMonth && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedMonth(currentMonth)}
-            >
-              回本月
-            </Button>
-          )}
-        </div>
+        {/* 月份選擇器（統一用 MonthSelector 元件） */}
+        <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
       </div>
 
-      {/* ── 載入中遮罩 ───────────────────────────────────────────────────────── */}
+      {/* ── 載入中骨架屏（取代 spinner） ──────────────────────────────────────── */}
       {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonStatCard key={i} />
+            ))}
+          </div>
+          <SkeletonTable rows={6} cols={4} />
         </div>
       )}
 

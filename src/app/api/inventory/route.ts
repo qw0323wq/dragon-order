@@ -14,6 +14,9 @@ import { inventoryAdjustSchema, parseBody } from "@/lib/validations";
 import { verifySession } from "@/lib/session";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
+const DEFAULT_LIMIT = 500;
+const MAX_LIMIT = 2000;
+
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
@@ -23,6 +26,12 @@ export async function GET(request: NextRequest) {
   const storeParam = searchParams.get("store"); // "hq" | store_id | null(全部)
   const view = searchParams.get("view"); // "breakdown" = 各點明細
   const lowOnly = searchParams.get("low") === "1";
+  const search = searchParams.get("q")?.trim(); // 名稱/SKU 模糊搜尋
+  // 分頁（保護伺服器記憶體，未來品項/門市數量暴增時有上限）
+  const rawLimit = parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT));
+  const limit = Math.min(Math.max(1, isNaN(rawLimit) ? DEFAULT_LIMIT : rawLimit), MAX_LIMIT);
+  const rawOffset = parseInt(searchParams.get("offset") ?? "0");
+  const offset = Math.max(0, isNaN(rawOffset) ? 0 : rawOffset);
 
   // 彙總視圖：加總所有地點的庫存
   if (view === "breakdown") {
@@ -38,7 +47,9 @@ export async function GET(request: NextRequest) {
       LEFT JOIN stores st ON si.store_id = st.id
       WHERE i.is_active = true
       ${category ? sql`AND i.category = ${category}` : sql``}
+      ${search ? sql`AND (i.name ILIKE ${'%' + search + '%'} OR i.sku ILIKE ${'%' + search + '%'})` : sql``}
       ORDER BY i.category, i.name, si.store_id
+      LIMIT ${limit} OFFSET ${offset}
     `;
     return NextResponse.json(rows.map(r => ({
       ...r,
@@ -65,7 +76,9 @@ export async function GET(request: NextRequest) {
       LEFT JOIN store_inventory si ON si.item_id = i.id AND si.store_id = ${storeId}
       WHERE i.is_active = true
       ${category ? sql`AND i.category = ${category}` : sql``}
+      ${search ? sql`AND (i.name ILIKE ${'%' + search + '%'} OR i.sku ILIKE ${'%' + search + '%'})` : sql``}
       ORDER BY i.category, i.name
+      LIMIT ${limit} OFFSET ${offset}
     `;
   } else {
     // 全部彙總（加總所有地點）
@@ -79,8 +92,10 @@ export async function GET(request: NextRequest) {
       LEFT JOIN store_inventory si ON si.item_id = i.id
       WHERE i.is_active = true
       ${category ? sql`AND i.category = ${category}` : sql``}
+      ${search ? sql`AND (i.name ILIKE ${'%' + search + '%'} OR i.sku ILIKE ${'%' + search + '%'})` : sql``}
       GROUP BY i.id, i.sku, i.name, i.category, i.unit, i.safety_stock, i.safety_stock_unit, i.spec, sup.name
       ORDER BY i.category, i.name
+      LIMIT ${limit} OFFSET ${offset}
     `;
   }
 
