@@ -162,10 +162,33 @@ export async function PATCH(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { paymentId, status, notes } = body;
+  const { paymentId, paymentIds, status, notes } = body as {
+    paymentId?: number;
+    paymentIds?: number[];
+    status: string;
+    notes?: string | null;
+  };
 
-  if (!paymentId || !status) {
-    return NextResponse.json({ error: "缺少 paymentId 或 status" }, { status: 400 });
+  // 支援單筆 (paymentId) 和批次 (paymentIds) 兩種格式
+  const ids: number[] = Array.isArray(paymentIds)
+    ? paymentIds
+    : typeof paymentId === "number"
+    ? [paymentId]
+    : [];
+
+  if (ids.length === 0 || !status) {
+    return NextResponse.json(
+      { error: "缺少 paymentId/paymentIds 或 status" },
+      { status: 400 }
+    );
+  }
+
+  // 批次上限保護
+  if (ids.length > 200) {
+    return NextResponse.json(
+      { error: "批次付款一次最多 200 筆" },
+      { status: 400 }
+    );
   }
 
   const validStatuses = ["unpaid", "pending", "paid"];
@@ -173,39 +196,66 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "無效的付款狀態" }, { status: 400 });
   }
 
-  // CRITICAL: 付款狀態變更包 transaction + SELECT FOR UPDATE 鎖行
-  // 避免兩人同時點「已付」造成重複標記或 paidAt 被覆蓋
+  // CRITICAL: 所有付款狀態變更包 transaction + SELECT FOR UPDATE 鎖行
+  // 冪等：已是目標狀態的不會重寫 paid_at
   try {
     const result = await rawSql.begin(async (_tx) => {
       const tx = _tx as unknown as typeof rawSql;
 
-      const [existing] = await tx`
-        SELECT id, status, paid_at FROM payments WHERE id = ${paymentId} FOR UPDATE
+      // 一次鎖住全部要動的行（IN clause + FOR UPDATE）
+      const existingRows = await tx`
+        SELECT id, status, paid_at, notes FROM payments
+        WHERE id = ANY(${ids})
+        FOR UPDATE
       `;
+      const existingById = new Map<number, any>(
+        existingRows.map((r: any) => [Number(r.id), r])
+      );
 
-      if (!existing) return { notFound: true as const };
+      const notFound = ids.filter((id) => !existingById.has(id));
+      const updated: any[] = [];
+      const skipped: any[] = [];
 
-      // 冪等：已是目標狀態則直接回既有紀錄，不重寫 paid_at
-      if (existing.status === status) {
-        const [row] = await tx`SELECT * FROM payments WHERE id = ${paymentId}`;
-        return { alreadyInStatus: true as const, row };
+      for (const id of ids) {
+        const row = existingById.get(id);
+        if (!row) continue;
+
+        // 冪等：已是目標狀態
+        if (row.status === status) {
+          skipped.push(row);
+          continue;
+        }
+
+        const [u] = await tx`
+          UPDATE payments SET
+            status = ${status},
+            paid_at = ${status === "paid" ? new Date() : null},
+            notes = ${notes ?? row.notes ?? null}
+          WHERE id = ${id}
+          RETURNING *
+        `;
+        updated.push(u);
       }
 
-      const [row] = await tx`
-        UPDATE payments SET
-          status = ${status},
-          paid_at = ${status === "paid" ? new Date() : null},
-          notes = ${notes ?? existing.notes ?? null}
-        WHERE id = ${paymentId}
-        RETURNING *
-      `;
-      return { updated: true as const, row };
+      return { updated, skipped, notFound };
     });
 
-    if ("notFound" in result) {
-      return NextResponse.json({ error: "找不到付款紀錄" }, { status: 404 });
+    // 單筆模式：維持原格式相容前端
+    if (typeof paymentId === "number" && !Array.isArray(paymentIds)) {
+      if (result.notFound.length > 0) {
+        return NextResponse.json({ error: "找不到付款紀錄" }, { status: 404 });
+      }
+      return NextResponse.json(result.updated[0] ?? result.skipped[0]);
     }
-    return NextResponse.json(result.row);
+
+    // 批次模式：回完整摘要
+    return NextResponse.json({
+      success: true,
+      updated: result.updated.length,
+      skipped: result.skipped.length,
+      notFound: result.notFound,
+      total: ids.length,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "付款更新失敗";
     return NextResponse.json({ error: msg }, { status: 500 });

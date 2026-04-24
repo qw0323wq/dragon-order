@@ -193,6 +193,7 @@ interface SupplierReceivingCardProps {
   receivedIds: Set<number>
   onInputChange: (orderItemId: number, field: keyof ReceivingInput, value: string) => void
   onConfirm: (orderItemIds: number[]) => Promise<void>
+  onQuickFillNormal: (orderItemIds: number[]) => void  // P2-B6 快速全驗
   confirming: boolean
 }
 
@@ -203,10 +204,12 @@ function SupplierReceivingCard({
   receivedIds,
   onInputChange,
   onConfirm,
+  onQuickFillNormal,
   confirming,
 }: SupplierReceivingCardProps) {
   const allReceived = items.every((item) => receivedIds.has(item.orderItemId))
   const someReceived = items.some((item) => receivedIds.has(item.orderItemId))
+  const pendingIds = items.filter((i) => !receivedIds.has(i.orderItemId)).map((i) => i.orderItemId)
 
   return (
     <Card className={allReceived ? 'border-green-200' : ''}>
@@ -224,7 +227,21 @@ function SupplierReceivingCard({
               <Badge variant="secondary" className="text-xs">部分驗收</Badge>
             )}
           </div>
-          <span className="text-xs text-muted-foreground">{items.length} 項</span>
+          <div className="flex items-center gap-2">
+            {/* P2-B6: 快速全驗按鈕（未驗收時才顯示） */}
+            {pendingIds.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1"
+                onClick={() => onQuickFillNormal(pendingIds)}
+                title="一鍵填入訂量並標為正常"
+              >
+                全部正常
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">{items.length} 項</span>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-1 pb-3">
@@ -365,6 +382,23 @@ export default function ReceivingPage() {
       ...prev,
       [orderItemId]: { ...prev[orderItemId], [field]: value },
     }))
+  }
+
+  // P2-B6: 快速全驗（指定 orderItemIds 標為「正常 + 實收 = 訂量」）
+  function handleQuickFillNormal(orderItemIds: number[]) {
+    setInputs((prev) => {
+      const next = { ...prev }
+      for (const id of orderItemIds) {
+        const item = items.find((i) => i.orderItemId === id)
+        if (!item) continue
+        next[id] = {
+          receivedQty: item.quantity, // 訂多少=收多少
+          result: '正常',
+          issue: '',
+        }
+      }
+      return next
+    })
   }
 
   // 確認驗收（按供應商批次送出）
@@ -509,6 +543,26 @@ export default function ReceivingPage() {
         </Card>
       )}
 
+      {/* P2-B6: 頂部快速全驗（跨所有供應商未驗收品項） */}
+      {!loading && order && totalItems > 0 && !allDone && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => {
+              const pendingAll = filteredItems
+                .filter((i) => !receivedIds.has(i.orderItemId))
+                .map((i) => i.orderItemId)
+              handleQuickFillNormal(pendingAll)
+              toast.success(`已預填 ${pendingAll.length} 項為正常，請確認後按各供應商的「確認驗收」送出`)
+            }}
+          >
+            全部品項標正常（{totalItems - receivedCount} 項）
+          </Button>
+        </div>
+      )}
+
       {/* 供應商驗收卡片 */}
       {!loading && order && (
         <div className="space-y-4">
@@ -521,6 +575,7 @@ export default function ReceivingPage() {
               receivedIds={receivedIds}
               onInputChange={handleInputChange}
               onConfirm={handleConfirm}
+              onQuickFillNormal={handleQuickFillNormal}
               confirming={confirming}
             />
           ))}

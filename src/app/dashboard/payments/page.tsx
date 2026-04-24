@@ -144,15 +144,42 @@ interface HQTableProps {
   paymentType: '月結' | '現結'
   markingPaid: number | null
   onMarkPaid: (supplierId: number, supplierName: string, amount: number) => void
+  // P2-B5 批次付款（僅月結用；現結不需要）
+  selectedIds?: Set<number>
+  onToggleSelect?: (supplierId: number) => void
 }
 
-function HQSupplierTable({ suppliers, paymentType, markingPaid, onMarkPaid }: HQTableProps) {
+function HQSupplierTable({
+  suppliers,
+  paymentType,
+  markingPaid,
+  onMarkPaid,
+  selectedIds,
+  onToggleSelect,
+}: HQTableProps) {
   if (suppliers.length === 0) return null
 
   const isMonthly = paymentType === '月結'
   const subtotalAmount = sumBy(suppliers, r => r.totalAmount)
   const subtotalPaid = sumBy(suppliers, r => r.paidAmount)
   const subtotalUnpaid = sumBy(suppliers, r => r.unpaidAmount)
+
+  // 可勾選的供應商（月結 + 未結清）
+  const selectable = isMonthly ? suppliers.filter((s) => s.unpaidAmount > 0) : []
+  const allSelected =
+    selectable.length > 0 &&
+    selectable.every((s) => selectedIds?.has(s.supplierId))
+  const someSelected = selectable.some((s) => selectedIds?.has(s.supplierId))
+
+  function toggleAll() {
+    if (!onToggleSelect) return
+    // 全選/清空 selectable
+    if (allSelected) {
+      for (const s of selectable) if (selectedIds?.has(s.supplierId)) onToggleSelect(s.supplierId)
+    } else {
+      for (const s of selectable) if (!selectedIds?.has(s.supplierId)) onToggleSelect(s.supplierId)
+    }
+  }
 
   return (
     <Card>
@@ -173,6 +200,19 @@ function HQSupplierTable({ suppliers, paymentType, markingPaid, onMarkPaid }: HQ
         <Table>
           <TableHeader>
             <TableRow>
+              {isMonthly && onToggleSelect && (
+                <TableHead className="w-8 print:hidden">
+                  <input
+                    type="checkbox"
+                    aria-label="全選月結未結清供應商"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = !allSelected && someSelected }}
+                    onChange={toggleAll}
+                    className="size-4 accent-primary cursor-pointer"
+                    disabled={selectable.length === 0}
+                  />
+                </TableHead>
+              )}
               <TableHead>供應商</TableHead>
               <TableHead>結帳方式</TableHead>
               <TableHead className="text-center">訂單筆數</TableHead>
@@ -187,6 +227,19 @@ function HQSupplierTable({ suppliers, paymentType, markingPaid, onMarkPaid }: HQ
               const isFullyPaid = s.unpaidAmount === 0
               return (
                 <TableRow key={s.supplierId} className={isFullyPaid ? 'opacity-60' : ''}>
+                  {isMonthly && onToggleSelect && (
+                    <TableCell className="print:hidden">
+                      {!isFullyPaid && (
+                        <input
+                          type="checkbox"
+                          aria-label={`選取 ${s.supplierName}`}
+                          checked={selectedIds?.has(s.supplierId) ?? false}
+                          onChange={() => onToggleSelect(s.supplierId)}
+                          className="size-4 accent-primary cursor-pointer"
+                        />
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">{s.supplierName}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">
@@ -324,8 +377,25 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true)
   const [report, setReport] = useState<MonthlyReport | null>(null)
   const [markingPaid, setMarkingPaid] = useState<number | null>(null)
+  // P2-B5 Batch 付款 — 跨供應商多選
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<number>>(new Set())
+  const [batchMarking, setBatchMarking] = useState(false)
 
   const isCurrentMonth = selectedMonth === currentMonth
+
+  // 切月份/tab 時清空選取
+  useEffect(() => {
+    setSelectedSupplierIds(new Set())
+  }, [selectedMonth, activeTab])
+
+  const toggleSupplierSelect = useCallback((supplierId: number) => {
+    setSelectedSupplierIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(supplierId)) next.delete(supplierId)
+      else next.add(supplierId)
+      return next
+    })
+  }, [])
 
   // 載入門市列表
   useEffect(() => {
@@ -371,6 +441,45 @@ export default function PaymentsPage() {
   useEffect(() => {
     loadReport(selectedMonth, activeTab)
   }, [selectedMonth, activeTab, loadReport])
+
+  // P2-B5 批次付款：選取多家供應商一次標記已付
+  async function handleBatchMarkPaid() {
+    if (!report || selectedSupplierIds.size === 0) return
+
+    // 收集所有選取供應商的 unpaid/pending payments.id
+    const selectedSuppliers = report.suppliers.filter((s) => selectedSupplierIds.has(s.supplierId))
+    const paymentIds = selectedSuppliers.flatMap((s) =>
+      s.payments.filter((p) => p.status === 'unpaid' || p.status === 'pending').map((p) => p.id)
+    )
+
+    if (paymentIds.length === 0) {
+      toast.info('選取的供應商都沒有待付款項')
+      return
+    }
+
+    setBatchMarking(true)
+    try {
+      const res = await fetch('/api/payments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentIds, status: 'paid' }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || '批次標記失敗')
+        return
+      }
+      toast.success(
+        `已標記 ${selectedSuppliers.length} 家供應商付款完成（${data.updated} 筆更新，${data.skipped} 筆已是已付）`
+      )
+      setSelectedSupplierIds(new Set())
+      await loadReport(selectedMonth, activeTab)
+    } catch {
+      toast.error('發生錯誤，請重試')
+    } finally {
+      setBatchMarking(false)
+    }
+  }
 
   // 月結付款：透過 PATCH 逐筆標記該供應商所有未付 payment 為 paid
   async function handleMarkMonthlyPaid(
@@ -564,11 +673,49 @@ export default function PaymentsPage() {
           {/* ── 總公司模式 ── */}
           {activeTab === 'hq' && (
             <>
+              {/* Batch 付款 Action Bar — 有選取時浮現 */}
+              {selectedSupplierIds.size > 0 && (
+                <Card className="bg-primary/5 border-primary/30 print:hidden">
+                  <CardContent className="py-3 flex items-center justify-between gap-3">
+                    <div className="text-sm">
+                      <span className="font-semibold">已選 {selectedSupplierIds.size} 家</span>
+                      <span className="text-muted-foreground ml-2">
+                        可一次批次標記為已付
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedSupplierIds(new Set())}
+                      >
+                        取消選取
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={batchMarking}
+                        onClick={handleBatchMarkPaid}
+                      >
+                        {batchMarking ? (
+                          <>
+                            <Loader2 className="size-3 animate-spin mr-1" />
+                            處理中...
+                          </>
+                        ) : (
+                          <>批次標記已付</>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <HQSupplierTable
                 suppliers={monthlySuppliers}
                 paymentType="月結"
                 markingPaid={markingPaid}
                 onMarkPaid={handleMarkMonthlyPaid}
+                selectedIds={selectedSupplierIds}
+                onToggleSelect={toggleSupplierSelect}
               />
               <HQSupplierTable
                 suppliers={cashSuppliers}
