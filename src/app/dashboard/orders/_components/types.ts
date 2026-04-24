@@ -1,5 +1,25 @@
 // ── 訂單管理共用型別 + 常數 ──
 
+export interface POItem {
+  id: number;
+  itemName: string;
+  itemUnit: string;
+  storeName: string;
+  quantity: string;
+  notes: string | null;
+  costPrice: number;
+}
+
+export interface PurchaseOrder {
+  id: number;
+  poNumber: string;
+  supplierName: string;
+  supplierCategory: string;
+  status: string;
+  totalAmount: number;
+  items: POItem[];
+}
+
 export interface OrderDetail {
   id: number
   quantity: string

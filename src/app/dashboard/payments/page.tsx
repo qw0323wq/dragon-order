@@ -10,369 +10,38 @@
  * 列印行為：
  *  - 總公司：標題「月結報表 — YYYY年MM月」
  *  - 門市：公司名稱 + 統編 + 採購對帳單（正式單據格式）
+ *
+ * 拆分（P2-C9，2026-04-24）：
+ *   _components/types.ts                  — 共用型別
+ *   _components/summary-cards.tsx         — 頂部 3 張摘要卡
+ *   _components/hq-supplier-table.tsx     — 總公司月結/現結表格 + batch checkbox
+ *   _components/store-supplier-table.tsx  — 門市採購明細表格
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Printer,
-  Loader2,
-  CheckCircle2,
-  CreditCard,
-  AlertCircle,
-  Building2,
-  Store,
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Printer, Loader2, Building2, Store } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 
-// ── 型別定義 ──────────────────────────────────────────────────────────────────
+import { formatMonth, formatMonthDisplay, formatCurrency as fmtAmount } from '@/lib/format'
+import { MonthSelector } from '@/components/month-selector'
+import { SkeletonTable } from '@/components/ui/skeleton'
 
-interface StoreInfo {
-  id: number
-  name: string
-  companyName: string | null
-  taxId: string | null
-}
-
-interface Store extends StoreInfo {
-  address: string | null
-  hours: string | null
-  manager: string | null
-  phone: string | null
-  sortOrder: number
-  type: string
-}
-
-interface SupplierPaymentReport {
-  supplierId: number
-  supplierName: string
-  paymentType: string
-  orderCount: number
-  totalAmount: number
-  paidAmount: number
-  pendingAmount: number
-  unpaidAmount: number
-  payments: Array<{
-    id: number
-    status: string
-    amount: number
-    paidAt: string | null
-  }>
-}
-
-interface MonthlyReport {
-  month: string
-  storeId: number | null
-  storeInfo: StoreInfo | null
-  suppliers: SupplierPaymentReport[]
-  summary: {
-    totalAmount: number
-    paidAmount: number
-    unpaidAmount: number
-  }
-}
-
-// ── 共用工具（從 lib/format 匯入）──
-import { formatMonth, formatMonthDisplay, formatCurrency as fmtAmount, sumBy } from "@/lib/format";
-import { MonthSelector } from "@/components/month-selector";
-import { SkeletonTable } from "@/components/ui/skeleton";
-
-// ── Tab 識別碼型別 ─────────────────────────────────────────────────────────
-
-/** 'hq' 代表總公司，數字字串代表門市 ID */
-type ActiveTab = 'hq' | string
-
-// ── 摘要卡片元件 ─────────────────────────────────────────────────────────────
-
-interface SummaryCardsProps {
-  totalAmount: number
-  paidAmount: number
-  unpaidAmount: number
-}
-
-function SummaryCards({ totalAmount, paidAmount, unpaidAmount }: SummaryCardsProps) {
-  return (
-    <div className="grid grid-cols-3 gap-3 print:gap-2">
-      <Card>
-        <CardContent className="pt-4 pb-3">
-          <p className="text-xs text-muted-foreground">採購總金額</p>
-          <p className="text-lg font-bold text-primary font-heading">
-            {fmtAmount(totalAmount)}
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="pt-4 pb-3">
-          <p className="text-xs text-muted-foreground">已付金額</p>
-          <p className="text-lg font-bold text-green-600 font-heading">
-            {fmtAmount(paidAmount)}
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="pt-4 pb-3">
-          <p className="text-xs text-muted-foreground">未付金額</p>
-          <p className={`text-lg font-bold font-heading ${
-            unpaidAmount > 0 ? 'text-red-600' : 'text-muted-foreground'
-          }`}>
-            {fmtAmount(unpaidAmount)}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// ── 總公司報表表格 ────────────────────────────────────────────────────────────
-
-interface HQTableProps {
-  suppliers: SupplierPaymentReport[]
-  paymentType: '月結' | '現結'
-  markingPaid: number | null
-  onMarkPaid: (supplierId: number, supplierName: string, amount: number) => void
-  // P2-B5 批次付款（僅月結用；現結不需要）
-  selectedIds?: Set<number>
-  onToggleSelect?: (supplierId: number) => void
-}
-
-function HQSupplierTable({
-  suppliers,
-  paymentType,
-  markingPaid,
-  onMarkPaid,
-  selectedIds,
-  onToggleSelect,
-}: HQTableProps) {
-  if (suppliers.length === 0) return null
-
-  const isMonthly = paymentType === '月結'
-  const subtotalAmount = sumBy(suppliers, r => r.totalAmount)
-  const subtotalPaid = sumBy(suppliers, r => r.paidAmount)
-  const subtotalUnpaid = sumBy(suppliers, r => r.unpaidAmount)
-
-  // 可勾選的供應商（月結 + 未結清）
-  const selectable = isMonthly ? suppliers.filter((s) => s.unpaidAmount > 0) : []
-  const allSelected =
-    selectable.length > 0 &&
-    selectable.every((s) => selectedIds?.has(s.supplierId))
-  const someSelected = selectable.some((s) => selectedIds?.has(s.supplierId))
-
-  function toggleAll() {
-    if (!onToggleSelect) return
-    // 全選/清空 selectable
-    if (allSelected) {
-      for (const s of selectable) if (selectedIds?.has(s.supplierId)) onToggleSelect(s.supplierId)
-    } else {
-      for (const s of selectable) if (!selectedIds?.has(s.supplierId)) onToggleSelect(s.supplierId)
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader className="border-b border-border pb-3">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-base">{paymentType}供應商</CardTitle>
-          <Badge
-            className={isMonthly
-              ? 'bg-blue-100 text-blue-700 border-blue-200'
-              : 'bg-orange-100 text-orange-700 border-orange-200'
-            }
-          >
-            {suppliers.length} 家
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-3 overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {isMonthly && onToggleSelect && (
-                <TableHead className="w-8 print:hidden">
-                  <input
-                    type="checkbox"
-                    aria-label="全選月結未結清供應商"
-                    checked={allSelected}
-                    ref={(el) => { if (el) el.indeterminate = !allSelected && someSelected }}
-                    onChange={toggleAll}
-                    className="size-4 accent-primary cursor-pointer"
-                    disabled={selectable.length === 0}
-                  />
-                </TableHead>
-              )}
-              <TableHead>供應商</TableHead>
-              <TableHead>結帳方式</TableHead>
-              <TableHead className="text-center">訂單筆數</TableHead>
-              <TableHead className="text-right">總金額</TableHead>
-              <TableHead className="text-right">已付</TableHead>
-              <TableHead className="text-right">未付</TableHead>
-              <TableHead className="print:hidden">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {suppliers.map((s) => {
-              const isFullyPaid = s.unpaidAmount === 0
-              return (
-                <TableRow key={s.supplierId} className={isFullyPaid ? 'opacity-60' : ''}>
-                  {isMonthly && onToggleSelect && (
-                    <TableCell className="print:hidden">
-                      {!isFullyPaid && (
-                        <input
-                          type="checkbox"
-                          aria-label={`選取 ${s.supplierName}`}
-                          checked={selectedIds?.has(s.supplierId) ?? false}
-                          onChange={() => onToggleSelect(s.supplierId)}
-                          className="size-4 accent-primary cursor-pointer"
-                        />
-                      )}
-                    </TableCell>
-                  )}
-                  <TableCell className="font-medium">{s.supplierName}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {s.paymentType}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center text-sm">{s.orderCount} 筆</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {fmtAmount(s.totalAmount)}
-                  </TableCell>
-                  <TableCell className="text-right text-green-600">
-                    {fmtAmount(s.paidAmount)}
-                  </TableCell>
-                  <TableCell className={`text-right font-semibold ${
-                    s.unpaidAmount > 0 ? 'text-red-600' : 'text-muted-foreground'
-                  }`}>
-                    {fmtAmount(s.unpaidAmount)}
-                  </TableCell>
-                  <TableCell className="print:hidden">
-                    {isFullyPaid ? (
-                      <span className="flex items-center gap-1 text-xs text-green-600">
-                        <CheckCircle2 className="size-3.5" />
-                        已結清
-                      </span>
-                    ) : isMonthly ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1"
-                        disabled={markingPaid === s.supplierId}
-                        onClick={() => onMarkPaid(s.supplierId, s.supplierName, s.unpaidAmount)}
-                      >
-                        {markingPaid === s.supplierId ? (
-                          <Loader2 className="size-3 animate-spin" />
-                        ) : (
-                          <CreditCard className="size-3" />
-                        )}
-                        標記已付
-                      </Button>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs text-orange-600">
-                        <AlertCircle className="size-3.5" />
-                        待付款
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-            {/* 小計列 */}
-            <TableRow className={`font-semibold ${isMonthly ? 'bg-blue-50/50' : 'bg-orange-50/50'}`}>
-              <TableCell colSpan={3}>{paymentType}小計</TableCell>
-              <TableCell className="text-right">{fmtAmount(subtotalAmount)}</TableCell>
-              <TableCell className="text-right text-green-600">{fmtAmount(subtotalPaid)}</TableCell>
-              <TableCell className="text-right text-red-600">{fmtAmount(subtotalUnpaid)}</TableCell>
-              <TableCell className="print:hidden" />
-            </TableRow>
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ── 門市報表表格 ──────────────────────────────────────────────────────────────
-
-interface StoreTableProps {
-  suppliers: SupplierPaymentReport[]
-}
-
-function StoreSupplierTable({ suppliers }: StoreTableProps) {
-  if (suppliers.length === 0) return null
-
-  const subtotalAmount = sumBy(suppliers, r => r.totalAmount)
-  const subtotalPaid = sumBy(suppliers, r => r.paidAmount)
-  const subtotalUnpaid = sumBy(suppliers, r => r.unpaidAmount)
-
-  return (
-    <Card>
-      <CardContent className="pt-4 overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>供應商</TableHead>
-              <TableHead className="text-center">訂單筆數</TableHead>
-              <TableHead className="text-right">總金額</TableHead>
-              <TableHead className="text-right">已付</TableHead>
-              <TableHead className="text-right">未付</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {suppliers.map((s) => {
-              const isFullyPaid = s.unpaidAmount === 0
-              return (
-                <TableRow key={s.supplierId} className={isFullyPaid ? 'opacity-60' : ''}>
-                  <TableCell className="font-medium">{s.supplierName}</TableCell>
-                  <TableCell className="text-center text-sm">{s.orderCount} 筆</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {fmtAmount(s.totalAmount)}
-                  </TableCell>
-                  <TableCell className="text-right text-green-600">
-                    {fmtAmount(s.paidAmount)}
-                  </TableCell>
-                  <TableCell className={`text-right font-semibold ${
-                    s.unpaidAmount > 0 ? 'text-red-600' : 'text-muted-foreground'
-                  }`}>
-                    {fmtAmount(s.unpaidAmount)}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-            {/* 合計列 */}
-            <TableRow className="bg-muted/40 font-bold">
-              <TableCell colSpan={2}>合計</TableCell>
-              <TableCell className="text-right text-primary">{fmtAmount(subtotalAmount)}</TableCell>
-              <TableCell className="text-right text-green-600">{fmtAmount(subtotalPaid)}</TableCell>
-              <TableCell className="text-right text-red-600">{fmtAmount(subtotalUnpaid)}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ── 頁面主元件 ────────────────────────────────────────────────────────────────
+import type { Store as StoreType, MonthlyReport, ActiveTab } from './_components/types'
+import { SummaryCards } from './_components/summary-cards'
+import { HQSupplierTable } from './_components/hq-supplier-table'
+import { StoreSupplierTable } from './_components/store-supplier-table'
 
 export default function PaymentsPage() {
   const currentMonth = formatMonth(new Date())
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [activeTab, setActiveTab] = useState<ActiveTab>('hq')
-  const [stores, setStores] = useState<Store[]>([])
+  const [stores, setStores] = useState<StoreType[]>([])
   const [storesLoading, setStoresLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [report, setReport] = useState<MonthlyReport | null>(null)
@@ -380,8 +49,6 @@ export default function PaymentsPage() {
   // P2-B5 Batch 付款 — 跨供應商多選
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<number>>(new Set())
   const [batchMarking, setBatchMarking] = useState(false)
-
-  const isCurrentMonth = selectedMonth === currentMonth
 
   // 切月份/tab 時清空選取
   useEffect(() => {
@@ -406,7 +73,7 @@ export default function PaymentsPage() {
           toast.error('載入門市列表失敗')
           return
         }
-        const data: Store[] = await res.json()
+        const data: StoreType[] = await res.json()
         setStores(data)
       } catch {
         toast.error('載入門市列表失敗')
@@ -446,7 +113,6 @@ export default function PaymentsPage() {
   async function handleBatchMarkPaid() {
     if (!report || selectedSupplierIds.size === 0) return
 
-    // 收集所有選取供應商的 unpaid/pending payments.id
     const selectedSuppliers = report.suppliers.filter((s) => selectedSupplierIds.has(s.supplierId))
     const paymentIds = selectedSuppliers.flatMap((s) =>
       s.payments.filter((p) => p.status === 'unpaid' || p.status === 'pending').map((p) => p.id)
@@ -481,11 +147,10 @@ export default function PaymentsPage() {
     }
   }
 
-  // 月結付款：透過 PATCH 逐筆標記該供應商所有未付 payment 為 paid
+  // 單家月結付款：PATCH 逐筆標記該供應商所有未付 payment 為 paid
   async function handleMarkMonthlyPaid(
     supplierId: number,
     supplierName: string,
-    _amount: number
   ) {
     const supplierData = report?.suppliers.find((s) => s.supplierId === supplierId)
     if (!supplierData) return
@@ -502,7 +167,6 @@ export default function PaymentsPage() {
 
     setMarkingPaid(supplierId)
     try {
-      // 逐筆標記付款（若無現有 payment 紀錄則跳過，由後端負責建立）
       const results = await Promise.all(
         unpaidPayments.map((p) =>
           fetch('/api/payments', {
@@ -527,7 +191,6 @@ export default function PaymentsPage() {
     }
   }
 
-  // 列印
   function handlePrint() {
     window.print()
   }
@@ -535,18 +198,15 @@ export default function PaymentsPage() {
   // 分類供應商（總公司模式用）
   const monthlySuppliers = report?.suppliers.filter((s) => s.paymentType === '月結') ?? []
   const cashSuppliers = report?.suppliers.filter((s) => s.paymentType === '現結') ?? []
-
-  // 當前門市資訊（門市模式用）
   const currentStoreInfo = report?.storeInfo ?? null
 
-  // 列印標題判斷
+  // 列印標題
   const printTitle = activeTab === 'hq'
     ? `月結報表 — ${formatMonthDisplay(selectedMonth)}`
     : null
 
   return (
     <div className="p-4 md:p-6 space-y-5 print:p-6 print:space-y-4">
-
       {/* ── 螢幕標題（列印時隱藏） ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 print:hidden">
         <div>
@@ -562,13 +222,11 @@ export default function PaymentsPage() {
       {/* ── 列印用抬頭 ────────────────────────────────────────────────────── */}
       <div className="hidden print:block mb-2">
         {activeTab === 'hq' ? (
-          /* 總公司列印抬頭 */
           <div>
             <h1 className="text-2xl font-bold">肥龍老火鍋</h1>
             <p className="text-base mt-1">{printTitle}</p>
           </div>
         ) : currentStoreInfo ? (
-          /* 門市列印抬頭（正式單據格式） */
           <div className="border-b-2 border-gray-800 pb-4 mb-4">
             <h1 className="text-2xl font-bold">
               {currentStoreInfo.companyName ?? currentStoreInfo.name}
@@ -587,7 +245,7 @@ export default function PaymentsPage() {
         )}
       </div>
 
-      {/* ── Tab 視角切換（列印時隱藏） ────────────────────────────────────── */}
+      {/* ── Tab 視角切換 ─────────────────────────────────────────────────── */}
       {!storesLoading && (
         <div className="print:hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -597,11 +255,7 @@ export default function PaymentsPage() {
                 總公司
               </TabsTrigger>
               {stores.filter((s) => s.type !== 'warehouse').map((store) => (
-                <TabsTrigger
-                  key={store.id}
-                  value={String(store.id)}
-                  className="gap-1.5 text-sm"
-                >
+                <TabsTrigger key={store.id} value={String(store.id)} className="gap-1.5 text-sm">
                   <Store className="size-3.5" />
                   {store.name}
                 </TabsTrigger>
@@ -611,7 +265,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ── 月份選擇（列印時隱藏；統一 MonthSelector 元件） ───────────────── */}
+      {/* ── 月份選擇 ─────────────────────────────────────────────────────── */}
       <div className="print:hidden">
         <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
       </div>
@@ -626,7 +280,7 @@ export default function PaymentsPage() {
       {/* ── 報表主內容 ────────────────────────────────────────────────────── */}
       {!loading && report && (
         <>
-          {/* 門市資訊卡片（門市 Tab 專用，螢幕顯示） */}
+          {/* 門市資訊卡片（門市 Tab 專用） */}
           {activeTab !== 'hq' && currentStoreInfo && (
             <Card className="print:hidden">
               <CardContent className="pt-4 pb-3">
@@ -659,7 +313,7 @@ export default function PaymentsPage() {
             unpaidAmount={report.summary.unpaidAmount}
           />
 
-          {/* 無資料提示 */}
+          {/* 無資料 */}
           {report.suppliers.length === 0 && (
             <Card>
               <CardContent className="py-16 text-center">
@@ -679,9 +333,7 @@ export default function PaymentsPage() {
                   <CardContent className="py-3 flex items-center justify-between gap-3">
                     <div className="text-sm">
                       <span className="font-semibold">已選 {selectedSupplierIds.size} 家</span>
-                      <span className="text-muted-foreground ml-2">
-                        可一次批次標記為已付
-                      </span>
+                      <span className="text-muted-foreground ml-2">可一次批次標記為已付</span>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -691,11 +343,7 @@ export default function PaymentsPage() {
                       >
                         取消選取
                       </Button>
-                      <Button
-                        size="sm"
-                        disabled={batchMarking}
-                        onClick={handleBatchMarkPaid}
-                      >
+                      <Button size="sm" disabled={batchMarking} onClick={handleBatchMarkPaid}>
                         {batchMarking ? (
                           <>
                             <Loader2 className="size-3 animate-spin mr-1" />
@@ -727,11 +375,9 @@ export default function PaymentsPage() {
           )}
 
           {/* ── 門市模式 ── */}
-          {activeTab !== 'hq' && (
-            <StoreSupplierTable suppliers={report.suppliers} />
-          )}
+          {activeTab !== 'hq' && <StoreSupplierTable suppliers={report.suppliers} />}
 
-          {/* ── 總計列（有資料才顯示） ── */}
+          {/* ── 總計列（總公司模式才顯示） ── */}
           {report.suppliers.length > 0 && activeTab === 'hq' && (
             <>
               <Separator />
