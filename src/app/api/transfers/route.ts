@@ -136,17 +136,28 @@ export async function POST(request: NextRequest) {
           VALUES (${transfer.id}, ${item.itemId}, ${item.quantity}, ${item.unit || null})
         `;
 
-        // 來源扣庫存
-        const [fromExisting] = await tx`
-          SELECT id FROM store_inventory WHERE item_id = ${item.itemId} AND store_id = ${fromStoreId}
+        // CRITICAL: 來源庫存用 SELECT FOR UPDATE 鎖行 — 防併發扣超賣
+        // 並取得真實 current_stock 數值，驗證庫存充足才扣減
+        const [fromRow] = await tx`
+          SELECT id, current_stock FROM store_inventory
+          WHERE item_id = ${item.itemId} AND store_id = ${fromStoreId}
+          FOR UPDATE
         `;
-        if (fromExisting) {
+        const fromQty = fromRow ? parseFloat(String(fromRow.current_stock)) : 0;
+        if (fromQty < item.quantity) {
+          throw new Error(
+            `庫存不足：品項 #${item.itemId} 來源門市現有 ${fromQty}，需要 ${item.quantity}`
+          );
+        }
+
+        if (fromRow) {
           await tx`UPDATE store_inventory SET current_stock = current_stock - ${item.quantity}, updated_at = NOW() WHERE item_id = ${item.itemId} AND store_id = ${fromStoreId}`;
         }
 
-        // 目標加庫存
+        // 目標門市也鎖行，避免同時 INSERT 導致重複
         const [toExisting] = await tx`
           SELECT id FROM store_inventory WHERE item_id = ${item.itemId} AND store_id = ${toStoreId}
+          FOR UPDATE
         `;
         if (toExisting) {
           await tx`UPDATE store_inventory SET current_stock = current_stock + ${item.quantity}, updated_at = NOW() WHERE item_id = ${item.itemId} AND store_id = ${toStoreId}`;
@@ -154,7 +165,7 @@ export async function POST(request: NextRequest) {
           await tx`INSERT INTO store_inventory (item_id, store_id, current_stock, stock_unit) VALUES (${item.itemId}, ${toStoreId}, ${item.quantity}, ${item.unit || null})`;
         }
 
-        // 記錄庫存異動 log
+        // 記錄庫存異動 log（鎖內再查一次以取得異動後餘額）
         const [fromStock] = await tx`SELECT current_stock FROM store_inventory WHERE item_id = ${item.itemId} AND store_id = ${fromStoreId}`;
         const [toStock] = await tx`SELECT current_stock FROM store_inventory WHERE item_id = ${item.itemId} AND store_id = ${toStoreId}`;
 
@@ -190,9 +201,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     // Transaction 自動 rollback，庫存不會不一致
+    const msg = err instanceof Error ? err.message : "調撥失敗，已自動回滾";
+    // 庫存不足 → 400 (客戶端輸入錯誤)；其他 → 500
+    const status = msg.startsWith("庫存不足") ? 400 : 500;
     return NextResponse.json(
-      { error: "調撥失敗，已自動回滾" },
-      { status: 500 }
+      { error: msg },
+      { status }
     );
   }
 }

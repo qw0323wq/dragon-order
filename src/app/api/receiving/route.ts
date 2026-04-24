@@ -85,99 +85,102 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
-  const results = [];
 
-  for (const rec of records) {
-    // 先查是否已有驗收紀錄
-    const [existing] = await db
-      .select()
-      .from(receiving)
-      .where(eq(receiving.orderItemId, rec.orderItemId))
-      .limit(1);
+  // CRITICAL: 整個批次驗收（含寫驗收紀錄 + 入庫更新）包在 transaction 內
+  // 避免中途失敗造成部分已入庫部分沒入的不一致狀態
+  try {
+    const resultsCount = await rawSql.begin(async (_tx) => {
+      const tx = _tx as unknown as typeof rawSql;
+      let count = 0;
 
-    // 驗收人：優先用 auth 取得的 userId，其次用前端傳入的 receivedBy
-    const resolvedReceivedBy = receivedByUserId ?? rec.receivedBy ?? null;
+      // Phase 1: 寫驗收紀錄（全部 20 筆先寫完再入庫）
+      for (const rec of records) {
+        const resolvedReceivedBy = receivedByUserId ?? rec.receivedBy ?? null;
 
-    if (existing) {
-      // 更新既有紀錄
-      const [updated] = await db
-        .update(receiving)
-        .set({
-          receivedQty: rec.receivedQty,
-          result: rec.result,
-          issue: rec.issue || null,
-          resolution: rec.resolution || null,
-          receivedAt: now,
-          receivedBy: resolvedReceivedBy,
-        })
-        .where(eq(receiving.orderItemId, rec.orderItemId))
-        .returning();
-      results.push(updated);
-    } else {
-      // 新增驗收紀錄
-      const [inserted] = await db
-        .insert(receiving)
-        .values({
-          orderItemId: rec.orderItemId,
-          receivedQty: rec.receivedQty,
-          result: rec.result,
-          issue: rec.issue || null,
-          resolution: rec.resolution || null,
-          receivedAt: now,
-          receivedBy: resolvedReceivedBy,
-        })
-        .returning();
-      results.push(inserted);
-    }
+        const [existing] = await tx`
+          SELECT id FROM receiving WHERE order_item_id = ${rec.orderItemId} LIMIT 1
+        `;
+
+        if (existing) {
+          await tx`
+            UPDATE receiving SET
+              received_qty = ${rec.receivedQty},
+              result = ${rec.result},
+              issue = ${rec.issue || null},
+              resolution = ${rec.resolution || null},
+              received_at = ${now},
+              received_by = ${resolvedReceivedBy}
+            WHERE order_item_id = ${rec.orderItemId}
+          `;
+        } else {
+          await tx`
+            INSERT INTO receiving
+              (order_item_id, received_qty, result, issue, resolution, received_at, received_by)
+            VALUES
+              (${rec.orderItemId}, ${rec.receivedQty}, ${rec.result},
+               ${rec.issue || null}, ${rec.resolution || null}, ${now}, ${resolvedReceivedBy})
+          `;
+        }
+        count++;
+      }
+
+      // Phase 2: 入庫（只對正常品項）
+      for (const rec of records) {
+        if (rec.result !== '正常' && rec.result !== undefined) continue;
+
+        const [oi] = await tx`
+          SELECT item_id, store_id, unit FROM order_items WHERE id = ${rec.orderItemId}
+        `;
+        if (!oi) continue;
+
+        const qty = parseFloat(rec.receivedQty) || 0;
+        if (qty <= 0) continue;
+
+        // 鎖行後 upsert store_inventory
+        const [existing] = await tx`
+          SELECT id FROM store_inventory
+          WHERE item_id = ${oi.item_id} AND store_id = ${oi.store_id}
+          FOR UPDATE
+        `;
+        if (existing) {
+          await tx`
+            UPDATE store_inventory SET current_stock = current_stock + ${qty}, updated_at = NOW()
+            WHERE item_id = ${oi.item_id} AND store_id = ${oi.store_id}
+          `;
+        } else {
+          await tx`
+            INSERT INTO store_inventory (item_id, store_id, current_stock, stock_unit)
+            VALUES (${oi.item_id}, ${oi.store_id}, ${qty}, ${oi.unit})
+          `;
+        }
+
+        // 同步 items.current_stock
+        const [{ total }] = await tx`
+          SELECT COALESCE(SUM(current_stock::numeric), 0) as total
+          FROM store_inventory WHERE item_id = ${oi.item_id}
+        `;
+        await tx`UPDATE items SET current_stock = ${total} WHERE id = ${oi.item_id}`;
+
+        // 記 inventory_log
+        const [stockRow] = await tx`
+          SELECT current_stock FROM store_inventory
+          WHERE item_id = ${oi.item_id} AND store_id = ${oi.store_id}
+        `;
+        await tx`
+          INSERT INTO inventory_logs
+            (item_id, type, quantity, unit, balance_after, store_id, source, created_by)
+          VALUES
+            (${oi.item_id}, 'in', ${qty}, ${oi.unit},
+             ${stockRow?.current_stock || qty}, ${oi.store_id}, '驗收入庫', ${receivedByUserId})
+        `;
+      }
+
+      return count;
+    });
+
+    return NextResponse.json({ success: true, count: resultsCount });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "驗收失敗，已自動回滾";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  // 驗收完成自動入庫存（正常的品項）
-  for (const rec of records) {
-    if (rec.result !== '正常' && rec.result !== undefined) continue;
-
-    // 查 order_item 的品項和門市
-    const [oi] = await db.select({
-      itemId: orderItems.itemId,
-      storeId: orderItems.storeId,
-      unit: orderItems.unit,
-    }).from(orderItems).where(eq(orderItems.id, rec.orderItemId));
-    if (!oi) continue;
-
-    const qty = parseFloat(rec.receivedQty) || 0;
-    if (qty <= 0) continue;
-
-    // upsert store_inventory
-    const [existing] = await rawSql`
-      SELECT id FROM store_inventory WHERE item_id = ${oi.itemId} AND store_id = ${oi.storeId}
-    `;
-    if (existing) {
-      await rawSql`
-        UPDATE store_inventory SET current_stock = current_stock + ${qty}, updated_at = NOW()
-        WHERE item_id = ${oi.itemId} AND store_id = ${oi.storeId}
-      `;
-    } else {
-      await rawSql`
-        INSERT INTO store_inventory (item_id, store_id, current_stock, stock_unit)
-        VALUES (${oi.itemId}, ${oi.storeId}, ${qty}, ${oi.unit})
-      `;
-    }
-
-    // 同步 items.current_stock
-    const [{ total }] = await rawSql`
-      SELECT COALESCE(SUM(current_stock::numeric), 0) as total
-      FROM store_inventory WHERE item_id = ${oi.itemId}
-    `;
-    await rawSql`UPDATE items SET current_stock = ${total} WHERE id = ${oi.itemId}`;
-
-    // 記 inventory_log
-    const [stockRow] = await rawSql`
-      SELECT current_stock FROM store_inventory WHERE item_id = ${oi.itemId} AND store_id = ${oi.storeId}
-    `;
-    await rawSql`
-      INSERT INTO inventory_logs (item_id, type, quantity, unit, balance_after, store_id, source, created_by)
-      VALUES (${oi.itemId}, 'in', ${qty}, ${oi.unit}, ${stockRow?.current_stock || qty}, ${oi.storeId}, '驗收入庫', ${receivedByUserId})
-    `;
-  }
-
-  return NextResponse.json({ success: true, count: results.length });
 }

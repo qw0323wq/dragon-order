@@ -208,7 +208,7 @@ export const orders = pgTable('orders', {
 export const orderItems = pgTable('order_items', {
   id: serial('id').primaryKey(),
   orderId: integer('order_id')
-    .references(() => orders.id)
+    .references(() => orders.id, { onDelete: 'cascade' })
     .notNull(),
   itemId: integer('item_id')
     .references(() => items.id)
@@ -235,7 +235,7 @@ export const orderItems = pgTable('order_items', {
 export const receiving = pgTable('receiving', {
   id: serial('id').primaryKey(),
   orderItemId: integer('order_item_id')
-    .references(() => orderItems.id)
+    .references(() => orderItems.id, { onDelete: 'cascade' })
     .notNull(),
   /** 實收數量 */
   receivedQty: numeric('received_qty', { precision: 10, scale: 2 }).notNull(),
@@ -255,7 +255,7 @@ export const receiving = pgTable('receiving', {
 export const payments = pgTable('payments', {
   id: serial('id').primaryKey(),
   orderId: integer('order_id')
-    .references(() => orders.id)
+    .references(() => orders.id, { onDelete: 'cascade' })
     .notNull(),
   supplierId: integer('supplier_id')
     .references(() => suppliers.id)
@@ -565,8 +565,10 @@ export type NewInventoryLog = typeof inventoryLogs.$inferInsert;
 // ─────────────────────────────────────────────
 export const storeInventory = pgTable('store_inventory', {
   id: serial('id').primaryKey(),
+  // CRITICAL: onDelete 是 RESTRICT — 防止誤刪品項時連帶殺掉庫存紀錄
+  // 有歷史意義的資料不該因誤刪一個 item 就全部消失
   itemId: integer('item_id')
-    .references(() => items.id, { onDelete: 'cascade' })
+    .references(() => items.id, { onDelete: 'restrict' })
     .notNull(),
   /** NULL = 總公司倉庫 */
   storeId: integer('store_id').references(() => stores.id),
