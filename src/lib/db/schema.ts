@@ -219,9 +219,16 @@ export const orderItems = pgTable('order_items', {
   /** 叫貨數量（允許小數，例如 2.5 斤） */
   quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(),
   unit: varchar('unit', { length: 10 }).notNull(),
-  /** 單價（元），從 items.cost_price 複製，允許當下調整 */
+  /**
+   * 🚫 單價（元）快照 — 下單當下從 items.cost_price 複製過來的一份拷貝
+   * 日後 items.cost_price 改變（例如 price-schedule 套用新價）時，
+   * 此欄位不會變動，歷史訂單金額保持不變。
+   *
+   * ⚠️ 顯示訂單金額一律從此欄位取，不要 JOIN items 動態查 cost_price。
+   * 否則帳務報表會因為 item 價格被更新而追溯性變動，對不上帳。
+   */
   unitPrice: numeric('unit_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
-  /** 小計（元）= quantity * unit_price，整數四捨五入 */
+  /** 小計（元）= roundMoney(quantity * unit_price)，保留 2 位小數 */
   subtotal: numeric('subtotal', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   notes: text('notes'),
   /** 叫貨人（哪個員工叫的） */
