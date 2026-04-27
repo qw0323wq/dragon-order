@@ -99,8 +99,21 @@ export const RESULT_OPTIONS = ['正常', '短缺', '品質問題', '未到貨']
 
 // ── 日期工具 ──
 
+/**
+ * 格式化 Date → 'YYYY-MM-DD'（本地時區，不用 UTC）
+ *
+ * CRITICAL: 不能用 toISOString().slice(0, 10)
+ * 因為 toISOString 永遠回 UTC，台北 UTC+8：
+ *   new Date('2026-04-23T00:00:00') → 台北 4/23 00:00 = UTC 4/22 16:00
+ *   .toISOString() = '2026-04-22T16:00:00Z'
+ *   .slice(0, 10) = '2026-04-22' ← 跳到前一天！
+ * setDate(+1) 後 toISOString 還沒過台北 0:00 → addDays 等於沒加。
+ */
 export function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export function formatDisplay(dateStr: string): string {

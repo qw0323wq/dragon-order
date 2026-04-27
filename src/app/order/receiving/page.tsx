@@ -75,8 +75,16 @@ interface Order {
 
 // ── 日期工具 ─────────────────────────────────────────────────────────────────
 
+/**
+ * Date → 'YYYY-MM-DD'（本地時區，避免 UTC 跨日 bug）
+ * CRITICAL: 不能用 toISOString().slice(0,10)，台北 UTC+8 會讓 setDate 後
+ * 計算偏差 1-2 天（右箭頭看起來沒反應、左箭頭跳兩天）
+ */
 function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function formatDisplay(dateStr: string): string {
