@@ -2,7 +2,7 @@
 
 /**
  * 品項管理頁面（接真實 API）
- * 功能：品項列表（搜尋 + 分類篩選）、進貨價 + 店家採購價 + 售價 + 毛利率
+ * 功能：品項列表（搜尋 + 分類篩選）、進貨價 + 店家採購價（採購用，不含售價/毛利）
  */
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
@@ -33,7 +33,6 @@ interface ItemData {
   unit: string
   costPrice: number
   storePrice: number      // 有效店家採購價（API 已計算）
-  sellPrice: number
   supplierId: number
   supplierName: string
   spec: string | null
@@ -62,19 +61,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   耗材: 'bg-slate-100 text-slate-700',
 }
 
-// ── 輔助函式 ──
-
-function calcMargin(cost: number, price: number): number {
-  if (price <= 0 || cost <= 0) return 0
-  return Math.round(((price - cost) / price) * 100)
-}
-
-function marginColorClass(margin: number): string {
-  if (margin > 70) return 'text-green-600'
-  if (margin >= 50) return 'text-yellow-600'
-  return 'text-red-600'
-}
-
 // ── 頁面 ──
 
 export default function MenuPage() {
@@ -95,7 +81,6 @@ export default function MenuPage() {
   const [formUnit, setFormUnit] = useState('份')
   const [formCostPrice, setFormCostPrice] = useState(0)
   const [formStorePrice, setFormStorePrice] = useState(0)
-  const [formSellPrice, setFormSellPrice] = useState(0)
   const [formSpec, setFormSpec] = useState('')
   const [formSupplierNotes, setFormSupplierNotes] = useState('')
 
@@ -136,7 +121,7 @@ export default function MenuPage() {
   function openAdd() {
     setEditTarget(null)
     setFormName(''); setFormCategory(''); setFormUnit('份')
-    setFormCostPrice(0); setFormStorePrice(0); setFormSellPrice(0)
+    setFormCostPrice(0); setFormStorePrice(0)
     setFormSpec(''); setFormSupplierNotes('')
     setDialogOpen(true)
   }
@@ -148,7 +133,6 @@ export default function MenuPage() {
     setFormUnit(item.unit)
     setFormCostPrice(item.costPrice)
     setFormStorePrice(item.storePrice)
-    setFormSellPrice(item.sellPrice)
     setFormSpec(item.spec || '')
     setFormSupplierNotes(item.supplierNotes || '')
     setDialogOpen(true)
@@ -170,7 +154,6 @@ export default function MenuPage() {
             unit: formUnit,
             costPrice: formCostPrice,
             storePrice: formStorePrice,
-            sellPrice: formSellPrice,
             spec: formSpec || null,
             supplierNotes: formSupplierNotes || null,
           }),
@@ -190,9 +173,6 @@ export default function MenuPage() {
       setSubmitting(false)
     }
   }
-
-  const previewMargin = calcMargin(formCostPrice, formSellPrice)
-  const previewStoreMargin = calcMargin(formStorePrice, formSellPrice)
 
   if (loading) {
     return <div className="p-4 md:p-6"><p className="text-muted-foreground">載入中...</p></div>
@@ -255,8 +235,6 @@ export default function MenuPage() {
                   <TableHead>供應商</TableHead>
                   <TableHead className="text-right">進貨價</TableHead>
                   <TableHead className="text-right">店家採購價</TableHead>
-                  <TableHead className="text-right">售價</TableHead>
-                  <TableHead className="text-right">毛利率</TableHead>
                   <TableHead className="text-center">單位</TableHead>
                   <TableHead className="pr-4 text-right">操作</TableHead>
                 </TableRow>
@@ -264,13 +242,12 @@ export default function MenuPage() {
               <TableBody>
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       沒有符合的品項
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredItems.map((item) => {
-                    const margin = calcMargin(item.costPrice, item.sellPrice)
                     const catStyle = CATEGORY_COLORS[item.category] ?? 'bg-muted text-muted-foreground'
                     return (
                       <TableRow key={item.id}>
@@ -287,14 +264,6 @@ export default function MenuPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           {item.storePrice > 0 ? formatCurrency(item.storePrice) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.sellPrice > 0 ? formatCurrency(item.sellPrice) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {margin > 0 ? (
-                            <span className={`font-semibold ${marginColorClass(margin)}`}>{margin}%</span>
-                          ) : '-'}
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground">{item.unit}</TableCell>
                         <TableCell className="pr-4 text-right">
@@ -313,7 +282,6 @@ export default function MenuPage() {
           {/* 手機版 */}
           <div className="md:hidden divide-y">
             {filteredItems.map((item) => {
-              const margin = calcMargin(item.costPrice, item.sellPrice)
               const catStyle = CATEGORY_COLORS[item.category] ?? 'bg-muted text-muted-foreground'
               return (
                 <div key={item.id} className="p-3 space-y-1">
@@ -333,10 +301,6 @@ export default function MenuPage() {
                     <span>/{item.unit}</span>
                     {item.costPrice > 0 && <span>進${item.costPrice}</span>}
                     {item.storePrice > 0 && <span>店${item.storePrice}</span>}
-                    {item.sellPrice > 0 && <span>售${item.sellPrice}</span>}
-                    {margin > 0 && (
-                      <span className={`font-semibold ${marginColorClass(margin)}`}>{margin}%</span>
-                    )}
                   </div>
                 </div>
               )
@@ -375,8 +339,8 @@ export default function MenuPage() {
               </div>
             </div>
 
-            {/* 三種價格 */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* 兩種價格（採購用，不含售價） */}
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>進貨價 ($)</Label>
                 <Input type="number" min={0} value={formCostPrice} onChange={(e) => setFormCostPrice(Number(e.target.value))} />
@@ -385,29 +349,7 @@ export default function MenuPage() {
                 <Label>店家採購價 ($)</Label>
                 <Input type="number" min={0} value={formStorePrice} onChange={(e) => setFormStorePrice(Number(e.target.value))} placeholder="0=自動加成" />
               </div>
-              <div className="space-y-1.5">
-                <Label>售價 ($)</Label>
-                <Input type="number" min={0} value={formSellPrice} onChange={(e) => setFormSellPrice(Number(e.target.value))} />
-              </div>
             </div>
-
-            {/* 毛利率預覽 */}
-            {formSellPrice > 0 && (
-              <div className="text-sm space-y-0.5">
-                {formCostPrice > 0 && (
-                  <p>
-                    總公司毛利（進貨→售價）：
-                    <span className={`font-semibold ${marginColorClass(previewMargin)}`}>{previewMargin}%</span>
-                  </p>
-                )}
-                {formStorePrice > 0 && (
-                  <p>
-                    分店毛利（店家採購→售價）：
-                    <span className={`font-semibold ${marginColorClass(previewStoreMargin)}`}>{previewStoreMargin}%</span>
-                  </p>
-                )}
-              </div>
-            )}
 
             {formStorePrice === 0 && formCostPrice > 0 && (
               <p className="text-xs text-muted-foreground">
