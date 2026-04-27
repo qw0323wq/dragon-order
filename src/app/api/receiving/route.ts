@@ -84,10 +84,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "缺少驗收資料" }, { status: 400 });
   }
 
-  const now = new Date();
-
   // CRITICAL: 整個批次驗收（含寫驗收紀錄 + 入庫更新）包在 transaction 內
   // 避免中途失敗造成部分已入庫部分沒入的不一致狀態
+  // CRITICAL: received_at 用 PostgreSQL NOW() 不用 JS Date object
+  // 因為 lib/db/index.ts 的 types.numeric parser 可能覆蓋預設 Date 序列化器，
+  // 傳 Date instance 會 throw "Received an instance of Date"
   try {
     const resultsCount = await rawSql.begin(async (_tx) => {
       const tx = _tx as unknown as typeof rawSql;
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
               result = ${rec.result},
               issue = ${rec.issue || null},
               resolution = ${rec.resolution || null},
-              received_at = ${now},
+              received_at = NOW(),
               received_by = ${resolvedReceivedBy}
             WHERE order_item_id = ${rec.orderItemId}
           `;
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
               (order_item_id, received_qty, result, issue, resolution, received_at, received_by)
             VALUES
               (${rec.orderItemId}, ${rec.receivedQty}, ${rec.result},
-               ${rec.issue || null}, ${rec.resolution || null}, ${now}, ${resolvedReceivedBy})
+               ${rec.issue || null}, ${rec.resolution || null}, NOW(), ${resolvedReceivedBy})
           `;
         }
         count++;

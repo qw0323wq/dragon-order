@@ -226,14 +226,16 @@ export async function PATCH(request: NextRequest) {
           continue;
         }
 
-        const [u] = await tx`
-          UPDATE payments SET
-            status = ${status},
-            paid_at = ${status === "paid" ? new Date() : null},
-            notes = ${notes ?? row.notes ?? null}
-          WHERE id = ${id}
-          RETURNING *
-        `;
+        // CRITICAL: paid_at 用 NOW() 不用 JS Date object（lib/db types.numeric parser 副作用）
+        const [u] = status === "paid"
+          ? await tx`
+              UPDATE payments SET status = ${status}, paid_at = NOW(), notes = ${notes ?? row.notes ?? null}
+              WHERE id = ${id} RETURNING *
+            `
+          : await tx`
+              UPDATE payments SET status = ${status}, paid_at = NULL, notes = ${notes ?? row.notes ?? null}
+              WHERE id = ${id} RETURNING *
+            `;
         updated.push(u);
       }
 
