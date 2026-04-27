@@ -5,6 +5,7 @@
  * PUT  /api/suppliers/[id]/items — 批次更新（報價單上傳用，自動記錄價格歷史）
  */
 import { NextRequest, NextResponse } from "next/server";
+import { formatDateLocal } from '@/lib/format';
 import { db } from "@/lib/db";
 import { items, itemPriceHistory } from "@/lib/db/schema";
 import { eq, and, like } from "drizzle-orm";
@@ -154,7 +155,7 @@ export async function PUT(
   let created = 0;
   const priceChanges: { name: string; oldPrice: number; newPrice: number; diff: number; pct: string }[] = [];
   const source = (body as { source?: string }).source || undefined;
-  const effectiveDate = (body as { effectiveDate?: string }).effectiveDate || new Date().toISOString().slice(0, 10);
+  const effectiveDate = (body as { effectiveDate?: string }).effectiveDate || formatDateLocal();
 
   for (const ui of uploadItems) {
     const trimName = ui.name?.trim();

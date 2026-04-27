@@ -9,6 +9,7 @@
  * 4. 總評分 = 加權平均
  */
 import { NextRequest, NextResponse } from "next/server";
+import { formatDateLocal } from '@/lib/format';
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   const months = parseInt(searchParams.get("months") || "3");
   const since = new Date();
   since.setMonth(since.getMonth() - months);
-  const sinceStr = since.toISOString().slice(0, 10);
+  const sinceStr = formatDateLocal(since);
 
   // 每個供應商的 PO 統計
   const poStats = await sql`

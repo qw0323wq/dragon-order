@@ -5,6 +5,7 @@
  * 從 order-page-client.tsx 拆分出來
  */
 import { useState, useEffect } from "react";
+import { formatDateLocal } from '@/lib/format';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +58,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
   function loadData() {
     setLoading(true);
     setError("");
-    const today = new Date().toISOString().slice(0, 10);
+    const today = formatDateLocal();
     fetch(`/api/orders?date=${today}&limit=1`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);

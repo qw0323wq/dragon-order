@@ -5,6 +5,7 @@
  * POST /api/transfers              — 新增調撥/借料
  */
 import { NextRequest, NextResponse } from "next/server";
+import { formatDateLocal } from '@/lib/format';
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest, requireManagerOrAbove } from "@/lib/api-auth";
 import { notifyTransferDone } from "@/lib/line-notify";
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
       // postgres.js v3 TransactionSql 型別不支援 tagged template，用 any cast
       const tx = _tx as unknown as typeof sql;
       // 產生調撥單號
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const today = formatDateLocal().replace(/-/g, "");
       const [{ count }] = await tx`
         SELECT COUNT(*)::int as count FROM transfers
         WHERE transfer_number LIKE ${"TR-" + today + "%"}

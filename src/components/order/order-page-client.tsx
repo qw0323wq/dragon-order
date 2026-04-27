@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from "react";
+import { formatDateLocal } from '@/lib/format';
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { logout } from "@/app/actions/auth";
@@ -88,7 +89,7 @@ export default function OrderPageClient({
   const [activeCategory, setActiveCategory] = useState<string>("");
 
   // 訂單日期
-  const [orderDate, setOrderDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [orderDate, setOrderDate] = useState(() => formatDateLocal());
 
   // 搜尋
   const [searchQuery, setSearchQuery] = useState("");
@@ -314,9 +315,9 @@ export default function OrderPageClient({
               value={orderDate}
               onChange={(e) => setOrderDate(e.target.value)}
               className="text-sm text-muted-foreground bg-transparent border-none p-0 focus:outline-none w-28"
-              max={new Date().toISOString().slice(0, 10)}
+              max={formatDateLocal()}
             />
-            {orderDate !== new Date().toISOString().slice(0, 10) && (
+            {orderDate !== formatDateLocal() && (
               <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-semibold">
                 補單
               </span>

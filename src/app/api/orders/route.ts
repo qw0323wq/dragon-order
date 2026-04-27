@@ -9,7 +9,7 @@ import { orders, orderItems, items, stores, suppliers } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { authenticateRequest, getStoreScope } from "@/lib/api-auth";
 import { createOrderSchema, parseBody } from "@/lib/validations";
-import { roundMoney } from "@/lib/format";
+import { roundMoney, formatDateLocal } from '@/lib/format';
 
 /** 預設分頁大小 + 上限（保護伺服器記憶體） */
 const DEFAULT_LIMIT = 100;
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   const userId = auth.userId ?? null;
 
   // 使用指定日期或今天
-  const targetDate = customDate || new Date().toISOString().slice(0, 10);
+  const targetDate = customDate || formatDateLocal();
 
   // 查看該日期是否已有 draft 訂單
   const [existingOrder] = await db

@@ -10,6 +10,7 @@
  * Body: FormData { file: xlsx, supplier_id: string, effective_date?: string }
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { formatDateLocal } from '@/lib/format';
 import { rawSql as sql } from '@/lib/db';
 import { requireAdmin } from '@/lib/api-auth';
 import * as XLSX from 'xlsx';
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
   const supplierId = formData.get('supplier_id') as string | null;
-  const effectiveDate = (formData.get('effective_date') as string) || new Date().toISOString().slice(0, 10);
+  const effectiveDate = (formData.get('effective_date') as string) || formatDateLocal();
   const source = (formData.get('source') as string) || '上傳報價單';
 
   if (!file || !supplierId) {

@@ -6,6 +6,7 @@
  * 預設：上週 vs 這週
  */
 import { NextRequest, NextResponse } from "next/server";
+import { formatDateLocal } from '@/lib/format';
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 
@@ -25,10 +26,10 @@ export async function GET(request: NextRequest) {
   const lastSunday = new Date(thisMonday);
   lastSunday.setDate(lastSunday.getDate() - 1);
 
-  const p1From = searchParams.get("period1_from") || lastMonday.toISOString().slice(0, 10);
-  const p1To = searchParams.get("period1_to") || lastSunday.toISOString().slice(0, 10);
-  const p2From = searchParams.get("period2_from") || thisMonday.toISOString().slice(0, 10);
-  const p2To = searchParams.get("period2_to") || now.toISOString().slice(0, 10);
+  const p1From = searchParams.get("period1_from") || formatDateLocal(lastMonday);
+  const p1To = searchParams.get("period1_to") || formatDateLocal(lastSunday);
+  const p2From = searchParams.get("period2_from") || formatDateLocal(thisMonday);
+  const p2To = searchParams.get("period2_to") || formatDateLocal(now);
 
   // 各時段的叫貨量
   const period1 = await sql`

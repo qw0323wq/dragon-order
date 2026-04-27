@@ -7,6 +7,7 @@
  * 產出：損耗率 = (實際消耗 - 理論消耗) / 理論消耗
  */
 import { NextRequest, NextResponse } from "next/server";
+import { formatDateLocal } from '@/lib/format';
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 
@@ -16,8 +17,8 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
-  const from = searchParams.get("from") || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-  const to = searchParams.get("to") || new Date().toISOString().slice(0, 10);
+  const from = searchParams.get("from") || formatDateLocal(new Date(Date.now() - 7 * 86400000));
+  const to = searchParams.get("to") || formatDateLocal();
   const storeId = searchParams.get("store_id");
 
   // 1. 理論消耗：訂單銷量 × BOM 用量

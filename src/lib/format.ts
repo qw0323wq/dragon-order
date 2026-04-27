@@ -45,6 +45,22 @@ export function formatMonth(d: Date): string {
   return `${y}-${m}`;
 }
 
+/**
+ * Date → 'YYYY-MM-DD'（本地時區，預設現在）
+ *
+ * CRITICAL: 不要用 toISOString().slice(0, 10)
+ * 因為 toISOString 永遠回 UTC，台北 UTC+8 會差 0~1 天：
+ *   - 取今天：凌晨 0-8 點會回到「昨天日期」
+ *   - setDate 加減：右箭頭看起來沒反應、左箭頭跳兩天
+ * 統一用此函數確保拿到的是台北日期。
+ */
+export function formatDateLocal(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** YYYY-MM → 顯示用的 "2026年3月" */
 export function formatMonthDisplay(month: string): string {
   const [y, m] = month.split("-");

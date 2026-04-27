@@ -6,6 +6,7 @@
  * 用 CRON_SECRET 驗證防外部觸發
  */
 import { NextRequest, NextResponse } from "next/server";
+import { formatDateLocal } from '@/lib/format';
 import { rawSql } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatDateLocal();
 
   // CRITICAL: 整個 cron 邏輯包在 transaction 內 + SELECT FOR UPDATE SKIP LOCKED
   // 防併發觸發重複套用（GitHub Actions + Vercel cron 同時跑會重疊）

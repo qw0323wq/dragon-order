@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
+import { formatMonth } from "@/lib/format";
 
 
 export async function GET(request: NextRequest) {
@@ -15,7 +16,8 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
-  const month = searchParams.get("month") || new Date().toISOString().slice(0, 7); // YYYY-MM
+  // 用 formatMonth 取本地時區月份（避 UTC 跨月差 1 天）
+  const month = searchParams.get("month") || formatMonth(new Date()); // YYYY-MM
   const startDate = `${month}-01`;
   const endDate = `${month}-31`; // PostgreSQL 會自動處理月底
 
