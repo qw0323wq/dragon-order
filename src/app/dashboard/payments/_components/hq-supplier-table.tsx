@@ -39,6 +39,8 @@ export function HQSupplierTable({
 
   const isMonthly = paymentType === '月結';
   const subtotalAmount = sumBy(suppliers, r => r.totalAmount);
+  // 應付小計：未驗收的 fallback 用採購金額（避免低估，顯示實際待結帳數字）
+  const subtotalPayable = sumBy(suppliers, r => r.payableAmount ?? r.totalAmount);
   const subtotalPaid = sumBy(suppliers, r => r.paidAmount);
   const subtotalUnpaid = sumBy(suppliers, r => r.unpaidAmount);
 
@@ -93,7 +95,8 @@ export function HQSupplierTable({
               <TableHead>供應商</TableHead>
               <TableHead>結帳方式</TableHead>
               <TableHead className="text-center">訂單筆數</TableHead>
-              <TableHead className="text-right">總金額</TableHead>
+              <TableHead className="text-right">採購金額</TableHead>
+              <TableHead className="text-right">應付金額</TableHead>
               <TableHead className="text-right">已付</TableHead>
               <TableHead className="text-right">未付</TableHead>
               <TableHead className="print:hidden">操作</TableHead>
@@ -124,8 +127,17 @@ export function HQSupplierTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center text-sm">{s.orderCount} 筆</TableCell>
-                  <TableCell className="text-right font-semibold">
+                  <TableCell className="text-right text-muted-foreground">
                     {fmtAmount(s.totalAmount)}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">
+                    {s.payableAmount === null ? (
+                      <span className="text-muted-foreground text-xs">未驗收</span>
+                    ) : (
+                      <span className={s.payableAmount !== s.totalAmount ? 'text-orange-600' : ''}>
+                        {fmtAmount(s.payableAmount)}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-green-600">
                     {fmtAmount(s.paidAmount)}
@@ -171,7 +183,8 @@ export function HQSupplierTable({
             {/* 小計列 */}
             <TableRow className={`font-semibold ${isMonthly ? 'bg-blue-50/50' : 'bg-orange-50/50'}`}>
               <TableCell colSpan={3}>{paymentType}小計</TableCell>
-              <TableCell className="text-right">{fmtAmount(subtotalAmount)}</TableCell>
+              <TableCell className="text-right text-muted-foreground">{fmtAmount(subtotalAmount)}</TableCell>
+              <TableCell className="text-right">{fmtAmount(subtotalPayable)}</TableCell>
               <TableCell className="text-right text-green-600">{fmtAmount(subtotalPaid)}</TableCell>
               <TableCell className="text-right text-red-600">{fmtAmount(subtotalUnpaid)}</TableCell>
               <TableCell className="print:hidden" />

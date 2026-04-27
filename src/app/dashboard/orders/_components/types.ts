@@ -36,6 +36,12 @@ export interface OrderDetail {
   createdById?: number | null
   createdByName?: string | null
   supplierNotes?: string | null
+  // ── 驗收相關（/api/orders/[id] join receiving 帶出，未驗收則為 null） ──
+  receivedQty?: string | null
+  returnedQty?: string | null
+  receivingResult?: string | null
+  /** 應付小計：未驗收 → null；已驗收 → (received - returned) × unitPrice，未到貨 → 0 */
+  actualSubtotal?: number | null
 }
 
 export interface Order {
@@ -51,6 +57,8 @@ export interface ReceivingRecord {
   id: number
   orderItemId: number
   receivedQty: string
+  /** 退貨數量（部分品質問題用，預設 '0'；整批退時 = receivedQty） */
+  returnedQty: string
   result: string
   issue: string | null
   receivedAt: string | null
@@ -58,6 +66,8 @@ export interface ReceivingRecord {
 
 export interface ReceivingInput {
   receivedQty: string
+  /** 退貨數量；result='品質問題' 時才會用到 */
+  returnedQty: string
   result: string
   issue: string
 }
@@ -66,7 +76,10 @@ export interface SupplierPaymentInfo {
   supplierId: number
   supplierName: string
   paymentType: string
+  /** 採購金額 = SUM(訂單明細 subtotal) */
   totalAmount: number
+  /** 應付金額 = SUM(actualSubtotal)；該供應商未全部驗收時為 null（前端顯示「-」） */
+  payableAmount: number | null
   isPaid: boolean
 }
 

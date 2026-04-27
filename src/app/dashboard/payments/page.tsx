@@ -309,6 +309,7 @@ export default function PaymentsPage() {
           {/* 摘要卡片 */}
           <SummaryCards
             totalAmount={report.summary.totalAmount}
+            payableAmount={report.summary.payableAmount}
             paidAmount={report.summary.paidAmount}
             unpaidAmount={report.summary.unpaidAmount}
           />
@@ -387,8 +388,11 @@ export default function PaymentsPage() {
                     <TableBody>
                       <TableRow className="font-bold text-base">
                         <TableCell className="text-lg">月份合計</TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          採購 {fmtAmount(report.summary.totalAmount)}
+                        </TableCell>
                         <TableCell className="text-right text-primary text-lg">
-                          {fmtAmount(report.summary.totalAmount)}
+                          應付 {fmtAmount(report.summary.payableAmount)}
                         </TableCell>
                         <TableCell className="text-right text-green-600">
                           已付 {fmtAmount(report.summary.paidAmount)}

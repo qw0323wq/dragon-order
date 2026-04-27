@@ -244,8 +244,13 @@ export const receiving = pgTable('receiving', {
   orderItemId: integer('order_item_id')
     .references(() => orderItems.id, { onDelete: 'cascade' })
     .notNull(),
-  /** 實收數量 */
+  /** 實收數量（簽收當下的量，含後來退貨的部分） */
   receivedQty: numeric('received_qty', { precision: 10, scale: 2 }).notNull(),
+  /**
+   * 退貨數量（result='品質問題' 時填寫部分退貨量；整批退就填 = receivedQty）
+   * CRITICAL: 應付 = (receivedQty - returnedQty) × unitPrice，預設 0
+   */
+  returnedQty: numeric('returned_qty', { precision: 10, scale: 2 }).default('0').notNull(),
   /** result: '正常' | '短缺' | '品質問題' | '未到貨' */
   result: varchar('result', { length: 20 }).default('正常').notNull(),
   /** 異常說明（result !== '正常' 時填寫） */

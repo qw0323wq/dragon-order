@@ -19,6 +19,8 @@ export function StoreSupplierTable({ suppliers }: StoreTableProps) {
   if (suppliers.length === 0) return null;
 
   const subtotalAmount = sumBy(suppliers, r => r.totalAmount);
+  // 應付小計：未驗收 fallback 採購金額
+  const subtotalPayable = sumBy(suppliers, r => r.payableAmount ?? r.totalAmount);
   const subtotalPaid = sumBy(suppliers, r => r.paidAmount);
   const subtotalUnpaid = sumBy(suppliers, r => r.unpaidAmount);
 
@@ -30,7 +32,8 @@ export function StoreSupplierTable({ suppliers }: StoreTableProps) {
             <TableRow>
               <TableHead>供應商</TableHead>
               <TableHead className="text-center">訂單筆數</TableHead>
-              <TableHead className="text-right">總金額</TableHead>
+              <TableHead className="text-right">採購金額</TableHead>
+              <TableHead className="text-right">應付金額</TableHead>
               <TableHead className="text-right">已付</TableHead>
               <TableHead className="text-right">未付</TableHead>
             </TableRow>
@@ -42,8 +45,17 @@ export function StoreSupplierTable({ suppliers }: StoreTableProps) {
                 <TableRow key={s.supplierId} className={isFullyPaid ? 'opacity-60' : ''}>
                   <TableCell className="font-medium">{s.supplierName}</TableCell>
                   <TableCell className="text-center text-sm">{s.orderCount} 筆</TableCell>
-                  <TableCell className="text-right font-semibold">
+                  <TableCell className="text-right text-muted-foreground">
                     {fmtAmount(s.totalAmount)}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">
+                    {s.payableAmount === null ? (
+                      <span className="text-muted-foreground text-xs">未驗收</span>
+                    ) : (
+                      <span className={s.payableAmount !== s.totalAmount ? 'text-orange-600' : ''}>
+                        {fmtAmount(s.payableAmount)}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-green-600">
                     {fmtAmount(s.paidAmount)}
@@ -61,7 +73,8 @@ export function StoreSupplierTable({ suppliers }: StoreTableProps) {
             {/* 合計列 */}
             <TableRow className="bg-muted/40 font-bold">
               <TableCell colSpan={2}>合計</TableCell>
-              <TableCell className="text-right text-primary">{fmtAmount(subtotalAmount)}</TableCell>
+              <TableCell className="text-right text-muted-foreground">{fmtAmount(subtotalAmount)}</TableCell>
+              <TableCell className="text-right text-primary">{fmtAmount(subtotalPayable)}</TableCell>
               <TableCell className="text-right text-green-600">{fmtAmount(subtotalPaid)}</TableCell>
               <TableCell className="text-right text-red-600">{fmtAmount(subtotalUnpaid)}</TableCell>
             </TableRow>

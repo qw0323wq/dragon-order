@@ -47,6 +47,7 @@ export function ReceivingTab({ orderId }: ReceivingTabProps) {
         const existing = recs.find((r: ReceivingRecord) => r.orderItemId === item.orderItemId)
         newInputs[item.orderItemId] = {
           receivedQty: existing ? existing.receivedQty : '',
+          returnedQty: existing?.returnedQty ?? '0',
           result: existing ? existing.result : '正常',
           issue: existing?.issue ?? '',
         }
@@ -74,10 +75,13 @@ export function ReceivingTab({ orderId }: ReceivingTabProps) {
     setSubmitting(true)
     try {
       const records = items.map((item) => {
-        const input = inputs[item.orderItemId] ?? { receivedQty: '', result: '正常', issue: '' }
+        const input = inputs[item.orderItemId] ?? { receivedQty: '', returnedQty: '0', result: '正常', issue: '' }
+        // 未到貨 → received/returned 都歸 0
+        const isMissing = input.result === '未到貨'
         return {
           orderItemId: item.orderItemId,
-          receivedQty: input.receivedQty || item.quantity,
+          receivedQty: isMissing ? '0' : (input.receivedQty || item.quantity),
+          returnedQty: isMissing ? '0' : (input.returnedQty || '0'),
           result: input.result || '正常',
           issue: input.issue || null,
         }
@@ -148,6 +152,7 @@ export function ReceivingTab({ orderId }: ReceivingTabProps) {
                     <TableHead className="text-right">訂購量</TableHead>
                     <TableHead>實收量</TableHead>
                     <TableHead>狀態</TableHead>
+                    <TableHead>退貨量</TableHead>
                     <TableHead>異常說明</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -188,6 +193,20 @@ export function ReceivingTab({ orderId }: ReceivingTabProps) {
                               ))}
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          {input.result === '品質問題' && (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number" step="0.5" min="0" max={input.receivedQty}
+                                className="w-16 h-8 text-sm text-center border-red-300"
+                                placeholder="0"
+                                value={input.returnedQty}
+                                onChange={(e) => handleInputChange(item.orderItemId, 'returnedQty', e.target.value)}
+                              />
+                              <span className="text-xs text-muted-foreground">{item.unit}</span>
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           {input.result !== '正常' && (

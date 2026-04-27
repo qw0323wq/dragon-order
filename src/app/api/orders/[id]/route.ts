@@ -50,18 +50,30 @@ export async function GET(
   }
 
   // 取得訂單明細（含品項、供應商、門市名稱、叫貨人）
+  // CRITICAL: LEFT JOIN receiving 帶出實收/退貨量 + 計算應付小計
+  // actual_subtotal 邏輯：
+  //   - 沒驗收 (r.id IS NULL) → null（前端顯示「-」）
+  //   - 未到貨 → 0
+  //   - 其他（正常/短缺/品質問題）→ (received_qty - returned_qty) × unit_price
   const details = await rawSql`
     SELECT oi.id, oi.quantity, oi.unit, oi.unit_price, oi.subtotal, oi.notes,
            oi.created_by as created_by_id,
            i.name as item_name, i.category as item_category, i.supplier_notes,
            s.name as supplier_name, s.id as supplier_id,
            st.name as store_name, st.id as store_id,
-           u.name as created_by_name
+           u.name as created_by_name,
+           r.received_qty, r.returned_qty, r.result as receiving_result,
+           CASE
+             WHEN r.id IS NULL THEN NULL
+             WHEN r.result = '未到貨' THEN 0
+             ELSE ROUND((r.received_qty - COALESCE(r.returned_qty, 0)) * oi.unit_price, 2)
+           END AS actual_subtotal
     FROM order_items oi
     JOIN items i ON oi.item_id = i.id
     JOIN suppliers s ON i.supplier_id = s.id
     JOIN stores st ON oi.store_id = st.id
     LEFT JOIN users u ON oi.created_by = u.id
+    LEFT JOIN receiving r ON r.order_item_id = oi.id
     WHERE oi.order_id = ${orderId}
     ORDER BY i.category, i.name
   `;
@@ -83,6 +95,14 @@ export async function GET(
     createdById: d.created_by_id,
     createdByName: d.created_by_name,
     supplierNotes: d.supplier_notes,
+    // 驗收相關（沒驗收則為 null）
+    receivedQty: d.received_qty ?? null,
+    returnedQty: d.returned_qty ?? null,
+    receivingResult: d.receiving_result ?? null,
+    /** 應付小計：未驗收 → null，已驗收 → (received - returned) × unitPrice */
+    actualSubtotal: d.actual_subtotal === null || d.actual_subtotal === undefined
+      ? null
+      : Number(d.actual_subtotal),
   }));
 
   return NextResponse.json({ order, details: formattedDetails });

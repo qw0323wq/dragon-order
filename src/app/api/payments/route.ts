@@ -6,7 +6,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db, rawSql } from "@/lib/db";
-import { payments, orders, orderItems, suppliers, items, stores } from "@/lib/db/schema";
+import { payments, orders, orderItems, suppliers, items, stores, receiving } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
@@ -48,6 +48,12 @@ export async function GET(request: NextRequest) {
   }
   const storeFilter = parsedStoreId !== null ? sql` AND ${orderItems.storeId} = ${parsedStoreId}` : sql``;
 
+  // CRITICAL: LEFT JOIN receiving 計算「應付金額」（按實收 - 退貨）
+  //   - totalAmount: 採購金額（按訂購量 × 單價）
+  //   - payableAmount: 應付金額
+  //       全部驗收完 → SUM((received_qty - returned_qty) × unit_price)，未到貨算 0
+  //       有未驗收 → null（前端顯示「-」，避免誤導）
+  //   - receivedItemCount / itemCount：用於判斷「是否完全驗收」
   const supplierAmounts = await db
     .select({
       supplierId: suppliers.id,
@@ -55,10 +61,20 @@ export async function GET(request: NextRequest) {
       paymentType: suppliers.paymentType,
       orderCount: sql<number>`COUNT(DISTINCT ${orderItems.orderId})`,
       totalAmount: sql<number>`COALESCE(SUM(${orderItems.subtotal}), 0)`,
+      itemCount: sql<number>`COUNT(${orderItems.id})`,
+      receivedItemCount: sql<number>`COUNT(${receiving.id})`,
+      payableAmount: sql<number>`COALESCE(SUM(
+        CASE
+          WHEN ${receiving.id} IS NULL THEN NULL
+          WHEN ${receiving.result} = '未到貨' THEN 0
+          ELSE ROUND((${receiving.receivedQty} - COALESCE(${receiving.returnedQty}, 0)) * ${orderItems.unitPrice}, 2)
+        END
+      ), 0)`,
     })
     .from(orderItems)
     .innerJoin(items, eq(orderItems.itemId, items.id))
     .innerJoin(suppliers, eq(items.supplierId, suppliers.id))
+    .leftJoin(receiving, eq(receiving.orderItemId, orderItems.id))
     .where(
       sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map((id) => sql`${id}`), sql`, `)}]::int[])${storeFilter}`
     )
@@ -83,14 +99,27 @@ export async function GET(request: NextRequest) {
       .reduce((sum, p) => sum + p.amount, 0);
 
     const totalAmount = Number(s.totalAmount);
-    const unpaidAmount = totalAmount - paidAmount - pendingAmount;
+    const itemCount = Number(s.itemCount);
+    const receivedItemCount = Number(s.receivedItemCount);
+    // 全部品項都驗收完 → fullyReceived；payableAmount 才有意義
+    const fullyReceived = itemCount > 0 && receivedItemCount === itemCount;
+    // 未驗收完 → payableAmount = null；驗收完 → 取 SQL 算的值
+    const payableAmount = fullyReceived ? Number(s.payableAmount) : null;
+
+    // 未付 = 應付 - 已付 - 處理中（驗收完才有意義；未驗收前 fallback 用採購金額）
+    const baseAmount = payableAmount ?? totalAmount;
+    const unpaidAmount = baseAmount - paidAmount - pendingAmount;
 
     return {
       supplierId: s.supplierId,
       supplierName: s.supplierName,
       paymentType: s.paymentType,
       orderCount: Number(s.orderCount),
+      itemCount,
+      receivedItemCount,
+      fullyReceived,
       totalAmount,
+      payableAmount,
       paidAmount,
       pendingAmount,
       unpaidAmount: Math.max(0, unpaidAmount),
@@ -100,8 +129,13 @@ export async function GET(request: NextRequest) {
   });
 
   // 整體摘要
+  // unpaid 用 baseAmount（payableAmount 或 totalAmount fallback）
   const summary = {
     totalAmount: supplierReport.reduce((sum, s) => sum + s.totalAmount, 0),
+    payableAmount: supplierReport.reduce(
+      (sum, s) => sum + (s.payableAmount ?? s.totalAmount),
+      0
+    ),
     paidAmount: supplierReport.reduce((sum, s) => sum + s.paidAmount, 0),
     unpaidAmount: supplierReport.reduce((sum, s) => sum + s.unpaidAmount, 0),
   };

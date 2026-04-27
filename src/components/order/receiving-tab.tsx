@@ -26,6 +26,8 @@ import {
 
 interface RecInput {
   receivedQty: string;
+  /** 退貨數量（result='品質問題' 時才會用；整批退就 = receivedQty） */
+  returnedQty: string;
   result: string;
   issue: string;
 }
@@ -102,6 +104,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
         for (const item of myItems) {
           newInputs[item.orderItemId] = {
             receivedQty: item.quantity,
+            returnedQty: "0",
             result: "正常",
             issue: "",
           };
@@ -136,12 +139,16 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
       const records = toSubmit.map((i) => {
         const input = inputs[i.orderItemId] || {
           receivedQty: i.quantity,
+          returnedQty: "0",
           result: "正常",
           issue: "",
         };
+        // 未到貨 → received/returned 都歸 0；其他狀態用使用者輸入
+        const isMissing = input.result === "未到貨";
         return {
           orderItemId: i.orderItemId,
-          receivedQty: input.receivedQty || i.quantity,
+          receivedQty: isMissing ? "0" : (input.receivedQty || i.quantity),
+          returnedQty: isMissing ? "0" : (input.returnedQty || "0"),
           result: input.result || "正常",
           issue: input.issue || null,
         };
@@ -327,6 +334,34 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                           </Select>
                         </div>
                       )}
+
+                      {/* 品質問題 → 顯示退貨數量輸入（part of received_qty 退掉的部分） */}
+                      {!item.isReceived &&
+                        input &&
+                        input.result === "品質問題" && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-red-600 font-medium shrink-0">退貨</span>
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max={input.receivedQty}
+                              className="w-20 h-11 text-center text-base border border-red-300 rounded-xl bg-transparent"
+                              value={input.returnedQty}
+                              onChange={(e) =>
+                                updateInput(
+                                  item.orderItemId,
+                                  "returnedQty",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="0"
+                            />
+                            <span className="text-sm text-muted-foreground shrink-0">
+                              {item.unit}（不付錢、不入庫）
+                            </span>
+                          </div>
+                        )}
 
                       {!item.isReceived &&
                         input &&

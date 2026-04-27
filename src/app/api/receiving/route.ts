@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
   const records = body.records as Array<{
     orderItemId: number;
     receivedQty: string;
+    /** 退貨數量（部分品質問題用，預設 0；整批退時 = receivedQty） */
+    returnedQty?: string;
     result: string;
     issue?: string;
     resolution?: string;
@@ -97,6 +99,8 @@ export async function POST(request: NextRequest) {
       // Phase 1: 寫驗收紀錄（全部 20 筆先寫完再入庫）
       for (const rec of records) {
         const resolvedReceivedBy = receivedByUserId ?? rec.receivedBy ?? null;
+        // 退貨量預設 0；未到貨時前端通常會傳 receivedQty=0、returnedQty=0
+        const returnedQty = rec.returnedQty ?? '0';
 
         const [existing] = await tx`
           SELECT id FROM receiving WHERE order_item_id = ${rec.orderItemId} LIMIT 1
@@ -106,6 +110,7 @@ export async function POST(request: NextRequest) {
           await tx`
             UPDATE receiving SET
               received_qty = ${rec.receivedQty},
+              returned_qty = ${returnedQty},
               result = ${rec.result},
               issue = ${rec.issue || null},
               resolution = ${rec.resolution || null},
@@ -116,9 +121,9 @@ export async function POST(request: NextRequest) {
         } else {
           await tx`
             INSERT INTO receiving
-              (order_item_id, received_qty, result, issue, resolution, received_at, received_by)
+              (order_item_id, received_qty, returned_qty, result, issue, resolution, received_at, received_by)
             VALUES
-              (${rec.orderItemId}, ${rec.receivedQty}, ${rec.result},
+              (${rec.orderItemId}, ${rec.receivedQty}, ${returnedQty}, ${rec.result},
                ${rec.issue || null}, ${rec.resolution || null}, NOW(), ${resolvedReceivedBy})
           `;
         }
@@ -126,6 +131,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Phase 2: 入庫（只對正常品項）
+      // CRITICAL: 入庫量 = receivedQty - returnedQty
+      //   - 正常 → returnedQty 通常 0，入全部
+      //   - 部分品質問題（result='品質問題'）→ 整筆走進這裡的話，退掉的不入庫
+      //     但目前判斷只有 '正常' 入庫，品質問題會被 skip → 維持原邏輯避免行為大改
+      //   - 短缺 → 跳過不入庫（維持原邏輯，未來若要改成「短缺也入收到的部分」再說）
+      //   - 未到貨 → 跳過不入庫
       for (const rec of records) {
         if (rec.result !== '正常' && rec.result !== undefined) continue;
 
@@ -134,7 +145,9 @@ export async function POST(request: NextRequest) {
         `;
         if (!oi) continue;
 
-        const qty = parseFloat(rec.receivedQty) || 0;
+        const receivedQty = parseFloat(rec.receivedQty) || 0;
+        const returnedQty = parseFloat(rec.returnedQty ?? '0') || 0;
+        const qty = receivedQty - returnedQty;
         if (qty <= 0) continue;
 
         // 鎖行後 upsert store_inventory
