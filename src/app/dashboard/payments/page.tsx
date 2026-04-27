@@ -4,23 +4,29 @@
  * 帳務管理頁面（會計 / 老闆用）
  *
  * 兩種視角：
- *  1. 總公司模式（預設）— 按月份看所有供應商應付帳款，可標記付款
- *  2. 門市模式 — 選定門市後顯示該門市採購明細，支援列印
+ *  1. 總公司模式（預設）— 訂單級別付款明細，可勾選 + 填匯款日期 + 標記已付
+ *  2. 門市模式 — 選定門市後顯示該門市採購明細（純檢視/列印）
  *
  * 列印行為：
  *  - 總公司：標題「月結報表 — YYYY年MM月」
  *  - 門市：公司名稱 + 統編 + 採購對帳單（正式單據格式）
  *
- * 拆分（P2-C9，2026-04-24）：
- *   _components/types.ts                  — 共用型別
- *   _components/summary-cards.tsx         — 頂部 3 張摘要卡
- *   _components/hq-supplier-table.tsx     — 總公司月結/現結表格 + batch checkbox
- *   _components/store-supplier-table.tsx  — 門市採購明細表格
+ * 拆分：
+ *   _components/types.ts                  — 共用型別（含 OrderPaymentRow）
+ *   _components/summary-cards.tsx         — 頂部 4 張摘要卡（採購/應付/已付/未付）
+ *   _components/hq-supplier-table.tsx     — 總公司供應商總覽（純顯示，列印用）
+ *   _components/order-payment-list.tsx    — 訂單付款明細（核心操作介面）
+ *   _components/store-supplier-table.tsx  — 門市採購對帳單
+ *
+ * 重構（2026-04-28）：
+ *   - 付款 grain 從 supplier 改為訂單×供應商
+ *   - 標記已付支援填匯款日期（單筆 / 批次）
+ *   - 修「沒有待付帳款」bug — 新流程走 POST upsert，不依賴既存 payments row
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Printer, Loader2, Building2, Store } from 'lucide-react'
+import { Printer, Building2, Store } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -35,6 +41,7 @@ import type { Store as StoreType, MonthlyReport, ActiveTab } from './_components
 import { SummaryCards } from './_components/summary-cards'
 import { HQSupplierTable } from './_components/hq-supplier-table'
 import { StoreSupplierTable } from './_components/store-supplier-table'
+import { OrderPaymentList } from './_components/order-payment-list'
 
 export default function PaymentsPage() {
   const currentMonth = formatMonth(new Date())
@@ -45,24 +52,6 @@ export default function PaymentsPage() {
   const [storesLoading, setStoresLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [report, setReport] = useState<MonthlyReport | null>(null)
-  const [markingPaid, setMarkingPaid] = useState<number | null>(null)
-  // P2-B5 Batch 付款 — 跨供應商多選
-  const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<number>>(new Set())
-  const [batchMarking, setBatchMarking] = useState(false)
-
-  // 切月份/tab 時清空選取
-  useEffect(() => {
-    setSelectedSupplierIds(new Set())
-  }, [selectedMonth, activeTab])
-
-  const toggleSupplierSelect = useCallback((supplierId: number) => {
-    setSelectedSupplierIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(supplierId)) next.delete(supplierId)
-      else next.add(supplierId)
-      return next
-    })
-  }, [])
 
   // 載入門市列表
   useEffect(() => {
@@ -109,93 +98,16 @@ export default function PaymentsPage() {
     loadReport(selectedMonth, activeTab)
   }, [selectedMonth, activeTab, loadReport])
 
-  // P2-B5 批次付款：選取多家供應商一次標記已付
-  async function handleBatchMarkPaid() {
-    if (!report || selectedSupplierIds.size === 0) return
-
-    const selectedSuppliers = report.suppliers.filter((s) => selectedSupplierIds.has(s.supplierId))
-    const paymentIds = selectedSuppliers.flatMap((s) =>
-      s.payments.filter((p) => p.status === 'unpaid' || p.status === 'pending').map((p) => p.id)
-    )
-
-    if (paymentIds.length === 0) {
-      toast.info('選取的供應商都沒有待付款項')
-      return
-    }
-
-    setBatchMarking(true)
-    try {
-      const res = await fetch('/api/payments', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentIds, status: 'paid' }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || '批次標記失敗')
-        return
-      }
-      toast.success(
-        `已標記 ${selectedSuppliers.length} 家供應商付款完成（${data.updated} 筆更新，${data.skipped} 筆已是已付）`
-      )
-      setSelectedSupplierIds(new Set())
-      await loadReport(selectedMonth, activeTab)
-    } catch {
-      toast.error('發生錯誤，請重試')
-    } finally {
-      setBatchMarking(false)
-    }
-  }
-
-  // 單家月結付款：PATCH 逐筆標記該供應商所有未付 payment 為 paid
-  async function handleMarkMonthlyPaid(
-    supplierId: number,
-    supplierName: string,
-  ) {
-    const supplierData = report?.suppliers.find((s) => s.supplierId === supplierId)
-    if (!supplierData) return
-
-    // CRITICAL: 只標記 unpaid/pending 的 payments，不重複送出已付的
-    const unpaidPayments = supplierData.payments.filter(
-      (p) => p.status === 'unpaid' || p.status === 'pending'
-    )
-
-    if (unpaidPayments.length === 0) {
-      toast.info(`${supplierName} 沒有待付款項`)
-      return
-    }
-
-    setMarkingPaid(supplierId)
-    try {
-      const results = await Promise.all(
-        unpaidPayments.map((p) =>
-          fetch('/api/payments', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentId: p.id, status: 'paid' }),
-          })
-        )
-      )
-
-      const allOk = results.every((r) => r.ok)
-      if (allOk) {
-        toast.success(`已標記 ${supplierName} 付款完成`)
-        await loadReport(selectedMonth, activeTab)
-      } else {
-        toast.error('部分標記失敗，請重試')
-      }
-    } catch {
-      toast.error('發生錯誤，請重試')
-    } finally {
-      setMarkingPaid(null)
-    }
-  }
+  const reloadCurrent = useCallback(
+    () => loadReport(selectedMonth, activeTab),
+    [loadReport, selectedMonth, activeTab]
+  )
 
   function handlePrint() {
     window.print()
   }
 
-  // 分類供應商（總公司模式用）
+  // 分類供應商（總公司模式總覽用）
   const monthlySuppliers = report?.suppliers.filter((s) => s.paymentType === '月結') ?? []
   const cashSuppliers = report?.suppliers.filter((s) => s.paymentType === '現結') ?? []
   const currentStoreInfo = report?.storeInfo ?? null
@@ -326,59 +238,23 @@ export default function PaymentsPage() {
           )}
 
           {/* ── 總公司模式 ── */}
-          {activeTab === 'hq' && (
+          {activeTab === 'hq' && report.suppliers.length > 0 && (
             <>
-              {/* Batch 付款 Action Bar — 有選取時浮現 */}
-              {selectedSupplierIds.size > 0 && (
-                <Card className="bg-primary/5 border-primary/30 print:hidden">
-                  <CardContent className="py-3 flex items-center justify-between gap-3">
-                    <div className="text-sm">
-                      <span className="font-semibold">已選 {selectedSupplierIds.size} 家</span>
-                      <span className="text-muted-foreground ml-2">可一次批次標記為已付</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedSupplierIds(new Set())}
-                      >
-                        取消選取
-                      </Button>
-                      <Button size="sm" disabled={batchMarking} onClick={handleBatchMarkPaid}>
-                        {batchMarking ? (
-                          <>
-                            <Loader2 className="size-3 animate-spin mr-1" />
-                            處理中...
-                          </>
-                        ) : (
-                          <>批次標記已付</>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              <HQSupplierTable
-                suppliers={monthlySuppliers}
-                paymentType="月結"
-                markingPaid={markingPaid}
-                onMarkPaid={handleMarkMonthlyPaid}
-                selectedIds={selectedSupplierIds}
-                onToggleSelect={toggleSupplierSelect}
-              />
-              <HQSupplierTable
-                suppliers={cashSuppliers}
-                paymentType="現結"
-                markingPaid={markingPaid}
-                onMarkPaid={handleMarkMonthlyPaid}
-              />
+              {/* 供應商總覽（純顯示，列印用） */}
+              <HQSupplierTable suppliers={monthlySuppliers} paymentType="月結" />
+              <HQSupplierTable suppliers={cashSuppliers} paymentType="現結" />
+
+              {/* 訂單付款明細（核心操作介面） */}
+              <Separator className="my-4" />
+              <OrderPaymentList orders={report.orders} paymentType="月結" onReload={reloadCurrent} />
+              <OrderPaymentList orders={report.orders} paymentType="現結" onReload={reloadCurrent} />
             </>
           )}
 
           {/* ── 門市模式 ── */}
           {activeTab !== 'hq' && <StoreSupplierTable suppliers={report.suppliers} />}
 
-          {/* ── 總計列（總公司模式才顯示） ── */}
+          {/* ── 月份合計（總公司模式才顯示） ── */}
           {report.suppliers.length > 0 && activeTab === 'hq' && (
             <>
               <Separator />

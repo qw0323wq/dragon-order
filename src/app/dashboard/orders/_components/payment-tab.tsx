@@ -2,15 +2,16 @@
 
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Loader2, CreditCard, CheckCircle2 } from 'lucide-react'
+import { Loader2, CreditCard, CheckCircle2, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import type { OrderDetail, SupplierPaymentInfo } from './types'
-import { sumBy, formatCurrency } from '@/lib/format'
+import { sumBy, formatCurrency, formatDateLocal } from '@/lib/format'
 
 interface PaymentTabProps {
   details: OrderDetail[]
@@ -20,6 +21,10 @@ interface PaymentTabProps {
 export function PaymentTab({ details, orderId }: PaymentTabProps) {
   const [paidSuppliers, setPaidSuppliers] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState<number | null>(null)
+  // inline 編輯：點「標記已付」→ 該行展開日期 input
+  const [editingSupplierId, setEditingSupplierId] = useState<number | null>(null)
+  const [paidAtInputs, setPaidAtInputs] = useState<Record<number, string>>({})
+  const today = formatDateLocal()
 
   const supplierPayments = useMemo<SupplierPaymentInfo[]>(() => {
     // Step 1: 累加每家 supplier 的 totalAmount + actualSubtotal 加總
@@ -67,31 +72,25 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
     }))
   }, [details])
 
-  async function handleMarkPaid(supplierId: number, supplierName: string, amount: number) {
+  async function handleMarkPaid(supplierId: number, supplierName: string, amount: number, paidAt: string) {
     setSubmitting(supplierId)
     try {
+      // 走新的 batch upsert API（自動建立或更新 payments row）
       const res = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, supplierId, amount, paymentType: '現結', status: 'paid' }),
+        body: JSON.stringify({
+          items: [{ orderId, supplierId, amount, status: 'paid', paidAt, paymentType: '現結' }],
+        }),
       })
-
-      if (res.ok || res.status === 409) {
-        if (res.status === 409) {
-          const existing = await res.json()
-          if (existing?.id) {
-            await fetch('/api/payments', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ paymentId: existing.id, status: 'paid' }),
-            })
-          }
-        }
-        setPaidSuppliers((prev) => new Set([...prev, supplierId]))
-        toast.success(`已標記 ${supplierName} 付款完成`)
-      } else {
-        toast.error('標記付款失敗')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || '標記付款失敗')
+        return
       }
+      setPaidSuppliers((prev) => new Set([...prev, supplierId]))
+      toast.success(`已標記 ${supplierName} 付款完成（匯款日 ${paidAt}）`)
+      setEditingSupplierId(null)
     } catch {
       toast.error('發生錯誤')
     } finally {
@@ -153,6 +152,8 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
             <TableBody>
               {supplierPayments.map((s) => {
                 const isPaid = paidSuppliers.has(s.supplierId)
+                const isEditing = editingSupplierId === s.supplierId
+                const isThisSubmitting = submitting === s.supplierId
                 // 標記付款用「應付」，未驗收完則 fallback「採購」
                 const payAmount = s.payableAmount ?? s.totalAmount
                 return (
@@ -182,19 +183,44 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                         <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
                           <CheckCircle2 className="size-3.5" /> 已付款
                         </span>
-                      ) : s.paymentType === '月結' ? (
-                        <span className="text-xs text-blue-600 font-medium">月結</span>
+                      ) : isEditing ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="date"
+                            value={paidAtInputs[s.supplierId] ?? today}
+                            onChange={(e) =>
+                              setPaidAtInputs((prev) => ({ ...prev, [s.supplierId]: e.target.value }))
+                            }
+                            className="h-7 text-xs w-32"
+                          />
+                          <Button
+                            size="sm" variant="default" className="h-7 text-xs px-2"
+                            disabled={isThisSubmitting}
+                            onClick={() => handleMarkPaid(
+                              s.supplierId, s.supplierName, payAmount,
+                              paidAtInputs[s.supplierId] ?? today,
+                            )}
+                          >
+                            {isThisSubmitting ? <Loader2 className="size-3 animate-spin" /> : '確認'}
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost" className="h-7 text-xs px-1"
+                            onClick={() => setEditingSupplierId(null)}
+                            disabled={isThisSubmitting}
+                          >
+                            <X className="size-3" />
+                          </Button>
+                        </div>
                       ) : (
                         <Button
                           size="sm" variant="outline" className="h-7 text-xs gap-1"
-                          disabled={submitting === s.supplierId}
-                          onClick={() => handleMarkPaid(s.supplierId, s.supplierName, payAmount)}
+                          onClick={() => {
+                            setPaidAtInputs((prev) => ({ ...prev, [s.supplierId]: today }))
+                            setEditingSupplierId(s.supplierId)
+                          }}
                         >
-                          {submitting === s.supplierId
-                            ? <Loader2 className="size-3 animate-spin" />
-                            : <CreditCard className="size-3" />
-                          }
-                          標記已付款
+                          <CreditCard className="size-3" />
+                          標記已付
                         </Button>
                       )}
                     </TableCell>
