@@ -180,6 +180,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, count: resultsCount });
   } catch (err) {
+    // 印出完整 error trace 到 Vercel logs（debug receiving 500 用）
+    console.error("[receiving POST] error:", err);
+    if (err instanceof Error && err.stack) {
+      console.error("[receiving POST] stack:", err.stack);
+    }
     const msg = err instanceof Error ? err.message : "驗收失敗，已自動回滾";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
