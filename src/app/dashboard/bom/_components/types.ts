@@ -21,14 +21,17 @@ export interface MenuItemBom {
   id: number;
   name: string;
   category: string;
+  /** 賣給客人的售價（分店端） */
   sellPrice: number;
-  /** 總公司每份成本（即時算）= SUM(qty × cost_price) */
+  /** 總公司向供應商進貨成本 = SUM(qty × cost_price) */
   hqCost: number;
-  /** 總公司毛利率 0-1 */
+  /** 總公司賣給分店的收入 = SUM(qty × effectiveStorePrice) */
+  hqRevenue: number;
+  /** 總公司毛利率 = (hqRevenue - hqCost) / hqRevenue */
   hqMargin: number;
-  /** 分店每份成本（即時算）= SUM(qty × effectiveStorePrice) */
+  /** 分店向總公司採購成本 = hqRevenue（同一段轉手價） */
   storeCost: number;
-  /** 分店毛利率 0-1 */
+  /** 分店毛利率 = (sellPrice - storeCost) / sellPrice */
   storeMargin: number;
   /** 有食材沒對到 items 表 → 成本可能不準 */
   hasUnknownIngredient: boolean;

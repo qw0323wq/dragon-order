@@ -71,15 +71,15 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
                   </div>
                 </div>
 
-                {/* 價格區 — 總公司毛利 + 分店毛利 並列 */}
+                {/* 價格區 — 總公司毛利（賣分店）+ 分店毛利（賣客人）並列 */}
                 <div className="text-right shrink-0">
                   <div className="text-sm font-semibold">售 ${item.sellPrice}</div>
-                  {(item.hqCost > 0 || item.storeCost > 0) && (
+                  {(item.hqRevenue > 0 || item.storeCost > 0) && (
                     <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5 leading-snug">
-                      {item.hqCost > 0 && (
+                      {item.hqRevenue > 0 && (
                         <div>
                           <span className="text-[10px] text-muted-foreground/70">總公司</span>
-                          {' '}${item.hqCost.toFixed(1)}
+                          {' '}賣${item.hqRevenue.toFixed(1)} / 進${item.hqCost.toFixed(1)}
                           {' · '}
                           <span className={`font-semibold ${marginColorClass(item.hqMargin)}`}>
                             {(item.hqMargin * 100).toFixed(1)}%
@@ -89,7 +89,7 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
                       {item.storeCost > 0 && (
                         <div>
                           <span className="text-[10px] text-muted-foreground/70">分店</span>
-                          {' '}${item.storeCost.toFixed(1)}
+                          {' '}售${item.sellPrice} / 進${item.storeCost.toFixed(1)}
                           {' · '}
                           <span className={`font-semibold ${marginColorClass(item.storeMargin)}`}>
                             {(item.storeMargin * 100).toFixed(1)}%
@@ -140,10 +140,10 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
                       <th className="text-left py-1 font-normal">食材</th>
                       <th className="text-left py-1 font-normal">用量</th>
                       {item.hqCost > 0 && (
-                        <th className="text-right py-1 font-normal">總公司價</th>
+                        <th className="text-right py-1 font-normal">進貨價</th>
                       )}
                       {item.storeCost > 0 && (
-                        <th className="text-right py-1 font-normal">分店價</th>
+                        <th className="text-right py-1 font-normal">分店採購價</th>
                       )}
                     </tr>
                   </thead>

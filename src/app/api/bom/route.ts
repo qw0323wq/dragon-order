@@ -55,12 +55,20 @@ export async function GET(request: NextRequest) {
     return storePrice > 0 ? storePrice : Math.round(costPrice * costMarkup);
   }
 
+  // 三層轉手定價：供應商 ──cost_price──▶ 總公司 ──store_price──▶ 分店 ──sell_price──▶ 客人
+  //
+  // 總公司毛利 = (賣給分店 - 向供應商買) / 賣給分店
+  //            = (Σ qty × store_price - Σ qty × cost_price) / (Σ qty × store_price)
+  // 分店毛利   = (賣給客人 - 向總公司買) / 賣給客人
+  //            = (sell_price - Σ qty × store_price) / sell_price
+  //
   // 角色權限：
-  //   admin/buyer  → 看到「總公司毛利」+「分店毛利」兩組
-  //   manager      → 只看「分店毛利」（保護總公司進貨價）
-  //   staff        → 都看不到
-  // CRITICAL: cost_per_serving / margin_rate 兩個 DB 欄位是過時的（沒同步機制），
-  //           改成即時從 BOM 食材 × 對應 item 價格累加，不再讀 DB 寫死的值
+  //   admin/buyer → 兩組都看
+  //   manager     → 只看「分店毛利」（保護總公司進貨價 + 總公司利潤）
+  //   staff       → 都看不到
+  //
+  // CRITICAL: cost_per_serving / margin_rate 兩個 DB 欄位是 stale 的（沒同步機制），
+  //           改成即時從 BOM 食材 × 對應 item 價格累加
   const showHq = userRole === "admin" || userRole === "buyer";
   const showStore =
     userRole === "admin" || userRole === "buyer" || userRole === "manager";
@@ -68,12 +76,11 @@ export async function GET(request: NextRequest) {
   const result = menuItems.map((mi) => {
     const ings = bomMap[mi.id as number] || [];
 
-    let hqCostSum = 0;
-    let storeCostSum = 0;
+    let hqCostSum = 0;      // 總公司向供應商買
+    let hqRevenueSum = 0;   // 總公司賣給分店（= 分店向總公司買）
     let hasUnknownIngredient = false;
     for (const b of ings) {
       const qty = parseFloat(String(b.quantity)) || 0;
-      // 食材沒對到 items 表 → 沒辦法算成本（顯示警示）
       if (!b.item_id || qty <= 0) {
         hasUnknownIngredient = true;
         continue;
@@ -81,15 +88,18 @@ export async function GET(request: NextRequest) {
       const cp = Number(b.item_cost) || 0;
       const sp = Number(b.item_store_price) || 0;
       hqCostSum += qty * cp;
-      storeCostSum += qty * effectiveStorePrice(cp, sp);
+      hqRevenueSum += qty * effectiveStorePrice(cp, sp);
     }
 
     const sellPrice = Number(mi.sell_price) || 0;
     // 保留 2 位小數
     const hqCost = Math.round(hqCostSum * 100) / 100;
-    const storeCost = Math.round(storeCostSum * 100) / 100;
-    // 毛利率：0~1（前端 ×100 顯示 %）
-    const hqMargin = sellPrice > 0 && hqCost > 0 ? (sellPrice - hqCost) / sellPrice : 0;
+    const hqRevenue = Math.round(hqRevenueSum * 100) / 100;
+    const storeCost = hqRevenue; // 分店向總公司採購 = 總公司賣給分店
+
+    // 毛利率：0~1
+    const hqMargin =
+      hqRevenue > 0 && hqCost > 0 ? (hqRevenue - hqCost) / hqRevenue : 0;
     const storeMargin =
       sellPrice > 0 && storeCost > 0 ? (sellPrice - storeCost) / sellPrice : 0;
 
@@ -99,6 +109,7 @@ export async function GET(request: NextRequest) {
       category: mi.category,
       sellPrice,
       hqCost: showHq ? hqCost : 0,
+      hqRevenue: showHq ? hqRevenue : 0,
       hqMargin: showHq ? hqMargin : 0,
       storeCost: showStore ? storeCost : 0,
       storeMargin: showStore ? storeMargin : 0,
