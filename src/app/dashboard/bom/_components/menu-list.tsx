@@ -2,13 +2,24 @@
 
 /**
  * BOM 菜單列表 — 含展開配方明細表 + 編輯/刪除 icon
+ *
+ * 顯示「總公司毛利」+「分店毛利」並列：
+ *   admin/buyer  → 兩組都顯示
+ *   manager      → 只顯示「分店毛利」（保護總公司進貨價）
+ *   staff        → 都不顯示成本
  */
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import type { MenuItemBom } from "./types";
 import { CATEGORY_COLORS } from "./types";
+
+function marginColorClass(rate: number): string {
+  if (rate >= 0.6) return "text-green-600";
+  if (rate >= 0.45) return "text-yellow-600";
+  return "text-red-600";
+}
 
 interface MenuListProps {
   items: MenuItemBom[];
@@ -60,23 +71,37 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
                   </div>
                 </div>
 
-                {/* 價格區 */}
+                {/* 價格區 — 總公司毛利 + 分店毛利 並列 */}
                 <div className="text-right shrink-0">
                   <div className="text-sm font-semibold">售 ${item.sellPrice}</div>
-                  {item.costPerServing > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      成本 ${item.costPerServing.toFixed(1)} · 毛利{" "}
-                      <span
-                        className={
-                          item.marginRate >= 0.6
-                            ? "text-green-600"
-                            : item.marginRate >= 0.45
-                            ? "text-yellow-600"
-                            : "text-red-600"
-                        }
-                      >
-                        {(item.marginRate * 100).toFixed(1)}%
-                      </span>
+                  {(item.hqCost > 0 || item.storeCost > 0) && (
+                    <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5 leading-snug">
+                      {item.hqCost > 0 && (
+                        <div>
+                          <span className="text-[10px] text-muted-foreground/70">總公司</span>
+                          {' '}${item.hqCost.toFixed(1)}
+                          {' · '}
+                          <span className={`font-semibold ${marginColorClass(item.hqMargin)}`}>
+                            {(item.hqMargin * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+                      {item.storeCost > 0 && (
+                        <div>
+                          <span className="text-[10px] text-muted-foreground/70">分店</span>
+                          {' '}${item.storeCost.toFixed(1)}
+                          {' · '}
+                          <span className={`font-semibold ${marginColorClass(item.storeMargin)}`}>
+                            {(item.storeMargin * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+                      {item.hasUnknownIngredient && (
+                        <div className="flex items-center justify-end gap-1 text-amber-600 text-[10px]">
+                          <AlertTriangle className="size-2.5" />
+                          有食材未對應品項
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -107,15 +132,18 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
 
             {/* 展開的 BOM 明細 */}
             {isExpanded && item.ingredients.length > 0 && (
-              <div className="border-t bg-muted/30 px-4 py-2">
+              <div className="border-t bg-muted/30 px-4 py-2 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-muted-foreground">
                       <th className="text-left py-1 font-normal">#</th>
                       <th className="text-left py-1 font-normal">食材</th>
                       <th className="text-left py-1 font-normal">用量</th>
-                      {item.costPerServing > 0 && (
-                        <th className="text-right py-1 font-normal">單位成本</th>
+                      {item.hqCost > 0 && (
+                        <th className="text-right py-1 font-normal">總公司價</th>
+                      )}
+                      {item.storeCost > 0 && (
+                        <th className="text-right py-1 font-normal">分店價</th>
                       )}
                     </tr>
                   </thead>
@@ -125,6 +153,9 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
                         <td className="py-1.5 text-muted-foreground">{idx + 1}</td>
                         <td className="py-1.5">
                           {ing.ingredientName}
+                          {!ing.itemId && (
+                            <span className="text-[10px] text-amber-600 ml-1">（未對應）</span>
+                          )}
                           {ing.itemUnit && (
                             <span className="text-xs text-muted-foreground ml-1">
                               ({ing.itemUnit})
@@ -132,9 +163,14 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
                           )}
                         </td>
                         <td className="py-1.5 text-muted-foreground">{ing.quantity}</td>
-                        {item.costPerServing > 0 && (
+                        {item.hqCost > 0 && (
                           <td className="py-1.5 text-right text-muted-foreground">
-                            {ing.itemCost > 0 ? `$${ing.itemCost}` : "-"}
+                            {ing.hqCost > 0 ? `$${ing.hqCost}` : "-"}
+                          </td>
+                        )}
+                        {item.storeCost > 0 && (
+                          <td className="py-1.5 text-right text-muted-foreground">
+                            {ing.storeCost > 0 ? `$${ing.storeCost}` : "-"}
                           </td>
                         )}
                       </tr>

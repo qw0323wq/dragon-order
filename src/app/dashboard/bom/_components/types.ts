@@ -9,7 +9,12 @@ export interface Ingredient {
   itemId: number | null;
   itemName: string | null;
   itemUnit: string | null;
+  /** 主要顯示成本（按角色：admin/buyer 看 cost_price；manager 看 store_price） */
   itemCost: number;
+  /** 總公司進貨價（cost_price），admin/buyer 才會有值 */
+  hqCost: number;
+  /** 分店採購價（store_price 或 cost_price × markup），admin/buyer/manager 看得到 */
+  storeCost: number;
 }
 
 export interface MenuItemBom {
@@ -17,8 +22,16 @@ export interface MenuItemBom {
   name: string;
   category: string;
   sellPrice: number;
-  costPerServing: number;
-  marginRate: number;
+  /** 總公司每份成本（即時算）= SUM(qty × cost_price) */
+  hqCost: number;
+  /** 總公司毛利率 0-1 */
+  hqMargin: number;
+  /** 分店每份成本（即時算）= SUM(qty × effectiveStorePrice) */
+  storeCost: number;
+  /** 分店毛利率 0-1 */
+  storeMargin: number;
+  /** 有食材沒對到 items 表 → 成本可能不準 */
+  hasUnknownIngredient: boolean;
   notes: string | null;
   isActive: boolean;
   ingredients: Ingredient[];

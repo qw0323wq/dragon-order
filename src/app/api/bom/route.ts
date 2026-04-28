@@ -55,37 +55,81 @@ export async function GET(request: NextRequest) {
     return storePrice > 0 ? storePrice : Math.round(costPrice * costMarkup);
   }
 
-  const canSeeCost = userRole === "admin" || userRole === "buyer" || userRole === "manager";
+  // 角色權限：
+  //   admin/buyer  → 看到「總公司毛利」+「分店毛利」兩組
+  //   manager      → 只看「分店毛利」（保護總公司進貨價）
+  //   staff        → 都看不到
+  // CRITICAL: cost_per_serving / margin_rate 兩個 DB 欄位是過時的（沒同步機制），
+  //           改成即時從 BOM 食材 × 對應 item 價格累加，不再讀 DB 寫死的值
+  const showHq = userRole === "admin" || userRole === "buyer";
+  const showStore =
+    userRole === "admin" || userRole === "buyer" || userRole === "manager";
 
-  const result = menuItems.map((mi) => ({
-    id: mi.id,
-    name: mi.name,
-    category: mi.category,
-    sellPrice: mi.sell_price,
-    costPerServing: canSeeCost ? Number(mi.cost_per_serving) : 0,
-    marginRate: canSeeCost ? Number(mi.margin_rate) : 0,
-    notes: mi.notes,
-    isActive: mi.is_active,
-    ingredients: (bomMap[mi.id as number] || []).map((b) => {
-      const rawCost = Number(b.item_cost || 0);
-      const rawStorePrice = Number(b.item_store_price || 0);
-      let displayCost = 0;
-      if (userRole === "admin" || userRole === "buyer") {
-        displayCost = rawCost;
-      } else if (userRole === "manager") {
-        displayCost = effectiveStorePrice(rawCost, rawStorePrice);
+  const result = menuItems.map((mi) => {
+    const ings = bomMap[mi.id as number] || [];
+
+    let hqCostSum = 0;
+    let storeCostSum = 0;
+    let hasUnknownIngredient = false;
+    for (const b of ings) {
+      const qty = parseFloat(String(b.quantity)) || 0;
+      // 食材沒對到 items 表 → 沒辦法算成本（顯示警示）
+      if (!b.item_id || qty <= 0) {
+        hasUnknownIngredient = true;
+        continue;
       }
-      return {
-        id: b.id,
-        ingredientName: b.ingredient_name,
-        quantity: b.quantity,
-        itemId: b.item_id,
-        itemName: b.item_name,
-        itemUnit: b.item_unit,
-        itemCost: displayCost,
-      };
-    }),
-  }));
+      const cp = Number(b.item_cost) || 0;
+      const sp = Number(b.item_store_price) || 0;
+      hqCostSum += qty * cp;
+      storeCostSum += qty * effectiveStorePrice(cp, sp);
+    }
+
+    const sellPrice = Number(mi.sell_price) || 0;
+    // 保留 2 位小數
+    const hqCost = Math.round(hqCostSum * 100) / 100;
+    const storeCost = Math.round(storeCostSum * 100) / 100;
+    // 毛利率：0~1（前端 ×100 顯示 %）
+    const hqMargin = sellPrice > 0 && hqCost > 0 ? (sellPrice - hqCost) / sellPrice : 0;
+    const storeMargin =
+      sellPrice > 0 && storeCost > 0 ? (sellPrice - storeCost) / sellPrice : 0;
+
+    return {
+      id: mi.id,
+      name: mi.name,
+      category: mi.category,
+      sellPrice,
+      hqCost: showHq ? hqCost : 0,
+      hqMargin: showHq ? hqMargin : 0,
+      storeCost: showStore ? storeCost : 0,
+      storeMargin: showStore ? storeMargin : 0,
+      hasUnknownIngredient,
+      notes: mi.notes,
+      isActive: mi.is_active,
+      ingredients: ings.map((b) => {
+        const cp = Number(b.item_cost) || 0;
+        const sp = Number(b.item_store_price) || 0;
+        const sCost = effectiveStorePrice(cp, sp);
+        // 主要顯示用（保留向後相容）
+        let displayCost = 0;
+        if (userRole === "admin" || userRole === "buyer") {
+          displayCost = cp;
+        } else if (userRole === "manager") {
+          displayCost = sCost;
+        }
+        return {
+          id: b.id,
+          ingredientName: b.ingredient_name,
+          quantity: b.quantity,
+          itemId: b.item_id,
+          itemName: b.item_name,
+          itemUnit: b.item_unit,
+          itemCost: displayCost,
+          hqCost: showHq ? cp : 0,
+          storeCost: showStore ? sCost : 0,
+        };
+      }),
+    };
+  });
 
   return NextResponse.json(result);
 }
