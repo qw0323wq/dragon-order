@@ -71,40 +71,81 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
                   </div>
                 </div>
 
-                {/* 價格區 — 總公司毛利（賣分店）+ 分店毛利（賣客人）並列 */}
-                <div className="text-right shrink-0">
-                  <div className="text-sm font-semibold">售 ${item.sellPrice}</div>
-                  {(item.hqRevenue > 0 || item.storeCost > 0) && (
-                    <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5 leading-snug">
-                      {item.hqRevenue > 0 && (
-                        <div>
-                          <span className="text-[10px] text-muted-foreground/70">總公司</span>
-                          {' '}賣${item.hqRevenue.toFixed(1)} / 進${item.hqCost.toFixed(1)}
-                          {' · '}
-                          <span className={`font-semibold ${marginColorClass(item.hqMargin)}`}>
-                            {(item.hqMargin * 100).toFixed(1)}%
-                          </span>
+                {/* 售價 / 總公司毛利 / 分店毛利 — 三個獨立欄位（方便排序篩選） */}
+                <div className="hidden sm:flex items-center gap-1 shrink-0 text-right">
+                  {/* 售價欄 */}
+                  <div className="w-16 px-2">
+                    <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">售價</div>
+                    <div className="text-sm font-semibold mt-0.5">${item.sellPrice}</div>
+                  </div>
+
+                  {/* 總公司毛利欄 */}
+                  <div className="w-24 px-2 border-l border-border/50">
+                    <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">總公司毛利</div>
+                    {item.hqRevenue > 0 ? (
+                      <>
+                        <div className={`text-sm font-bold mt-0.5 ${marginColorClass(item.hqMargin)}`}>
+                          {(item.hqMargin * 100).toFixed(1)}%
                         </div>
-                      )}
-                      {item.storeCost > 0 && (
-                        <div>
-                          <span className="text-[10px] text-muted-foreground/70">分店</span>
-                          {' '}售${item.sellPrice} / 進${item.storeCost.toFixed(1)}
-                          {' · '}
-                          <span className={`font-semibold ${marginColorClass(item.storeMargin)}`}>
-                            {(item.storeMargin * 100).toFixed(1)}%
-                          </span>
+                        <div className="text-[10px] text-muted-foreground/80 leading-tight">
+                          ${item.hqRevenue.toFixed(0)} / ${item.hqCost.toFixed(0)}
                         </div>
-                      )}
-                      {item.hasUnknownIngredient && (
-                        <div className="flex items-center justify-end gap-1 text-amber-600 text-[10px]">
-                          <AlertTriangle className="size-2.5" />
-                          有食材未對應品項
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground/50 mt-0.5">—</div>
+                    )}
+                  </div>
+
+                  {/* 分店毛利欄 */}
+                  <div className="w-24 px-2 border-l border-border/50">
+                    <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">分店毛利</div>
+                    {item.storeCost > 0 ? (
+                      <>
+                        <div className={`text-sm font-bold mt-0.5 ${marginColorClass(item.storeMargin)}`}>
+                          {(item.storeMargin * 100).toFixed(1)}%
                         </div>
-                      )}
-                    </div>
-                  )}
+                        <div className="text-[10px] text-muted-foreground/80 leading-tight">
+                          ${item.sellPrice} / ${item.storeCost.toFixed(0)}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground/50 mt-0.5">—</div>
+                    )}
+                  </div>
                 </div>
+
+                {/* 手機版（≤ sm）— 維持原本緊湊顯示 */}
+                <div className="sm:hidden text-right shrink-0">
+                  <div className="text-sm font-semibold">售 ${item.sellPrice}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5 leading-snug">
+                    {item.hqRevenue > 0 && (
+                      <div>
+                        總:&nbsp;
+                        <span className={`font-semibold ${marginColorClass(item.hqMargin)}`}>
+                          {(item.hqMargin * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
+                    {item.storeCost > 0 && (
+                      <div>
+                        店:&nbsp;
+                        <span className={`font-semibold ${marginColorClass(item.storeMargin)}`}>
+                          {(item.storeMargin * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 警示符號（共用） */}
+                {item.hasUnknownIngredient && (
+                  <div
+                    className="shrink-0 flex items-center text-amber-600"
+                    title="有食材未對應品項，成本可能不準"
+                  >
+                    <AlertTriangle className="size-3.5" />
+                  </div>
+                )}
               </button>
 
               {/* 操作按鈕 */}

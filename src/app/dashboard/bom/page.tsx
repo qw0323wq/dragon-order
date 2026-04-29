@@ -31,12 +31,28 @@ import type { MenuItemBom } from "./_components/types";
 import { BomDialog } from "./_components/bom-dialog";
 import { MenuList } from "./_components/menu-list";
 
+/** 排序模式 */
+type SortMode =
+  | "default"        // 預設（分類 → 名稱）
+  | "hqAsc"          // 總公司毛利 低 → 高
+  | "hqDesc"         // 總公司毛利 高 → 低
+  | "storeAsc"       // 分店毛利 低 → 高
+  | "storeDesc";     // 分店毛利 高 → 低
+
+/** 毛利篩選 — 鎖定哪一層、低於 / 高於 哪個門檻 */
+type MarginFilter =
+  | { kind: "all" }
+  | { kind: "low"; layer: "hq" | "store"; threshold: number }
+  | { kind: "high"; layer: "hq" | "store"; threshold: number };
+
 export default function BomPage() {
   const [data, setData] = useState<MenuItemBom[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<string>("全部");
+  const [sortMode, setSortMode] = useState<SortMode>("default");
+  const [marginFilter, setMarginFilter] = useState<MarginFilter>({ kind: "all" });
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
   // Dialog state
@@ -69,20 +85,50 @@ export default function BomPage() {
   );
 
   const filtered = useMemo(() => {
-    return data.filter((item) => {
+    // 先過濾
+    const out = data.filter((item) => {
       if (filterCat !== "全部" && item.category !== filterCat) return false;
       if (search) {
         const s = search.toLowerCase();
-        return (
+        const matchesText =
           item.name.toLowerCase().includes(s) ||
           item.ingredients.some((ing) =>
             ing.ingredientName.toLowerCase().includes(s)
-          )
-        );
+          );
+        if (!matchesText) return false;
+      }
+      // 毛利篩選 — 只對「該 layer 有資料」的菜品有意義（沒對應食材的跳過）
+      if (marginFilter.kind !== "all") {
+        const margin =
+          marginFilter.layer === "hq" ? item.hqMargin : item.storeMargin;
+        const hasLayerData =
+          marginFilter.layer === "hq" ? item.hqRevenue > 0 : item.storeCost > 0;
+        if (!hasLayerData) return false;
+        if (marginFilter.kind === "low" && margin >= marginFilter.threshold)
+          return false;
+        if (marginFilter.kind === "high" && margin < marginFilter.threshold)
+          return false;
       }
       return true;
     });
-  }, [data, filterCat, search]);
+
+    // 再排序
+    if (sortMode === "default") return out;
+    return [...out].sort((a, b) => {
+      switch (sortMode) {
+        case "hqAsc":
+          return a.hqMargin - b.hqMargin;
+        case "hqDesc":
+          return b.hqMargin - a.hqMargin;
+        case "storeAsc":
+          return a.storeMargin - b.storeMargin;
+        case "storeDesc":
+          return b.storeMargin - a.storeMargin;
+        default:
+          return 0;
+      }
+    });
+  }, [data, filterCat, search, sortMode, marginFilter]);
 
   function toggleExpand(id: number) {
     setExpandedIds((prev) => {
@@ -203,6 +249,89 @@ export default function BomPage() {
               {cat}
             </button>
           ))}
+        </div>
+
+        {/* 排序 + 毛利篩選 */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+          {/* 排序 */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">排序：</span>
+            {(
+              [
+                { key: "default", label: "預設" },
+                { key: "hqDesc", label: "總公司↓" },
+                { key: "hqAsc", label: "總公司↑" },
+                { key: "storeDesc", label: "分店↓" },
+                { key: "storeAsc", label: "分店↑" },
+              ] as const
+            ).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setSortMode(key)}
+                className={`px-2 py-0.5 rounded border transition-colors ${
+                  sortMode === key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:bg-accent"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* 毛利篩選 */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">毛利：</span>
+            <button
+              onClick={() => setMarginFilter({ kind: "all" })}
+              className={`px-2 py-0.5 rounded border transition-colors ${
+                marginFilter.kind === "all"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:bg-accent"
+              }`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() =>
+                setMarginFilter({ kind: "low", layer: "hq", threshold: 0.2 })
+              }
+              className={`px-2 py-0.5 rounded border transition-colors ${
+                marginFilter.kind === "low" && marginFilter.layer === "hq"
+                  ? "bg-red-500 text-white border-red-500"
+                  : "bg-background text-muted-foreground border-border hover:bg-accent"
+              }`}
+              title="總公司毛利低於 20% 的菜品"
+            >
+              總公司&lt;20%
+            </button>
+            <button
+              onClick={() =>
+                setMarginFilter({ kind: "low", layer: "store", threshold: 0.5 })
+              }
+              className={`px-2 py-0.5 rounded border transition-colors ${
+                marginFilter.kind === "low" && marginFilter.layer === "store"
+                  ? "bg-red-500 text-white border-red-500"
+                  : "bg-background text-muted-foreground border-border hover:bg-accent"
+              }`}
+              title="分店毛利低於 50% 的菜品（容易賠錢）"
+            >
+              分店&lt;50%
+            </button>
+            <button
+              onClick={() =>
+                setMarginFilter({ kind: "high", layer: "store", threshold: 0.7 })
+              }
+              className={`px-2 py-0.5 rounded border transition-colors ${
+                marginFilter.kind === "high" && marginFilter.layer === "store"
+                  ? "bg-green-600 text-white border-green-600"
+                  : "bg-background text-muted-foreground border-border hover:bg-accent"
+              }`}
+              title="分店毛利高於 70% 的菜品（賺錢主力）"
+            >
+              分店&gt;70%
+            </button>
+          </div>
         </div>
       </div>
 
