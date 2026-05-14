@@ -25,7 +25,7 @@ export async function PUT(
   }
 
   const body = await request.json();
-  const { name, category, sellPrice, notes, ingredients } = body;
+  const { name, category, sellPrice, notes, ingredients, isActive } = body;
 
   // 確認菜品存在
   const [existing] = await sql`SELECT id FROM menu_items WHERE id = ${menuItemId}`;
@@ -33,14 +33,35 @@ export async function PUT(
     return NextResponse.json({ error: "菜品不存在" }, { status: 404 });
   }
 
-  // 更新菜品資訊
-  if (name !== undefined || category !== undefined || sellPrice !== undefined || notes !== undefined) {
+  // 上下架專用路徑 — 只改 is_active，不動其他欄位
+  // CRITICAL: 分開處理避免 COALESCE 把 notes=null 誤覆蓋
+  if (
+    typeof isActive === "boolean" &&
+    name === undefined &&
+    category === undefined &&
+    sellPrice === undefined &&
+    notes === undefined &&
+    !ingredients
+  ) {
+    await sql`UPDATE menu_items SET is_active = ${isActive} WHERE id = ${menuItemId}`;
+    return NextResponse.json({ message: isActive ? "已上架" : "已下架" });
+  }
+
+  // 更新菜品資訊（含 isActive 一起改）
+  if (
+    name !== undefined ||
+    category !== undefined ||
+    sellPrice !== undefined ||
+    notes !== undefined ||
+    typeof isActive === "boolean"
+  ) {
     await sql`
       UPDATE menu_items SET
         name = COALESCE(${name ?? null}, name),
         category = COALESCE(${category ?? null}, category),
         sell_price = COALESCE(${sellPrice ?? null}, sell_price),
-        notes = ${notes ?? null}
+        notes = ${notes ?? null},
+        is_active = COALESCE(${typeof isActive === "boolean" ? isActive : null}, is_active)
       WHERE id = ${menuItemId}
     `;
   }

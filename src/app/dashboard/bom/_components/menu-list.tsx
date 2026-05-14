@@ -11,7 +11,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2, AlertTriangle, EyeOff, Eye } from "lucide-react";
 import type { MenuItemBom } from "./types";
 import { CATEGORY_COLORS } from "./types";
 
@@ -27,9 +27,10 @@ interface MenuListProps {
   onToggleExpand: (id: number) => void;
   onEdit: (item: MenuItemBom) => void;
   onDelete: (item: MenuItemBom) => void;
+  onToggleActive: (item: MenuItemBom) => void;
 }
 
-export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete }: MenuListProps) {
+export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete, onToggleActive }: MenuListProps) {
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -44,8 +45,14 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
         const isExpanded = expandedIds.has(item.id);
         const catColor = CATEGORY_COLORS[item.category] || "bg-gray-100 text-gray-700";
 
+        const isInactive = !item.isActive;
         return (
-          <div key={item.id} className="border rounded-lg bg-card overflow-hidden">
+          <div
+            key={item.id}
+            className={`border rounded-lg bg-card overflow-hidden ${
+              isInactive ? "opacity-60 border-dashed" : ""
+            }`}
+          >
             {/* 菜品標頭 */}
             <div className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors">
               <button
@@ -60,10 +67,17 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium truncate">{item.name}</span>
+                    <span className={`font-medium truncate ${isInactive ? "line-through" : ""}`}>
+                      {item.name}
+                    </span>
                     <Badge variant="secondary" className={`text-[10px] ${catColor}`}>
                       {item.category}
                     </Badge>
+                    {isInactive && (
+                      <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700 bg-orange-50">
+                        已下架
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {item.ingredients.length} 項食材
@@ -158,6 +172,15 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete 
                   title="編輯"
                 >
                   <Pencil className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`size-8 ${isInactive ? "text-green-600 hover:text-green-700" : "text-orange-600 hover:text-orange-700"}`}
+                  onClick={() => onToggleActive(item)}
+                  title={isInactive ? "重新上架" : "下架"}
+                >
+                  {isInactive ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
                 </Button>
                 <Button
                   variant="ghost"

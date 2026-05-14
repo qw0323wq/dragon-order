@@ -53,6 +53,7 @@ export default function BomPage() {
   const [filterCat, setFilterCat] = useState<string>("全部");
   const [sortMode, setSortMode] = useState<SortMode>("default");
   const [marginFilter, setMarginFilter] = useState<MarginFilter>({ kind: "all" });
+  const [showInactive, setShowInactive] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
   // Dialog state
@@ -63,7 +64,8 @@ export default function BomPage() {
   const fetchData = useCallback(() => {
     setLoading(true);
     setFetchError(false);
-    fetch("/api/bom")
+    const url = showInactive ? "/api/bom?includeInactive=true" : "/api/bom";
+    fetch(url)
       .then((r) => r.json())
       .then((d) => {
         setData(d);
@@ -73,11 +75,31 @@ export default function BomPage() {
         setLoading(false);
         setFetchError(true);
       });
-  }, []);
+  }, [showInactive]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  /** 上下架切換 — 樂觀更新後 reload */
+  async function handleToggleActive(item: MenuItemBom) {
+    const action = item.isActive ? "下架" : "上架";
+    if (!confirm(`確定要將「${item.name}」${action}？\n${item.isActive ? "下架後不會出現在預設清單" : ""}`)) {
+      return;
+    }
+    const res = await fetch(`/api/bom/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !item.isActive }),
+    });
+    if (res.ok) {
+      toast.success(`已${action}「${item.name}」`);
+      fetchData();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error || `${action}失敗`);
+    }
+  }
 
   const categories = useMemo(
     () => ["全部", ...Array.from(new Set(data.map((d) => d.category)))],
@@ -332,6 +354,22 @@ export default function BomPage() {
               分店&gt;70%
             </button>
           </div>
+
+          {/* 顯示已下架 toggle */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">狀態：</span>
+            <button
+              onClick={() => setShowInactive((v) => !v)}
+              className={`px-2 py-0.5 rounded border transition-colors ${
+                showInactive
+                  ? "bg-orange-500 text-white border-orange-500"
+                  : "bg-background text-muted-foreground border-border hover:bg-accent"
+              }`}
+              title={showInactive ? "目前顯示已下架的品項，點一下隱藏" : "點一下也顯示已下架的品項"}
+            >
+              {showInactive ? "✓ 含已下架" : "只看上架中"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -342,6 +380,7 @@ export default function BomPage() {
         onToggleExpand={toggleExpand}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onToggleActive={handleToggleActive}
       />
 
       {/* 新增/編輯 Dialog */}

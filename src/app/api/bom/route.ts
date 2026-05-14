@@ -14,11 +14,20 @@ export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth.response;
 
-  // 取得所有菜單商品
-  const menuItems = await sql`
-    SELECT id, name, category, sell_price, cost_per_serving, margin_rate, notes, is_active
-    FROM menu_items WHERE is_active = true ORDER BY category, name
-  `;
+  // ?includeInactive=true → 連已下架的也回（給後台看用）
+  const { searchParams } = new URL(request.url);
+  const includeInactive = searchParams.get("includeInactive") === "true";
+
+  // 取得所有菜單商品（預設只 active，後台可開關看所有）
+  const menuItems = includeInactive
+    ? await sql`
+        SELECT id, name, category, sell_price, cost_per_serving, margin_rate, notes, is_active
+        FROM menu_items ORDER BY is_active DESC, category, name
+      `
+    : await sql`
+        SELECT id, name, category, sell_price, cost_per_serving, margin_rate, notes, is_active
+        FROM menu_items WHERE is_active = true ORDER BY category, name
+      `;
 
   // 取得所有 BOM 明細（含進貨價 + 店家採購價）
   const bomItems = await sql`
