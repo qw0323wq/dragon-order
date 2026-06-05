@@ -67,15 +67,25 @@ export async function PUT(
   }
 
   // 如果有提供 ingredients，全量覆蓋 BOM 明細
+  // 新三層架構：優先用 ingredient_id（食材本位），item_id 留作向下相容
   if (ingredients && Array.isArray(ingredients)) {
     await sql`DELETE FROM bom_items WHERE menu_item_id = ${menuItemId}`;
 
     for (let i = 0; i < ingredients.length; i++) {
       const ing = ingredients[i];
-      if (!ing.ingredientName) continue;
+      // 必須有 ingredient_name 或 ingredient_id 之一
+      let ingredientName = ing.ingredientName;
+      if (ing.ingredientId && !ingredientName) {
+        const [ingRow] = await sql`SELECT name FROM ingredients WHERE id = ${ing.ingredientId}`;
+        ingredientName = ingRow?.name ?? "";
+      }
+      if (!ingredientName) continue;
       await sql`
-        INSERT INTO bom_items (menu_item_id, item_id, ingredient_name, quantity, sort_order)
-        VALUES (${menuItemId}, ${ing.itemId || null}, ${ing.ingredientName}, ${ing.quantity || ''}, ${i + 1})
+        INSERT INTO bom_items
+          (menu_item_id, item_id, ingredient_id, ingredient_name, quantity, sort_order)
+        VALUES
+          (${menuItemId}, ${ing.itemId || null}, ${ing.ingredientId || null},
+           ${ingredientName}, ${ing.quantity || ''}, ${i + 1})
       `;
     }
   }
