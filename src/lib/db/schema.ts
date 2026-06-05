@@ -86,6 +86,26 @@ export const suppliers = pgTable('suppliers', {
 });
 
 // ─────────────────────────────────────────────
+// 食材主檔（ingredient 抽象層 — 2026-06-03 三層架構新增）
+//
+// 一個 ingredient 可對應多家供應商的 SKU（items.ingredient_id → 此表）
+// BOM 改綁 ingredient_id（不綁特定 SKU），切換供應商不用改 BOM
+// 成本計算用「主供應商」(is_primary) 的 cost_price × bom.quantity_value
+// ─────────────────────────────────────────────
+export const ingredients = pgTable('ingredients', {
+  id: serial('id').primaryKey(),
+  /** canonical 名稱（去【鍋底】前綴、去（供應商）後綴） */
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  /** 分類（從關聯 items 的 category 帶過來，可手動調） */
+  category: varchar('category', { length: 20 }),
+  /** 主單位（顯示用，BOM 內部單位用 bom_items.quantity_unit） */
+  unit: varchar('unit', { length: 10 }).notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
 // 品項
 // ─────────────────────────────────────────────
 export const items = pgTable('items', {
@@ -93,6 +113,11 @@ export const items = pgTable('items', {
   /** 品號，如 MT-001（肉品-001），唯一索引 */
   sku: varchar('sku', { length: 20 }).unique(),
   name: varchar('name', { length: 100 }).notNull(),
+  /** 對應的食材主檔（同食材多家供應商指同一個 ingredient_id） */
+  ingredientId: integer('ingredient_id')
+    .references(() => ingredients.id, { onDelete: 'set null' }),
+  /** 是否為該 ingredient 的「主供應商」（BOM 成本計算用此家的 cost_price） */
+  isPrimary: boolean('is_primary').default(false).notNull(),
   /** 分類：肉品 | 海鮮 | 蔬菜 | 火鍋料 | 底料 | 飲料 | 酒水 | 雜貨 */
   category: varchar('category', { length: 20 }).notNull(),
   /** 主單位：斤 | 包 | 顆 | 盒 | 瓶 | 箱 | kg | 份 | 塊 | 條 */
@@ -421,13 +446,23 @@ export const bomItems = pgTable('bom_items', {
   menuItemId: integer('menu_item_id')
     .references(() => menuItems.id, { onDelete: 'cascade' })
     .notNull(),
-  /** 使用的原料品項 */
+  /** （舊）使用的原料品項 — 保留作「BOM 預設出貨來源」參考 */
   itemId: integer('item_id')
     .references(() => items.id, { onDelete: 'restrict' }),
-  /** 原料名稱（當 itemId 無法對應時用文字紀錄） */
+  /**
+   * 對應的食材主檔（三層架構的關鍵 FK）
+   * 成本算法：ingredient.主供應商.cost_price × bom.quantity_value
+   */
+  ingredientId: integer('ingredient_id')
+    .references(() => ingredients.id, { onDelete: 'set null' }),
+  /** 原料名稱（保留作 debug + canonicalize 前的原始字串） */
   ingredientName: varchar('ingredient_name', { length: 100 }).notNull(),
-  /** 用量描述（如 "120g", "5隻", "半鍋"） */
+  /** 用量描述原文（如 "120g", "5隻", "半鍋"） */
   quantity: varchar('quantity', { length: 30 }).notNull(),
+  /** 用量數值（從 quantity 字串拆出，方便算成本；拆不出為 null） */
+  quantityValue: numeric('quantity_value', { precision: 10, scale: 3 }),
+  /** 用量單位（從 quantity 字串拆出，如 "g" "顆"） */
+  quantityUnit: varchar('quantity_unit', { length: 10 }),
   /** 排序（第幾項原料） */
   sortOrder: integer('sort_order').default(0).notNull(),
 });
