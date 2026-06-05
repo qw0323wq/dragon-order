@@ -394,6 +394,82 @@ export const receivingRelations = relations(receiving, ({ one }) => ({
 }));
 
 // ─────────────────────────────────────────────
+// 採購需求 staging（員工提出，老闆決策廠商後拆單寫入 orders）
+//
+// 2026-06-03 新增 — 食材本位採購工作流：
+//   員工 /order 食材本位介面 → 寫入此表 (status='pending')
+//   老闆 /dashboard/purchase-plan → 推薦廠商 → 拆單寫 orders
+//   標 status='processed'、order_ids 帶上產出的訂單 id 追溯
+// ─────────────────────────────────────────────
+export const purchaseRequests = pgTable('purchase_requests', {
+  id: serial('id').primaryKey(),
+  storeId: integer('store_id')
+    .references(() => stores.id, { onDelete: 'restrict' })
+    .notNull(),
+  requestDate: date('request_date').defaultNow().notNull(),
+  /** 'pending' | 'processed' | 'cancelled' */
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  /** 老闆拆單時記錄 */
+  processedBy: integer('processed_by').references(() => users.id, { onDelete: 'set null' }),
+  processedAt: timestamp('processed_at'),
+  /** 拆單產出的 orders.id 陣列（追溯用） */
+  orderIds: integer('order_ids').array().default([]).notNull(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const purchaseRequestItems = pgTable('purchase_request_items', {
+  id: serial('id').primaryKey(),
+  requestId: integer('request_id')
+    .references(() => purchaseRequests.id, { onDelete: 'cascade' })
+    .notNull(),
+  ingredientId: integer('ingredient_id')
+    .references(() => ingredients.id, { onDelete: 'set null' }),
+  /** 提需求時的食材名（debug + 食材若被刪除仍可看） */
+  ingredientName: varchar('ingredient_name', { length: 100 }).notNull(),
+  /** 員工盤點時填的「現有量」（選填） */
+  currentStock: numeric('current_stock', { precision: 10, scale: 2 }),
+  /** 要叫的量（必填） */
+  neededQty: numeric('needed_qty', { precision: 10, scale: 2 }).notNull(),
+  unit: varchar('unit', { length: 10 }),
+  /** 提需求時系統建議的主家 SKU */
+  suggestedItemId: integer('suggested_item_id').references(() => items.id, { onDelete: 'set null' }),
+  /** 老闆最終選的 SKU（拆單時用，初始預設 = suggestedItemId） */
+  chosenItemId: integer('chosen_item_id').references(() => items.id, { onDelete: 'set null' }),
+  notes: text('notes'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+});
+
+export const purchaseRequestsRelations = relations(purchaseRequests, ({ many, one }) => ({
+  items: many(purchaseRequestItems),
+  store: one(stores, { fields: [purchaseRequests.storeId], references: [stores.id] }),
+  creator: one(users, { fields: [purchaseRequests.createdBy], references: [users.id] }),
+}));
+
+export const purchaseRequestItemsRelations = relations(purchaseRequestItems, ({ one }) => ({
+  request: one(purchaseRequests, {
+    fields: [purchaseRequestItems.requestId],
+    references: [purchaseRequests.id],
+  }),
+  ingredient: one(ingredients, {
+    fields: [purchaseRequestItems.ingredientId],
+    references: [ingredients.id],
+  }),
+  suggestedItem: one(items, {
+    fields: [purchaseRequestItems.suggestedItemId],
+    references: [items.id],
+    relationName: 'suggestedItem',
+  }),
+  chosenItem: one(items, {
+    fields: [purchaseRequestItems.chosenItemId],
+    references: [items.id],
+    relationName: 'chosenItem',
+  }),
+}));
+
+// ─────────────────────────────────────────────
 // Type exports（從 schema 推導 TypeScript 型別）
 // ─────────────────────────────────────────────
 

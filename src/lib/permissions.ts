@@ -16,6 +16,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 export const ALL_PAGES = [
   { key: 'dashboard', label: '儀表板', href: '/dashboard' },
   { key: 'orders', label: '訂單管理', href: '/dashboard/orders' },
+  { key: 'purchase-plan', label: '採購規劃', href: '/dashboard/purchase-plan' },
   { key: 'suppliers', label: '供應商', href: '/dashboard/suppliers' },
   { key: 'menu', label: '品項管理', href: '/dashboard/menu' },
   { key: 'ingredients', label: '食材中心', href: '/dashboard/ingredients' },
@@ -38,7 +39,7 @@ export type PageKey = (typeof ALL_PAGES)[number]['key'];
 /** 預設權限（初始化 role_permissions 表用） */
 export const DEFAULT_PERMISSIONS: Record<AppRole, string[]> = {
   admin: ['*'], // 全部頁面
-  buyer: ['dashboard', 'orders', 'suppliers', 'menu', 'ingredients', 'bom', 'payments', 'inventory', 'transfers', 'reports', 'price-trends', 'price-schedule', 'order'],
+  buyer: ['dashboard', 'orders', 'purchase-plan', 'suppliers', 'menu', 'ingredients', 'bom', 'payments', 'inventory', 'transfers', 'reports', 'price-trends', 'price-schedule', 'order'],
   manager: ['dashboard', 'orders', 'menu', 'payments', 'transfers', 'order'],
   staff: ['order'],
 };
