@@ -54,6 +54,23 @@ export async function GET(
   const minCost = costs.length ? Math.min(...costs) : null;
   const avgCost = costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : null;
 
+  // 總庫存（彙總所有 SKU 的 store_inventory）
+  const totalStock = skus.reduce((sum, s) => sum + Number(s.total_stock ?? 0), 0);
+
+  // 最近 7 天消耗（從 inventory_logs 看 out 紀錄）
+  const itemIds = skus.map((s) => Number(s.id));
+  let last7DaysOutflow = 0;
+  if (itemIds.length > 0) {
+    const [outRow] = (await sql`
+      SELECT COALESCE(SUM(ABS(quantity::numeric)), 0) as out_sum
+      FROM inventory_logs
+      WHERE item_id = ANY(${itemIds})
+        AND type = 'out'
+        AND created_at >= NOW() - INTERVAL '7 days'
+    `) as unknown as Array<{ out_sum: string }>;
+    last7DaysOutflow = Number(outRow?.out_sum ?? 0);
+  }
+
   return NextResponse.json({
     ingredient,
     skus: skus.map((s) => ({
@@ -69,6 +86,8 @@ export async function GET(
       menuCount: menuItems.length,
       minCost,
       avgCost,
+      totalStock,
+      last7DaysOutflow,
     },
   });
 }

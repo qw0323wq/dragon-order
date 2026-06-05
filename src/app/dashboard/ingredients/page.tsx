@@ -69,7 +69,14 @@ interface IngredientDetail {
   ingredient: { id: number; name: string; category: string | null; unit: string; notes: string | null };
   skus: SkuDetail[];
   menuItems: MenuUseRow[];
-  summary: { skuCount: number; menuCount: number; minCost: number | null; avgCost: number | null };
+  summary: {
+    skuCount: number;
+    menuCount: number;
+    minCost: number | null;
+    avgCost: number | null;
+    totalStock: number;
+    last7DaysOutflow: number;
+  };
 }
 
 export default function IngredientsHubPage() {
@@ -276,6 +283,36 @@ export default function IngredientsHubPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {/* 庫存 + 消耗 summary */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <Card className="bg-card">
+                          <CardContent className="py-2 px-3">
+                            <p className="text-[10px] text-muted-foreground">總庫存</p>
+                            <p className="text-base font-semibold">
+                              {detail.summary.totalStock} <span className="text-xs text-muted-foreground">{detail.ingredient.unit}</span>
+                            </p>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-card">
+                          <CardContent className="py-2 px-3">
+                            <p className="text-[10px] text-muted-foreground">7日消耗</p>
+                            <p className="text-base font-semibold">{detail.summary.last7DaysOutflow}</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-card">
+                          <CardContent className="py-2 px-3">
+                            <p className="text-[10px] text-muted-foreground">供應商</p>
+                            <p className="text-base font-semibold">{detail.summary.skuCount} 家</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-card">
+                          <CardContent className="py-2 px-3">
+                            <p className="text-[10px] text-muted-foreground">用在</p>
+                            <p className="text-base font-semibold">{detail.summary.menuCount} 道菜</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
                       {/* SKU 比價表 */}
                       <div>
                         <h4 className="text-sm font-medium mb-2">供應商比價</h4>
