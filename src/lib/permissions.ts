@@ -18,6 +18,7 @@ export const ALL_PAGES = [
   { key: 'orders', label: '訂單管理', href: '/dashboard/orders' },
   { key: 'suppliers', label: '供應商', href: '/dashboard/suppliers' },
   { key: 'menu', label: '品項管理', href: '/dashboard/menu' },
+  { key: 'ingredients', label: '食材中心', href: '/dashboard/ingredients' },
   { key: 'bom', label: 'BOM 配方', href: '/dashboard/bom' },
   { key: 'payments', label: '帳務', href: '/dashboard/payments' },
   // P2-C8: /purchase-orders 已整合到 /orders 的「叫貨單」tab，移除獨立 entry
@@ -37,7 +38,7 @@ export type PageKey = (typeof ALL_PAGES)[number]['key'];
 /** 預設權限（初始化 role_permissions 表用） */
 export const DEFAULT_PERMISSIONS: Record<AppRole, string[]> = {
   admin: ['*'], // 全部頁面
-  buyer: ['dashboard', 'orders', 'suppliers', 'menu', 'bom', 'payments', 'inventory', 'transfers', 'reports', 'price-trends', 'price-schedule', 'order'],
+  buyer: ['dashboard', 'orders', 'suppliers', 'menu', 'ingredients', 'bom', 'payments', 'inventory', 'transfers', 'reports', 'price-trends', 'price-schedule', 'order'],
   manager: ['dashboard', 'orders', 'menu', 'payments', 'transfers', 'order'],
   staff: ['order'],
 };
