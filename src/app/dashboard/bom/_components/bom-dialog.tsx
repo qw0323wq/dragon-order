@@ -2,7 +2,11 @@
 
 /**
  * BOM 新增/編輯 Dialog — 菜品名稱 + 分類 + 售價 + 配方食材（可多筆）
- * 食材選擇器：分類下拉 + 搜尋 + 下拉清單
+ *
+ * 三層架構（2026-06-03 改）：
+ *   食材選擇器改成選「ingredient（食材主檔）」而非單一 SKU
+ *   - 從 /api/ingredients 拉清單，顯示「貢丸（3 家供應商，主家:綠盛 \$20）」
+ *   - 切換主供應商時 BOM 不用改（BOM 綁的是 ingredient_id）
  */
 
 import { useEffect, useState } from "react";
@@ -26,8 +30,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X } from "lucide-react";
-import type { MenuItemBom, BomFormData, IngredientForm, ItemOption } from "./types";
+import { Plus, X, Star } from "lucide-react";
+import type {
+  MenuItemBom,
+  BomFormData,
+  IngredientForm,
+  IngredientOption,
+} from "./types";
 import { BOM_CATEGORIES, EMPTY_FORM } from "./types";
 
 interface BomDialogProps {
@@ -40,24 +49,24 @@ interface BomDialogProps {
 export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialogProps) {
   const [form, setForm] = useState<BomFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [allItems, setAllItems] = useState<ItemOption[]>([]);
-  const [itemSearch, setItemSearch] = useState<Record<number, string>>({});
+  const [allIngredients, setAllIngredients] = useState<IngredientOption[]>([]);
+  const [search, setSearch] = useState<Record<number, string>>({});
   const [dropdownOpen, setDropdownOpen] = useState<Record<number, boolean>>({});
-  const [ingredientCatFilter, setIngredientCatFilter] = useState<Record<number, string>>({});
+  const [catFilter, setCatFilter] = useState<Record<number, string>>({});
 
-  // 載入品項清單
+  // 載入食材主檔（取代舊的 /api/items）
   useEffect(() => {
-    fetch("/api/items")
+    fetch("/api/ingredients")
       .then((r) => r.json())
-      .then((data: ItemOption[]) => setAllItems(data))
-      .catch(() => toast.error('載入資料失敗'));
+      .then((data: IngredientOption[]) => setAllIngredients(data))
+      .catch(() => toast.error("載入食材清單失敗"));
   }, []);
 
   useEffect(() => {
     if (open) {
-      setItemSearch({});
+      setSearch({});
       setDropdownOpen({});
-      setIngredientCatFilter({});
+      setCatFilter({});
       if (editTarget) {
         setForm({
           name: editTarget.name,
@@ -67,11 +76,12 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
           ingredients:
             editTarget.ingredients.length > 0
               ? editTarget.ingredients.map((ig) => ({
+                  ingredientId: ig.ingredientId,
                   ingredientName: ig.ingredientName,
                   quantity: ig.quantity,
                   itemId: ig.itemId,
                 }))
-              : [{ ingredientName: "", quantity: "", itemId: null }],
+              : [{ ingredientId: null, ingredientName: "", quantity: "", itemId: null }],
         });
       } else {
         setForm(EMPTY_FORM);
@@ -97,7 +107,7 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
       ...prev,
       ingredients: [
         ...prev.ingredients,
-        { ingredientName: "", quantity: "", itemId: null },
+        { ingredientId: null, ingredientName: "", quantity: "", itemId: null },
       ],
     }));
   }
@@ -127,8 +137,9 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
         sellPrice: form.sellPrice,
         notes: form.notes.trim() || null,
         ingredients: form.ingredients
-          .filter((ig) => ig.ingredientName.trim())
+          .filter((ig) => ig.ingredientName.trim() || ig.ingredientId)
           .map((ig) => ({
+            ingredientId: ig.ingredientId,
             ingredientName: ig.ingredientName.trim(),
             quantity: ig.quantity.trim(),
             itemId: ig.itemId,
@@ -237,23 +248,26 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
             </div>
 
             {form.ingredients.map((ig, idx) => {
-              const searchText = itemSearch[idx] ?? "";
+              const searchText = search[idx] ?? "";
               const isOpen = dropdownOpen[idx] ?? false;
-              const catFilter = ingredientCatFilter[idx] ?? "";
-              const selectedItem = ig.itemId
-                ? allItems.find((it) => it.id === ig.itemId)
+              const cat = catFilter[idx] ?? "";
+              const selectedIng = ig.ingredientId
+                ? allIngredients.find((it) => it.id === ig.ingredientId)
                 : null;
 
               // 篩選：先按分類，再按搜尋文字
-              let filtered = catFilter
-                ? allItems.filter((it) => it.category === catFilter)
-                : allItems;
+              let filtered = cat
+                ? allIngredients.filter((it) => it.category === cat)
+                : allIngredients;
               if (searchText) {
                 filtered = filtered.filter((it) => it.name.includes(searchText));
               }
+              filtered = filtered.slice(0, 50); // 限制最多 50 筆避免下拉太長
 
-              // 品項分類列表
-              const itemCategories = [...new Set(allItems.map((it) => it.category))].sort();
+              // 食材分類列表
+              const ingCategories = [
+                ...new Set(allIngredients.map((it) => it.category).filter((c): c is string => !!c)),
+              ].sort();
 
               return (
                 <div key={idx} className="flex items-start gap-2">
@@ -261,21 +275,32 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                     {idx + 1}
                   </span>
                   <div className="flex-1 relative">
-                    {selectedItem ? (
+                    {selectedIng ? (
                       <div className="flex items-center gap-1 border rounded-md px-2 py-1.5 text-sm bg-muted/30">
-                        <Badge variant="outline" className="text-[10px] px-1 shrink-0">
-                          {selectedItem.category}
-                        </Badge>
-                        <span className="font-medium truncate">{selectedItem.name}</span>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          ${selectedItem.costPrice}/{selectedItem.unit}
-                        </span>
+                        {selectedIng.category && (
+                          <Badge variant="outline" className="text-[10px] px-1 shrink-0">
+                            {selectedIng.category}
+                          </Badge>
+                        )}
+                        <span className="font-medium truncate">{selectedIng.name}</span>
+                        {selectedIng.supplierCount > 0 && (
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            ({selectedIng.supplierCount} 家)
+                          </span>
+                        )}
+                        {selectedIng.primaryCost != null && selectedIng.primarySupplierName && (
+                          <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-0.5">
+                            <Star className="size-3 fill-yellow-400 text-yellow-500" />
+                            {selectedIng.primarySupplierName} ${selectedIng.primaryCost}/{selectedIng.unit}
+                          </span>
+                        )}
                         <button
                           type="button"
                           className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
                           onClick={() => {
-                            updateIngredient(idx, "itemId", null);
+                            updateIngredient(idx, "ingredientId", null);
                             updateIngredient(idx, "ingredientName", "");
+                            updateIngredient(idx, "itemId", null);
                           }}
                         >
                           <X className="size-3" />
@@ -284,11 +309,10 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                     ) : (
                       <div>
                         <div className="flex gap-1.5">
-                          {/* 分類下拉 */}
                           <Select
-                            value={catFilter || "__all__"}
+                            value={cat || "__all__"}
                             onValueChange={(v) => {
-                              setIngredientCatFilter((prev) => ({ ...prev, [idx]: v === "__all__" ? "" : (v ?? "") }));
+                              setCatFilter((prev) => ({ ...prev, [idx]: v === "__all__" ? "" : (v ?? "") }));
                               setDropdownOpen((prev) => ({ ...prev, [idx]: true }));
                             }}
                           >
@@ -297,17 +321,16 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__all__">全部</SelectItem>
-                              {itemCategories.map((cat) => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                              {ingCategories.map((c) => (
+                                <SelectItem key={c} value={c}>{c}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                          {/* 搜尋框 */}
                           <Input
                             placeholder="搜尋食材..."
                             value={searchText}
                             onChange={(e) => {
-                              setItemSearch((prev) => ({ ...prev, [idx]: e.target.value }));
+                              setSearch((prev) => ({ ...prev, [idx]: e.target.value }));
                               setDropdownOpen((prev) => ({ ...prev, [idx]: true }));
                             }}
                             onFocus={() => setDropdownOpen((prev) => ({ ...prev, [idx]: true }))}
@@ -319,26 +342,32 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                             <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen((prev) => ({ ...prev, [idx]: false }))} />
                             <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto bg-card border rounded-md shadow-lg">
                               {filtered.length === 0 ? (
-                                <div className="px-3 py-2 text-sm text-muted-foreground">找不到品項</div>
+                                <div className="px-3 py-2 text-sm text-muted-foreground">找不到食材</div>
                               ) : (
                                 filtered.map((it) => (
                                   <button
                                     key={it.id}
                                     type="button"
-                                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted flex items-center justify-between"
+                                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted flex items-center justify-between gap-2"
                                     onClick={() => {
-                                      updateIngredient(idx, "itemId", it.id);
+                                      updateIngredient(idx, "ingredientId", it.id);
                                       updateIngredient(idx, "ingredientName", it.name);
-                                      setItemSearch((prev) => { const n = { ...prev }; delete n[idx]; return n; });
-                                      setIngredientCatFilter((prev) => { const n = { ...prev }; delete n[idx]; return n; });
+                                      updateIngredient(idx, "itemId", null); // 改用 ingredient_id
+                                      setSearch((prev) => { const n = { ...prev }; delete n[idx]; return n; });
+                                      setCatFilter((prev) => { const n = { ...prev }; delete n[idx]; return n; });
                                       setDropdownOpen((prev) => ({ ...prev, [idx]: false }));
                                     }}
                                   >
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 min-w-0">
                                       <span className="text-[10px] text-muted-foreground w-10 shrink-0">{it.category}</span>
-                                      <span>{it.name}</span>
+                                      <span className="truncate">{it.name}</span>
+                                      <span className="text-[10px] text-muted-foreground shrink-0">({it.supplierCount}家)</span>
                                     </div>
-                                    <span className="text-xs text-muted-foreground">${it.costPrice}/{it.unit}</span>
+                                    {it.primaryCost != null && (
+                                      <span className="text-xs text-muted-foreground shrink-0">
+                                        ${it.primaryCost}/{it.unit}
+                                      </span>
+                                    )}
                                   </button>
                                 ))
                               )}

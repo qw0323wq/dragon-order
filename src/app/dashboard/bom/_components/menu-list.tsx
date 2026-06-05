@@ -217,8 +217,20 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                         <td className="py-1.5 text-muted-foreground">{idx + 1}</td>
                         <td className="py-1.5">
                           {ing.ingredientName}
-                          {!ing.itemId && (
-                            <span className="text-[10px] text-amber-600 ml-1">（未對應）</span>
+                          {ing.supplierCount > 1 && (
+                            <span className="text-[10px] text-blue-600 ml-1" title={`${ing.supplierCount} 家供應商可選`}>
+                              ({ing.supplierCount}家)
+                            </span>
+                          )}
+                          {ing.priceSource === "fallback" && (
+                            <span className="text-[10px] text-amber-600 ml-1" title="主供應商未設定，用備援來源算成本">
+                              ⚠ 備援
+                            </span>
+                          )}
+                          {ing.priceSource === "none" && (
+                            <span className="text-[10px] text-red-600 ml-1" title="無對應 SKU，成本無法計算">
+                              ⚠ 未對應
+                            </span>
                           )}
                           {ing.itemUnit && (
                             <span className="text-xs text-muted-foreground ml-1">

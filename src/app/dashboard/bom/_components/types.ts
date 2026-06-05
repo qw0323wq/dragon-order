@@ -4,8 +4,16 @@
 
 export interface Ingredient {
   id: number;
+  /** 三層架構：BOM 行對應的 ingredient 主檔 id */
+  ingredientId: number | null;
   ingredientName: string;
+  /** 原文用量字串（如 "150g"） */
   quantity: string;
+  /** 拆出的數值（如 150） */
+  quantityValue: number | null;
+  /** 拆出的單位（如 "g"） */
+  quantityUnit: string | null;
+  /** 用於成本計算的供應商來源 id（主家 or fallback 舊 item_id） */
   itemId: number | null;
   itemName: string | null;
   itemUnit: string | null;
@@ -15,6 +23,10 @@ export interface Ingredient {
   hqCost: number;
   /** 分店採購價（store_price 或 cost_price × markup），admin/buyer/manager 看得到 */
   storeCost: number;
+  /** 同 ingredient 對應幾家 active 供應商 */
+  supplierCount: number;
+  /** 成本來源：'primary' (主家) | 'fallback' (舊 item_id) | 'none' (無對應) */
+  priceSource: "primary" | "fallback" | "none";
 }
 
 export interface MenuItemBom {
@@ -41,8 +53,12 @@ export interface MenuItemBom {
 }
 
 export interface IngredientForm {
+  /** 三層架構：BOM 行綁定的 ingredient 主檔 id（食材本位） */
+  ingredientId: number | null;
+  /** 食材顯示名稱（從 ingredient.name 帶過來） */
   ingredientName: string;
   quantity: string;
+  /** 向下相容：舊 BOM 行可能用 item_id 不用 ingredient_id */
   itemId: number | null;
 }
 
@@ -54,6 +70,20 @@ export interface BomFormData {
   ingredients: IngredientForm[];
 }
 
+/** Ingredient 下拉選擇器用 — 從 /api/ingredients 拉 */
+export interface IngredientOption {
+  id: number;
+  name: string;
+  category: string | null;
+  unit: string;
+  supplierCount: number;
+  primaryItemName: string | null;
+  primarySupplierName: string | null;
+  primaryCost: number | null;
+  menuUseCount: number;
+}
+
+/** 舊 ItemOption 保留作向下相容（食材中心新版用 IngredientOption） */
 export interface ItemOption {
   id: number;
   name: string;
@@ -89,5 +119,5 @@ export const EMPTY_FORM: BomFormData = {
   category: "",
   sellPrice: 0,
   notes: "",
-  ingredients: [{ ingredientName: "", quantity: "", itemId: null }],
+  ingredients: [{ ingredientId: null, ingredientName: "", quantity: "", itemId: null }],
 };
