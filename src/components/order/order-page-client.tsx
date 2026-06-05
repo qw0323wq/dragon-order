@@ -37,7 +37,7 @@ import {
   ScanTextIcon, SendIcon, XIcon, ArrowLeftIcon, CalendarIcon,
   ClipboardList, ClipboardCheck, Loader2, AlertTriangle,
   ChevronDownIcon, ChevronUpIcon, Clock, Trash2, UtensilsCrossed, PackageCheck,
-  MoreHorizontal,
+  MoreHorizontal, Sprout,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "./item-card";
@@ -46,6 +46,7 @@ import { CartItemRow } from "./cart-item-row";
 import { WasteTab, MealTab, StocktakeTab } from "./inventory-tabs";
 import { MyOrdersTab } from "./my-orders-tab";
 import { ReceivingTab } from "./receiving-tab";
+import IngredientRequestTab from "./ingredient-request-tab";
 
 interface OrderPageClientProps {
   user: SessionUser;
@@ -375,7 +376,11 @@ export default function OrderPageClient({
             <TabsList className="flex-1">
               <TabsTrigger value="list" className="flex-1 gap-1 text-sm">
                 <ShoppingCartIcon className="size-4" />
-                叫貨
+                品項
+              </TabsTrigger>
+              <TabsTrigger value="ingredient" className="flex-1 gap-1 text-sm">
+                <Sprout className="size-4" />
+                食材
               </TabsTrigger>
               <TabsTrigger value="text" className="flex-1 gap-1 text-sm">
                 <ScanTextIcon className="size-4" />
@@ -544,7 +549,12 @@ export default function OrderPageClient({
             </div>
           </TabsContent>
 
-          {/* ===== Tab 2: 文字模式 ===== */}
+          {/* ===== Tab 2: 食材本位（提叫貨需求） ===== */}
+          <TabsContent value="ingredient">
+            <IngredientRequestTab stores={stores} defaultStoreId={user.store_id ?? null} />
+          </TabsContent>
+
+          {/* ===== Tab 3: 文字模式 ===== */}
           <TabsContent value="text">
             <div className="flex flex-col gap-3">
               <Textarea
