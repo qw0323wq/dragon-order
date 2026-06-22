@@ -24,6 +24,9 @@ import {
   TrendingUp,
   Package,
   ArrowRightLeft,
+  ShoppingCart,
+  Sprout,
+  CalendarClock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -35,8 +38,10 @@ import type { AppRole } from '@/lib/permissions'
 const NAV_ITEMS = [
   { label: '儀表板', href: '/dashboard', icon: BarChart2, pageKey: 'dashboard' },
   { label: '訂單管理', href: '/dashboard/orders', icon: ClipboardList, pageKey: 'orders' },
+  { label: '採購規劃', href: '/dashboard/purchase-plan', icon: ShoppingCart, pageKey: 'purchase-plan' },
   { label: '供應商', href: '/dashboard/suppliers', icon: Store, pageKey: 'suppliers' },
   { label: '品項管理', href: '/dashboard/menu', icon: Soup, pageKey: 'menu' },
+  { label: '食材中心', href: '/dashboard/ingredients', icon: Sprout, pageKey: 'ingredients' },
   { label: 'BOM 配方', href: '/dashboard/bom', icon: BookOpen, pageKey: 'bom' },
   { label: '帳務', href: '/dashboard/payments', icon: Wallet, pageKey: 'payments' },
   // 叫貨單已合併到訂單管理頁
@@ -44,6 +49,7 @@ const NAV_ITEMS = [
   { label: '調撥/借料', href: '/dashboard/transfers', icon: ArrowRightLeft, pageKey: 'transfers' },
   { label: '營運報表', href: '/dashboard/reports', icon: BarChart2, pageKey: 'reports' },
   { label: '價格走勢', href: '/dashboard/price-trends', icon: TrendingUp, pageKey: 'price-trends' },
+  { label: '預約改價', href: '/dashboard/price-schedule', icon: CalendarClock, pageKey: 'price-schedule' },
   { label: 'POS 匯入', href: '/dashboard/import', icon: FileDown, pageKey: 'import' },
   { label: '設定', href: '/dashboard/settings', icon: Settings, pageKey: 'settings' },
 ] as const
