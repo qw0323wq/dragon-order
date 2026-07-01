@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil } from 'lucide-react'
+import { Plus, Search, Pencil, Percent } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -76,6 +76,13 @@ export default function MenuPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<ItemData | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // 批次設加成 % dialog
+  const [batchOpen, setBatchOpen] = useState(false)
+  const [batchCategory, setBatchCategory] = useState('全部')
+  const [batchPct, setBatchPct] = useState(20)
+  const [batchClearManual, setBatchClearManual] = useState(false)
+  const [batchSubmitting, setBatchSubmitting] = useState(false)
 
   // 表單
   const [formName, setFormName] = useState('')
@@ -180,6 +187,46 @@ export default function MenuPage() {
     }
   }
 
+  // 批次範圍內「有手動固定價」的品項數（不清除的話這些不受加成影響）
+  const batchManualCount = useMemo(() => {
+    return items.filter(
+      (i) => (batchCategory === '全部' || i.category === batchCategory) && (i.rawStorePrice ?? 0) > 0
+    ).length
+  }, [items, batchCategory])
+
+  const batchScopeCount = useMemo(() => {
+    return items.filter((i) => batchCategory === '全部' || i.category === batchCategory).length
+  }, [items, batchCategory])
+
+  async function handleBatchApply() {
+    setBatchSubmitting(true)
+    try {
+      const res = await fetch('/api/items/batch-markup', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: batchCategory,
+          markupPct: batchPct,
+          clearManual: batchClearManual,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || '批次設定失敗')
+        return
+      }
+      const data = await res.json()
+      const catLabel = batchCategory === '全部' ? '全部品項' : batchCategory
+      let msg = `已將「${catLabel}」${data.updated} 項設為加成 ${batchPct}%`
+      if (data.manualKept > 0) msg += `（${data.manualKept} 項有手動固定價，不受影響）`
+      toast.success(msg)
+      setBatchOpen(false)
+      fetchItems()
+    } finally {
+      setBatchSubmitting(false)
+    }
+  }
+
   if (loading) {
     return <div className="p-4 md:p-6"><p className="text-muted-foreground">載入中...</p></div>
   }
@@ -192,6 +239,9 @@ export default function MenuPage() {
           <h2 className="font-heading text-xl font-semibold">品項管理</h2>
           <p className="text-sm text-muted-foreground mt-0.5">共 {items.length} 個品項</p>
         </div>
+        <Button variant="outline" className="gap-1.5 shrink-0" onClick={() => setBatchOpen(true)}>
+          <Percent className="size-4" /> 批次設加成
+        </Button>
       </div>
 
       {/* 搜尋 + 分類篩選 */}
@@ -390,6 +440,66 @@ export default function MenuPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
             <Button onClick={handleSubmit} disabled={submitting}>
               {submitting ? '儲存中...' : '儲存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批次設加成 % Dialog */}
+      <Dialog open={batchOpen} onOpenChange={setBatchOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>批次設定店家加成 %</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <p className="text-sm text-muted-foreground">
+              把整個分類的品項一次改成同一個加成 %，省得一項項改。
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>套用分類</Label>
+                <Select value={batchCategory} onValueChange={(v) => setBatchCategory(v ?? '全部')}>
+                  <SelectTrigger><SelectValue placeholder="分類" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>加成 (%)</Label>
+                <Input type="number" min={0} step="1" value={batchPct} onChange={(e) => setBatchPct(Number(e.target.value))} />
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+              將套用到 <span className="font-semibold text-primary">{batchScopeCount}</span> 個品項
+              {batchCategory === '全部' ? '（全部）' : `（${batchCategory}）`}
+            </div>
+
+            {/* 有手動固定價的提醒 + 清除選項 */}
+            {batchManualCount > 0 && (
+              <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={batchClearManual}
+                  onChange={(e) => setBatchClearManual(e.target.checked)}
+                  className="size-4 accent-primary mt-0.5 shrink-0"
+                />
+                <span className="text-amber-800">
+                  這範圍有 <strong>{batchManualCount}</strong> 項設了「手動固定價」，
+                  預設<strong>不會</strong>被加成影響。
+                  <br />勾此項＝連手動固定價一起清掉，讓全部改吃 {batchPct}% 加成。
+                </span>
+              </label>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchOpen(false)} disabled={batchSubmitting}>取消</Button>
+            <Button onClick={handleBatchApply} disabled={batchSubmitting}>
+              {batchSubmitting ? '套用中...' : '套用'}
             </Button>
           </DialogFooter>
         </DialogContent>
