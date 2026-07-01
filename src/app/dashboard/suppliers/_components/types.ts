@@ -18,6 +18,8 @@ export interface Supplier {
   address: string | null
   deliveryDays: number | null
   freeShippingMin: number | null
+  /** 銀行帳戶（自由格式：銀行 + 分行 + 帳號 + 戶名） */
+  bankAccount: string | null
 }
 
 export interface SupplierFormData {
@@ -33,6 +35,7 @@ export interface SupplierFormData {
   address: string
   deliveryDays: string
   freeShippingMin: string
+  bankAccount: string
 }
 
 export const EMPTY_FORM: SupplierFormData = {
@@ -48,6 +51,7 @@ export const EMPTY_FORM: SupplierFormData = {
   address: '',
   deliveryDays: '',
   freeShippingMin: '',
+  bankAccount: '',
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {

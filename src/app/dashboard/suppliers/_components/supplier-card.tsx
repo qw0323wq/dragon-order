@@ -85,6 +85,13 @@ export function SupplierCard({ supplier, onEdit, onDelete }: SupplierCardProps) 
               </div>
             )}
 
+            {supplier.bankAccount && (
+              <div className="flex items-start gap-1.5 mt-1.5 text-sm text-muted-foreground">
+                <CreditCard className="size-3.5 mt-0.5 shrink-0" />
+                <span className="whitespace-pre-line">{supplier.bankAccount}</span>
+              </div>
+            )}
+
             {(supplier.deliveryDays != null || (supplier.freeShippingMin != null && supplier.freeShippingMin > 0)) && (
               <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                 {supplier.deliveryDays != null && supplier.deliveryDays > 0 && (

@@ -46,6 +46,7 @@ export function SupplierFormDialog({ open, onOpenChange, editTarget, onSubmit }:
         address: editTarget.address ?? '',
         deliveryDays: editTarget.deliveryDays != null ? String(editTarget.deliveryDays) : '',
         freeShippingMin: editTarget.freeShippingMin != null ? String(editTarget.freeShippingMin) : '',
+        bankAccount: editTarget.bankAccount ?? '',
       })
     } else {
       setForm(EMPTY_FORM)
@@ -131,6 +132,10 @@ export function SupplierFormDialog({ open, onOpenChange, editTarget, onSubmit }:
               <Label htmlFor="sup-free-shipping">免運金額（元）</Label>
               <Input id="sup-free-shipping" type="number" min={0} placeholder="0 = 無門檻" value={form.freeShippingMin} onChange={(e) => handleFieldChange('freeShippingMin', e.target.value)} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="sup-bank">銀行帳戶</Label>
+            <Textarea id="sup-bank" placeholder="銀行 + 分行 + 帳號 + 戶名，例：&#10;國泰世華 北新莊分行&#10;帳號 123-45-678901&#10;戶名 永鑫國際水產有限公司" rows={3} value={form.bankAccount} onChange={(e) => handleFieldChange('bankAccount', e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="sup-memo">備註</Label>

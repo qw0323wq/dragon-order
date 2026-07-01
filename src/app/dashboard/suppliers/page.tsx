@@ -55,6 +55,7 @@ export default function SuppliersPage() {
       notes: data.memo || null, paymentType: data.paymentType,
       companyName: data.companyName || null, taxId: data.taxId || null,
       address: data.address || null, deliveryDays: deliveryDaysNum, freeShippingMin: freeShippingMinNum,
+      bankAccount: data.bankAccount || null,
     }
 
     if (editTarget) {

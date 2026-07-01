@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
       freeShippingMin: suppliers.freeShippingMin,
       paymentType: suppliers.paymentType,
       minOrderAmount: suppliers.minOrderAmount,
+      bankAccount: suppliers.bankAccount,
       isActive: suppliers.isActive,
       itemsCount: sql<number>`(SELECT COUNT(*) FROM items WHERE items.supplier_id = ${suppliers.id} AND items.is_active = true)`,
     })
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin, orderCutoff, minOrderAmount, orderDays } = body;
+  const { name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin, orderCutoff, minOrderAmount, orderDays, bankAccount } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "供應商名稱不能為空" }, { status: 400 });
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
       contact: contact || null,
       phone: phone || null,
       notes: notes || null,
+      bankAccount: bankAccount || null,
       noDeliveryDays: noDeliveryDays || [],
       leadDays: leadDays || 1,
       deliveryDays: deliveryDays || 1,
@@ -141,7 +143,7 @@ export async function PATCH(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const { id, name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin, orderCutoff, minOrderAmount, orderDays } = body;
+  const { id, name, category, contact, phone, notes, noDeliveryDays, leadDays, paymentType, companyName, taxId, address, deliveryDays, freeShippingMin, orderCutoff, minOrderAmount, orderDays, bankAccount } = body;
 
   if (!id) {
     return NextResponse.json({ error: "缺少供應商 ID" }, { status: 400 });
@@ -158,6 +160,7 @@ export async function PATCH(request: NextRequest) {
       contact: contact ?? null,
       phone: phone ?? null,
       notes: notes ?? null,
+      bankAccount: bankAccount ?? null,
       ...(noDeliveryDays !== undefined && { noDeliveryDays }),
       ...(leadDays !== undefined && { leadDays }),
       ...(deliveryDays !== undefined && { deliveryDays }),
