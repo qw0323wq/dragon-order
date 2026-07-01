@@ -56,15 +56,24 @@ export function hrefToPageKey(href: string): string | null {
   return page?.key ?? null;
 }
 
+/** 沒設定加成 % 時的系統預設（= 舊 COST_MARKUP 1.2） */
+export const DEFAULT_STORE_MARKUP_PCT = 20;
+
 /**
  * 計算店家採購價
- * store_price > 0 → 用 store_price
- * 否則 → cost_price × COST_MARKUP
+ * store_price > 0（手動固定）→ 直接用 store_price
+ * 否則 → round(cost_price × (1 + markupPct/100))，每個品項可自訂 markupPct
+ *
+ * @param markupPct 加成 %（如 20 = +20%）。未提供時用 DEFAULT_STORE_MARKUP_PCT
  */
-export function getEffectiveStorePrice(costPrice: number, storePrice: number): number {
+export function getEffectiveStorePrice(
+  costPrice: number,
+  storePrice: number,
+  markupPct: number = DEFAULT_STORE_MARKUP_PCT
+): number {
   if (storePrice > 0) return storePrice;
-  const markup = parseFloat(process.env.COST_MARKUP ?? '1.2');
-  return Math.round(costPrice * markup);
+  const pct = Number.isFinite(markupPct) ? markupPct : DEFAULT_STORE_MARKUP_PCT;
+  return Math.round(costPrice * (1 + pct / 100));
 }
 
 /** 將 pathname 轉成 pageKey（支援子路由） */

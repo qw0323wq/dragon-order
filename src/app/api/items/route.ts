@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       unit: items.unit,
       costPrice: items.costPrice,
       storePrice: items.storePrice,
+      storeMarkupPct: items.storeMarkupPct,
       sellPrice: items.sellPrice,
       spec: items.spec,
       supplierNotes: items.supplierNotes,
@@ -80,13 +81,15 @@ export async function GET(request: NextRequest) {
   }
 
   const result = filtered.map((item) => {
-    const effectiveStorePrice = getEffectiveStorePrice(item.costPrice, item.storePrice);
+    const effectiveStorePrice = getEffectiveStorePrice(item.costPrice, item.storePrice, item.storeMarkupPct);
 
     if (userRole === "admin" || userRole === "buyer") {
       return {
         ...item,
         costPrice: item.costPrice,
-        storePrice: effectiveStorePrice,
+        storePrice: effectiveStorePrice,       // 顯示用：有效店家採購價
+        rawStorePrice: item.storePrice,        // 編輯用：原始手動固定價（0 = 走加成 %）
+        storeMarkupPct: item.storeMarkupPct,   // 編輯用：加成 %
         sellPrice: item.sellPrice,
       };
     } else if (userRole === "manager") {
@@ -94,6 +97,7 @@ export async function GET(request: NextRequest) {
         ...item,
         costPrice: effectiveStorePrice,
         storePrice: undefined,
+        storeMarkupPct: undefined, // 遮住加成 %，避免反推總公司進貨價
         sellPrice: item.sellPrice,
       };
     } else {
@@ -101,6 +105,7 @@ export async function GET(request: NextRequest) {
         ...item,
         costPrice: 0,
         storePrice: undefined,
+        storeMarkupPct: undefined,
         sellPrice: 0,
       };
     }

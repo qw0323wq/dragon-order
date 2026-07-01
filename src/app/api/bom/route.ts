@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
+import { getEffectiveStorePrice, DEFAULT_STORE_MARKUP_PCT } from "@/lib/permissions";
 
 
 export async function GET(request: NextRequest) {
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
            prim.unit         as primary_item_unit,
            prim.cost_price   as primary_cost,
            prim.store_price  as primary_store_price,
+           prim.store_markup_pct as primary_markup_pct,
            -- 同 ingredient 的供應商數量
            (SELECT COUNT(*)::int FROM items
             WHERE ingredient_id = bi.ingredient_id AND is_active = true) as supplier_count,
@@ -59,10 +61,11 @@ export async function GET(request: NextRequest) {
            fb.name           as fb_item_name,
            fb.unit           as fb_item_unit,
            fb.cost_price     as fb_item_cost,
-           fb.store_price    as fb_item_store_price
+           fb.store_price    as fb_item_store_price,
+           fb.store_markup_pct as fb_markup_pct
     FROM bom_items bi
     LEFT JOIN LATERAL (
-      SELECT id, name, unit, cost_price, store_price
+      SELECT id, name, unit, cost_price, store_price, store_markup_pct
       FROM items
       WHERE ingredient_id = bi.ingredient_id AND is_primary = true AND is_active = true AND cost_price > 0
       ORDER BY cost_price ASC, id ASC
@@ -92,10 +95,9 @@ export async function GET(request: NextRequest) {
     userRole = auth.role === "admin" ? "admin" : "staff";
   }
 
-  const costMarkup = parseFloat(process.env.COST_MARKUP || "1.2");
-
-  function effectiveStorePrice(costPrice: number, storePrice: number): number {
-    return storePrice > 0 ? storePrice : Math.round(costPrice * costMarkup);
+  // 店家採購價：手動固定價優先，否則進貨價 × (1 + 該品項加成%/100)
+  function effectiveStorePrice(costPrice: number, storePrice: number, markupPct: number): number {
+    return getEffectiveStorePrice(costPrice, storePrice, markupPct);
   }
 
   // 三層轉手定價：供應商 ──cost_price──▶ 總公司 ──store_price──▶ 分店 ──sell_price──▶ 客人
@@ -121,6 +123,7 @@ export async function GET(request: NextRequest) {
     qtyValue: number;
     costPrice: number;
     storePrice: number;
+    markupPct: number;
     sourceItemName: string | null;
     sourceItemUnit: string | null;
     sourceLevel: "primary" | "fallback" | "none";
@@ -134,6 +137,7 @@ export async function GET(request: NextRequest) {
     // 價格：先主供應商，再 fallback 舊 item_id
     let costPrice = 0;
     let storePrice = 0;
+    let markupPct = DEFAULT_STORE_MARKUP_PCT;
     let sourceItemName: string | null = null;
     let sourceItemUnit: string | null = null;
     let sourceLevel: "primary" | "fallback" | "none" = "none";
@@ -142,6 +146,7 @@ export async function GET(request: NextRequest) {
     if (primCost > 0) {
       costPrice = primCost;
       storePrice = Number(b.primary_store_price ?? 0);
+      markupPct = b.primary_markup_pct != null ? Number(b.primary_markup_pct) : DEFAULT_STORE_MARKUP_PCT;
       sourceItemName = String(b.primary_item_name ?? "");
       sourceItemUnit = String(b.primary_item_unit ?? "");
       sourceLevel = "primary";
@@ -150,6 +155,7 @@ export async function GET(request: NextRequest) {
       if (fbCost > 0) {
         costPrice = fbCost;
         storePrice = Number(b.fb_item_store_price ?? 0);
+        markupPct = b.fb_markup_pct != null ? Number(b.fb_markup_pct) : DEFAULT_STORE_MARKUP_PCT;
         sourceItemName = String(b.fb_item_name ?? "");
         sourceItemUnit = String(b.fb_item_unit ?? "");
         sourceLevel = "fallback";
@@ -160,6 +166,7 @@ export async function GET(request: NextRequest) {
       qtyValue,
       costPrice,
       storePrice,
+      markupPct,
       sourceItemName,
       sourceItemUnit,
       sourceLevel,
@@ -180,7 +187,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
       hqCostSum += r.qtyValue * r.costPrice;
-      hqRevenueSum += r.qtyValue * effectiveStorePrice(r.costPrice, r.storePrice);
+      hqRevenueSum += r.qtyValue * effectiveStorePrice(r.costPrice, r.storePrice, r.markupPct);
     }
 
     const sellPrice = Number(mi.sell_price) || 0;
@@ -208,7 +215,7 @@ export async function GET(request: NextRequest) {
       isActive: mi.is_active,
       ingredients: ings.map((b) => {
         const r = resolveBomRow(b);
-        const sCost = effectiveStorePrice(r.costPrice, r.storePrice);
+        const sCost = effectiveStorePrice(r.costPrice, r.storePrice, r.markupPct);
         let displayCost = 0;
         if (userRole === "admin" || userRole === "buyer") {
           displayCost = r.costPrice;

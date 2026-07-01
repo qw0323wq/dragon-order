@@ -3,6 +3,7 @@ import OrderPageClient from "@/components/order/order-page-client";
 import { db } from "@/lib/db";
 import { items, suppliers, stores, users } from "@/lib/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
+import { getEffectiveStorePrice } from "@/lib/permissions";
 
 /**
  * 員工叫貨頁（Server Component）
@@ -35,6 +36,7 @@ export default async function OrderPage() {
       unit: items.unit,
       cost_price: items.costPrice,
       store_price: items.storePrice,
+      store_markup_pct: items.storeMarkupPct,
       sell_price: items.sellPrice,
       aliases: items.aliases,
       supplierName: suppliers.name,
@@ -51,17 +53,14 @@ export default async function OrderPage() {
 
   // 依角色處理價格
   // admin/buyer：顯示廠商進貨價
-  // manager：顯示店家採購價
+  // manager：顯示店家採購價（每品項加成 % 自動算）
   // staff：不顯示價格
-  const markup = parseFloat(process.env.COST_MARKUP || "1.2");
   const dbItems = rawItems.map((item) => {
     if (user.role === "admin" || user.role === "buyer") {
       return item; // 看廠商進貨價
     } else if (user.role === "manager") {
-      // 店長看店家採購價
-      const effectiveStorePrice = item.store_price > 0
-        ? item.store_price
-        : Math.round(item.cost_price * markup);
+      // 店長看店家採購價：手動固定價優先，否則進貨價 × (1 + 加成%/100)
+      const effectiveStorePrice = getEffectiveStorePrice(item.cost_price, item.store_price, item.store_markup_pct);
       return { ...item, cost_price: effectiveStorePrice, store_price: 0, sell_price: item.sell_price };
     } else {
       return { ...item, cost_price: 0, store_price: 0, sell_price: 0 }; // 員工看不到

@@ -23,12 +23,13 @@ export async function PATCH(
   }
   const body = await request.json();
 
-  const { name, category, unit, costPrice, storePrice, sellPrice, spec, supplierNotes, isActive } = body as {
+  const { name, category, unit, costPrice, storePrice, storeMarkupPct, sellPrice, spec, supplierNotes, isActive } = body as {
     name?: string;
     category?: string;
     unit?: string;
     costPrice?: number;
     storePrice?: number;
+    storeMarkupPct?: number;
     sellPrice?: number;
     spec?: string | null;
     supplierNotes?: string | null;
@@ -41,6 +42,7 @@ export async function PATCH(
   if (unit !== undefined) updates.unit = unit;
   if (costPrice !== undefined) updates.costPrice = costPrice;
   if (storePrice !== undefined) updates.storePrice = storePrice;
+  if (storeMarkupPct !== undefined) updates.storeMarkupPct = storeMarkupPct;
   if (sellPrice !== undefined) updates.sellPrice = sellPrice;
   if (spec !== undefined) updates.spec = spec;
   if (supplierNotes !== undefined) updates.supplierNotes = supplierNotes;

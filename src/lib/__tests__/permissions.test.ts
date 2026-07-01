@@ -68,19 +68,28 @@ describe("permissions", () => {
   });
 
   describe("getEffectiveStorePrice", () => {
-    it("should use store_price when > 0", () => {
+    it("手動固定價 > 0 時直接用", () => {
       expect(getEffectiveStorePrice(100, 150)).toBe(150);
+      // 有固定價時，加成 % 被忽略
+      expect(getEffectiveStorePrice(100, 150, 50)).toBe(150);
     });
 
-    it("should use cost_price * markup when store_price is 0", () => {
-      // COST_MARKUP 預設 1.2
-      vi.stubEnv("COST_MARKUP", "1.2");
+    it("store_price=0 時用預設加成 20%（= 舊 1.2）", () => {
       expect(getEffectiveStorePrice(100, 0)).toBe(120);
     });
 
-    it("should round to integer", () => {
-      vi.stubEnv("COST_MARKUP", "1.3");
-      expect(getEffectiveStorePrice(33, 0)).toBe(43); // 33 * 1.3 = 42.9 → 43
+    it("store_price=0 時用該品項自訂加成 %", () => {
+      expect(getEffectiveStorePrice(100, 0, 30)).toBe(130);
+      expect(getEffectiveStorePrice(100, 0, 0)).toBe(100); // 0% 加成 = 成本價
+      expect(getEffectiveStorePrice(200, 0, 15)).toBe(230);
+    });
+
+    it("四捨五入到整數", () => {
+      expect(getEffectiveStorePrice(33, 0, 30)).toBe(43); // 33 × 1.3 = 42.9 → 43
+    });
+
+    it("markupPct 非數字時 fallback 預設 20%", () => {
+      expect(getEffectiveStorePrice(100, 0, NaN)).toBe(120);
     });
   });
 

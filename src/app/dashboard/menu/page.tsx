@@ -32,7 +32,9 @@ interface ItemData {
   category: string
   unit: string
   costPrice: number
-  storePrice: number      // 有效店家採購價（API 已計算）
+  storePrice: number      // 有效店家採購價（API 已計算，顯示用）
+  rawStorePrice?: number  // 原始手動固定價（0 = 走加成 %）
+  storeMarkupPct?: number // 店家採購價加成 %
   supplierId: number
   supplierName: string
   spec: string | null
@@ -80,7 +82,8 @@ export default function MenuPage() {
   const [formCategory, setFormCategory] = useState('')
   const [formUnit, setFormUnit] = useState('份')
   const [formCostPrice, setFormCostPrice] = useState(0)
-  const [formStorePrice, setFormStorePrice] = useState(0)
+  const [formStorePrice, setFormStorePrice] = useState(0)  // 手動固定價（0 = 走加成 %）
+  const [formMarkupPct, setFormMarkupPct] = useState(20)   // 加成 %
   const [formSpec, setFormSpec] = useState('')
   const [formSupplierNotes, setFormSupplierNotes] = useState('')
 
@@ -121,7 +124,7 @@ export default function MenuPage() {
   function openAdd() {
     setEditTarget(null)
     setFormName(''); setFormCategory(''); setFormUnit('份')
-    setFormCostPrice(0); setFormStorePrice(0)
+    setFormCostPrice(0); setFormStorePrice(0); setFormMarkupPct(20)
     setFormSpec(''); setFormSupplierNotes('')
     setDialogOpen(true)
   }
@@ -132,7 +135,9 @@ export default function MenuPage() {
     setFormCategory(item.category)
     setFormUnit(item.unit)
     setFormCostPrice(item.costPrice)
-    setFormStorePrice(item.storePrice)
+    // 用原始手動固定價（rawStorePrice），不是算過的有效價
+    setFormStorePrice(item.rawStorePrice ?? 0)
+    setFormMarkupPct(item.storeMarkupPct ?? 20)
     setFormSpec(item.spec || '')
     setFormSupplierNotes(item.supplierNotes || '')
     setDialogOpen(true)
@@ -154,6 +159,7 @@ export default function MenuPage() {
             unit: formUnit,
             costPrice: formCostPrice,
             storePrice: formStorePrice,
+            storeMarkupPct: formMarkupPct,
             spec: formSpec || null,
             supplierNotes: formSupplierNotes || null,
           }),
@@ -339,23 +345,36 @@ export default function MenuPage() {
               </div>
             </div>
 
-            {/* 兩種價格（採購用，不含售價） */}
+            {/* 進貨價 + 加成 %（採購用，不含售價） */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>進貨價 ($)</Label>
                 <Input type="number" min={0} value={formCostPrice} onChange={(e) => setFormCostPrice(Number(e.target.value))} />
               </div>
               <div className="space-y-1.5">
-                <Label>店家採購價 ($)</Label>
-                <Input type="number" min={0} value={formStorePrice} onChange={(e) => setFormStorePrice(Number(e.target.value))} placeholder="0=自動加成" />
+                <Label>店家加成 (%)</Label>
+                <Input type="number" min={0} step="1" value={formMarkupPct} onChange={(e) => setFormMarkupPct(Number(e.target.value))} placeholder="例：20" />
               </div>
             </div>
 
+            {/* 自動算出的店家採購價（加成模式） */}
             {formStorePrice === 0 && formCostPrice > 0 && (
-              <p className="text-xs text-muted-foreground">
-                店家採購價 = 0 時自動使用進貨價 × 1.2 = ${Math.round(formCostPrice * 1.2)}
-              </p>
+              <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                店家採購價（自動）＝ 進貨價 ${formCostPrice} × (1 + {formMarkupPct}%) ={' '}
+                <span className="font-semibold text-primary">
+                  ${Math.round(formCostPrice * (1 + formMarkupPct / 100))}
+                </span>
+              </div>
             )}
+
+            {/* 手動固定價（選填，填了就蓋過加成 %） */}
+            <div className="space-y-1.5">
+              <Label>
+                店家採購價 — 手動固定 ($)
+                <span className="text-xs text-muted-foreground font-normal ml-1">（選填，填了就蓋過上面的加成）</span>
+              </Label>
+              <Input type="number" min={0} value={formStorePrice} onChange={(e) => setFormStorePrice(Number(e.target.value))} placeholder="0 = 用加成 % 自動算" />
+            </div>
 
             {/* 備註 */}
             <div className="space-y-1.5">

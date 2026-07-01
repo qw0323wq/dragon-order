@@ -127,8 +127,10 @@ export const items = pgTable('items', {
     .notNull(),
   /** 進貨價（元）— 總公司跟廠商買的價格 */
   costPrice: numeric('cost_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
-  /** 店家採購價（元）— 分店跟總公司買的價格。0 = 用 cost_price × COST_MARKUP */
+  /** 店家採購價（元）— 分店跟總公司買的價格。0 = 用 cost_price × (1 + store_markup_pct/100) */
   storePrice: numeric('store_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
+  /** 店家採購價加成 %（store_price=0 時自動算用）。預設 20 = +20%（即舊 COST_MARKUP 1.2） */
+  storeMarkupPct: numeric('store_markup_pct', { precision: 5, scale: 2, mode: 'number' }).default(20).notNull(),
   /** 售價（元）— 賣給客人的價格 */
   sellPrice: numeric('sell_price', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 內部備註（出餐規格、損耗等，內部人員看） */
