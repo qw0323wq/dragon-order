@@ -34,18 +34,22 @@ import { Separator } from '@/components/ui/separator'
 import { ROLE_LABELS } from '@/lib/permissions'
 import type { AppRole } from '@/lib/permissions'
 
-/** 導航項目定義（含 pageKey 對應權限） */
+/**
+ * 導航項目定義（含 pageKey 對應權限）
+ * 順序＝優先級：手機底部 tab bar 只顯示前 4 個（MOBILE_MAX），其餘進「更多」。
+ * 前 4 放老闆/店長每天用的（訂單、採購規劃、帳務）；低頻的（供應商）移到「更多」。
+ */
 const NAV_ITEMS = [
   { label: '儀表板', href: '/dashboard', icon: BarChart2, pageKey: 'dashboard' },
   { label: '訂單管理', href: '/dashboard/orders', icon: ClipboardList, pageKey: 'orders' },
   { label: '採購規劃', href: '/dashboard/purchase-plan', icon: ShoppingCart, pageKey: 'purchase-plan' },
+  { label: '帳務', href: '/dashboard/payments', icon: Wallet, pageKey: 'payments' },
+  // ↑ 手機底部 tab bar 顯示以上 4 個；以下進「更多」
+  { label: '庫存管理', href: '/dashboard/inventory', icon: Package, pageKey: 'inventory' },
   { label: '供應商', href: '/dashboard/suppliers', icon: Store, pageKey: 'suppliers' },
   { label: '品項管理', href: '/dashboard/menu', icon: Soup, pageKey: 'menu' },
   { label: '食材中心', href: '/dashboard/ingredients', icon: Sprout, pageKey: 'ingredients' },
   { label: 'BOM 配方', href: '/dashboard/bom', icon: BookOpen, pageKey: 'bom' },
-  { label: '帳務', href: '/dashboard/payments', icon: Wallet, pageKey: 'payments' },
-  // 叫貨單已合併到訂單管理頁
-  { label: '庫存管理', href: '/dashboard/inventory', icon: Package, pageKey: 'inventory' },
   { label: '調撥/借料', href: '/dashboard/transfers', icon: ArrowRightLeft, pageKey: 'transfers' },
   { label: '營運報表', href: '/dashboard/reports', icon: BarChart2, pageKey: 'reports' },
   { label: '價格走勢', href: '/dashboard/price-trends', icon: TrendingUp, pageKey: 'price-trends' },
