@@ -109,9 +109,19 @@ export async function POST(request: NextRequest) {
         return r - ret;
       }
 
+      // CRITICAL: 退貨量不可超過實收量（否則淨量為負 → 負應付金額污染對帳）
+      // 超過就 clamp 成「全退」（退貨 = 實收），淨量 0
+      function clampReturned(received: string | undefined, returned: string | undefined): string {
+        const r = parseFloat(String(received ?? '0')) || 0;
+        const ret = parseFloat(String(returned ?? '0')) || 0;
+        if (ret < 0) return '0';
+        return ret > r ? String(r) : String(ret);
+      }
+
       for (const rec of records) {
         const resolvedReceivedBy = receivedByUserId ?? rec.receivedBy ?? null;
-        const returnedQty = rec.returnedQty ?? '0';
+        // 退貨量夾在 0 ~ 實收量，防負應付
+        const returnedQty = clampReturned(rec.receivedQty, rec.returnedQty);
 
         // 先讀舊 receiving（拿舊淨量，算差額用）
         const [existing] = await tx`

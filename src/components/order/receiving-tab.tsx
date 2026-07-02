@@ -111,6 +111,16 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
       toast.error("此供應商已全部驗收");
       return;
     }
+    // 擋退貨量 > 實收量（會算出負應付）
+    const bad = toSubmit.find((i) => {
+      const inp = inputs[i.orderItemId];
+      if (!inp || inp.result !== "品質問題") return false;
+      return (parseFloat(inp.returnedQty) || 0) > (parseFloat(inp.receivedQty) || 0);
+    });
+    if (bad) {
+      toast.error(`「${bad.itemName}」退貨量不能超過實收量`);
+      return;
+    }
     setSubmitting(true);
     try {
       const records = toSubmit.map((i) => {

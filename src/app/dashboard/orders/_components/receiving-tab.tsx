@@ -72,6 +72,16 @@ export function ReceivingTab({ orderId }: ReceivingTabProps) {
   }
 
   async function handleSubmitAll() {
+    // 擋退貨量 > 實收量（會算出負應付）
+    const bad = items.find((item) => {
+      const inp = inputs[item.orderItemId]
+      if (!inp || inp.result !== '品質問題') return false
+      return (parseFloat(inp.returnedQty) || 0) > (parseFloat(inp.receivedQty || item.quantity) || 0)
+    })
+    if (bad) {
+      toast.error(`「${bad.itemName}」退貨量不能超過實收量`)
+      return
+    }
     setSubmitting(true)
     try {
       const records = items.map((item) => {

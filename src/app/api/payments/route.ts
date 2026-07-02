@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       COALESCE(SUM(CASE
         WHEN r.id IS NULL THEN 0
         WHEN r.result = '未到貨' THEN 0
-        ELSE ROUND((r.received_qty - COALESCE(r.returned_qty, 0)) * oi.unit_price, 2)
+        ELSE ROUND(GREATEST(r.received_qty - COALESCE(r.returned_qty, 0), 0) * oi.unit_price, 2)
       END), 0) as payable_sum,
       p.id as payment_id,
       p.status as payment_status,

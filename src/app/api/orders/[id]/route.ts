@@ -66,7 +66,7 @@ export async function GET(
            CASE
              WHEN r.id IS NULL THEN NULL
              WHEN r.result = '未到貨' THEN 0
-             ELSE ROUND((r.received_qty - COALESCE(r.returned_qty, 0)) * oi.unit_price, 2)
+             ELSE ROUND(GREATEST(r.received_qty - COALESCE(r.returned_qty, 0), 0) * oi.unit_price, 2)
            END AS actual_subtotal
     FROM order_items oi
     JOIN items i ON oi.item_id = i.id
