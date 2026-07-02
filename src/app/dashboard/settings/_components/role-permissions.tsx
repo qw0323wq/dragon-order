@@ -53,7 +53,11 @@ export default function RolePermissionsSection({ rolePerms, setRolePerms }: Role
         toast.error("儲存失敗");
         return;
       }
-      toast.success(`${ROLE_LABELS[role] || role} 權限已更新`);
+      // 權限是登入時寫進 session 的，已登入的人要重新登入才會套用新權限
+      toast.success(`${ROLE_LABELS[role] || role} 權限已更新`, {
+        description: "該角色的人需「重新登入」後才會生效",
+        duration: 6000,
+      });
     } catch {
       toast.error("儲存失敗");
     } finally {
