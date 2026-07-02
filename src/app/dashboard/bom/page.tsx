@@ -18,6 +18,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SkeletonTable } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ import {
 import { Search, Plus } from "lucide-react";
 
 import type { MenuItemBom } from "./_components/types";
+import { MARGIN_THRESHOLDS } from "./_components/types";
 import { BomDialog } from "./_components/bom-dialog";
 import { MenuList } from "./_components/menu-list";
 
@@ -212,8 +214,8 @@ export default function BomPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="p-4 md:p-6">
+        <SkeletonTable rows={8} cols={4} />
       </div>
     );
   }
@@ -319,7 +321,7 @@ export default function BomPage() {
             </button>
             <button
               onClick={() =>
-                setMarginFilter({ kind: "low", layer: "hq", threshold: 0.2 })
+                setMarginFilter({ kind: "low", layer: "hq", threshold: MARGIN_THRESHOLDS.HQ_LOW })
               }
               className={`px-2 py-0.5 rounded border transition-colors ${
                 marginFilter.kind === "low" && marginFilter.layer === "hq"
@@ -332,29 +334,29 @@ export default function BomPage() {
             </button>
             <button
               onClick={() =>
-                setMarginFilter({ kind: "low", layer: "store", threshold: 0.5 })
+                setMarginFilter({ kind: "low", layer: "store", threshold: MARGIN_THRESHOLDS.STORE_LOW })
               }
               className={`px-2 py-0.5 rounded border transition-colors ${
                 marginFilter.kind === "low" && marginFilter.layer === "store"
                   ? "bg-red-500 text-white border-red-500"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"
               }`}
-              title="分店毛利低於 50% 的菜品（容易賠錢）"
+              title="分店毛利低於 45% 的菜品（顯示為紅，容易賠錢）"
             >
-              分店&lt;50%
+              分店&lt;45%
             </button>
             <button
               onClick={() =>
-                setMarginFilter({ kind: "high", layer: "store", threshold: 0.7 })
+                setMarginFilter({ kind: "high", layer: "store", threshold: MARGIN_THRESHOLDS.STORE_HIGH })
               }
               className={`px-2 py-0.5 rounded border transition-colors ${
                 marginFilter.kind === "high" && marginFilter.layer === "store"
                   ? "bg-green-600 text-white border-green-600"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"
               }`}
-              title="分店毛利高於 70% 的菜品（賺錢主力）"
+              title="分店毛利 60% 以上的菜品（顯示為綠，賺錢主力）"
             >
-              分店&gt;70%
+              分店≥60%
             </button>
           </div>
 

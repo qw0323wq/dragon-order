@@ -13,11 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Pencil, Trash2, AlertTriangle, EyeOff, Eye } from "lucide-react";
 import type { MenuItemBom } from "./types";
-import { CATEGORY_COLORS } from "./types";
+import { CATEGORY_COLORS, MARGIN_THRESHOLDS } from "./types";
 
+// 配色門檻與篩選器共用同一組常數（MARGIN_THRESHOLDS），確保顯示與篩選一致
 function marginColorClass(rate: number): string {
-  if (rate >= 0.6) return "text-green-600";
-  if (rate >= 0.45) return "text-yellow-600";
+  if (rate >= MARGIN_THRESHOLDS.STORE_HIGH) return "text-green-600";
+  if (rate >= MARGIN_THRESHOLDS.STORE_LOW) return "text-yellow-600";
   return "text-red-600";
 }
 
@@ -53,8 +54,8 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
               isInactive ? "opacity-60 border-dashed" : ""
             }`}
           >
-            {/* 菜品標頭 */}
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors">
+            {/* 菜品標頭（手機縮小左右內距，避免品名/毛利/按鈕擠爆版） */}
+            <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 hover:bg-accent/50 transition-colors">
               <button
                 onClick={() => onToggleExpand(item.id)}
                 className="flex items-center gap-3 flex-1 min-w-0 text-left"

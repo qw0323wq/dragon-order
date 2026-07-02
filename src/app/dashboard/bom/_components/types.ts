@@ -114,6 +114,17 @@ export const CATEGORY_COLORS: Record<string, string> = {
   酒類: "bg-violet-100 text-violet-700",
 };
 
+/**
+ * 毛利門檻（單一事實來源）— 顯示配色與篩選器共用，避免「顯示紅、篩選卻歸類正常」的矛盾。
+ * 分店毛利是主要決策層：< 45% 紅（偏低易賠）、45~60% 黃、≥ 60% 綠（賺錢主力）。
+ * 總公司毛利結構性偏低（轉手僅加成 ~20%），另用 HQ_LOW 當「低毛利」篩選門檻。
+ */
+export const MARGIN_THRESHOLDS = {
+  STORE_LOW: 0.45,
+  STORE_HIGH: 0.6,
+  HQ_LOW: 0.2,
+} as const;
+
 export const EMPTY_FORM: BomFormData = {
   name: "",
   category: "",
