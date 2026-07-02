@@ -139,3 +139,16 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ── 列印：確保對帳單完整輸出、不被裁成一頁 ── */
+@media print {
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  /* 精準色彩（表格底色、狀態色印得出來） */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

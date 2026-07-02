@@ -106,9 +106,10 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* ===== 桌面左側 Sidebar ===== */}
-      <aside className="hidden md:flex md:w-56 lg:w-60 flex-col border-r border-border bg-card shrink-0">
+    // print:h-auto + print:block → 列印時展開全部內容，不被 h-screen 裁成一頁
+    <div className="flex h-screen bg-background print:h-auto print:block">
+      {/* ===== 桌面左側 Sidebar（列印隱藏） ===== */}
+      <aside className="hidden md:flex md:w-56 lg:w-60 flex-col border-r border-border bg-card shrink-0 print:hidden">
         {/* Logo 區 */}
         <div className="flex items-center gap-2 px-4 py-4 border-b border-border">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
@@ -153,9 +154,9 @@ export default function DashboardLayout({
       </aside>
 
       {/* ===== 主內容區 ===== */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* 頂部 Header（桌面顯示） */}
-        <header className="hidden md:flex items-center justify-between px-6 py-3 border-b border-border bg-card shrink-0">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden print:overflow-visible">
+        {/* 頂部 Header（桌面顯示，列印隱藏） */}
+        <header className="hidden md:flex items-center justify-between px-6 py-3 border-b border-border bg-card shrink-0 print:hidden">
           <h1 className="font-heading font-semibold text-base text-foreground">
             {NAV_ITEMS.find((n) => isActive(n.href))?.label ?? '後台管理'}
           </h1>
@@ -181,8 +182,8 @@ export default function DashboardLayout({
           <span className="text-xs text-muted-foreground">{userName}</span>
         </header>
 
-        {/* 頁面主體 */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        {/* 頁面主體（列印時展開，不裁頁） */}
+        <main className="flex-1 overflow-y-auto pb-16 md:pb-0 print:overflow-visible print:pb-0">
           {children}
         </main>
       </div>
