@@ -169,6 +169,8 @@ export default function InventoryPage() {
 
   // 當前操作的 storeId
   const currentStoreId = location === 'all' ? null : parseInt(location)
+  // 「全部彙總」是跨店唯讀視圖，不能對單店做進出貨/撥貨/盤點（storeId 無意義會失敗）
+  const canAct = location !== 'all'
 
   async function handleSubmit() {
     if (!selectedItem || !formQty) return
@@ -370,27 +372,29 @@ export default function InventoryPage() {
                         </TableCell>
                         <TableCell className="text-right pr-4">
                           <div className="flex items-center justify-end gap-0.5">
-                            <Button variant="ghost" size="icon" title="進貨"
-                              onClick={() => openAction(item, 'in')}
-                              className="size-7 text-green-600">
-                              <Plus className="size-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" title="出貨"
-                              onClick={() => openAction(item, 'out')}
-                              className="size-7 text-red-600">
-                              <Minus className="size-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" title="盤點"
-                              onClick={() => openAction(item, 'adjust')}
-                              className="size-7 text-blue-600">
-                              <ClipboardCheck className="size-3.5" />
-                            </Button>
-                            {location !== 'all' && (
-                              <Button variant="ghost" size="icon" title="撥貨"
-                                onClick={() => openAction(item, 'transfer')}
-                                className="size-7 text-purple-600">
-                                <ArrowRightLeft className="size-3.5" />
-                              </Button>
+                            {canAct && (
+                              <>
+                                <Button variant="ghost" size="icon" title="進貨"
+                                  onClick={() => openAction(item, 'in')}
+                                  className="size-7 text-green-600">
+                                  <Plus className="size-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" title="出貨"
+                                  onClick={() => openAction(item, 'out')}
+                                  className="size-7 text-red-600">
+                                  <Minus className="size-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" title="盤點"
+                                  onClick={() => openAction(item, 'adjust')}
+                                  className="size-7 text-blue-600">
+                                  <ClipboardCheck className="size-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" title="撥貨"
+                                  onClick={() => openAction(item, 'transfer')}
+                                  className="size-7 text-purple-600">
+                                  <ArrowRightLeft className="size-3.5" />
+                                </Button>
+                              </>
                             )}
                             <Button variant="ghost" size="icon" title="紀錄"
                               onClick={() => viewLogs(item)}
@@ -431,17 +435,21 @@ export default function InventoryPage() {
                         <span className="ml-2">安全: {item.safety_stock}</span>
                       )}
                     </div>
-                    <div className="flex gap-0.5">
-                      <Button variant="ghost" size="sm" onClick={() => openAction(item, 'in')} className="h-7 px-2 text-green-600">
-                        <Plus className="size-3" /> 進
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openAction(item, 'out')} className="h-7 px-2 text-red-600">
-                        <Minus className="size-3" /> 出
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openAction(item, 'adjust')} className="h-7 px-2 text-blue-600">
-                        <ClipboardCheck className="size-3" />
-                      </Button>
-                    </div>
+                    {canAct ? (
+                      <div className="flex gap-0.5">
+                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'in')} className="h-7 px-2 text-green-600">
+                          <Plus className="size-3" /> 進
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'out')} className="h-7 px-2 text-red-600">
+                          <Minus className="size-3" /> 出
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'adjust')} className="h-7 px-2 text-blue-600">
+                          <ClipboardCheck className="size-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">選門市後可操作</span>
+                    )}
                   </div>
                 </div>
               ))}
