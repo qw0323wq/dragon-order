@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { SkeletonTable } from "@/components/ui/skeleton";
 
 interface IngredientRow {
   id: number;
@@ -171,8 +172,8 @@ export default function IngredientsHubPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="p-4 md:p-6">
+        <SkeletonTable rows={8} cols={4} />
       </div>
     );
   }

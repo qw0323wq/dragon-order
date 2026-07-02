@@ -17,7 +17,7 @@ import {
   FileSpreadsheet,
   X,
   CheckCircle2,
-  CircleDashed,
+  Loader2,
   TrendingUp,
   ShoppingCart,
   CreditCard,
@@ -151,7 +151,7 @@ function DropZone({ onFiles, isLoading }: DropZoneProps) {
 
       <div className="flex flex-col items-center gap-3">
         {isLoading ? (
-          <CircleDashed className="size-10 text-muted-foreground animate-spin" />
+          <Loader2 className="size-10 text-muted-foreground animate-spin" />
         ) : (
           <div className="flex items-center justify-center w-14 h-14 rounded-full bg-muted">
             <Upload className="size-6 text-muted-foreground" />
