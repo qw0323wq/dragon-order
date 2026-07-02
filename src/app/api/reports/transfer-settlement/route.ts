@@ -18,8 +18,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   // 用 formatMonth 取本地時區月份（避 UTC 跨月差 1 天）
   const month = searchParams.get("month") || formatMonth(new Date()); // YYYY-MM
+  // CRITICAL: 上界用「起始日 + 1 個月」的 exclusive 邊界，不可硬寫 -31
+  //           （'2026-06-31'::date 會噴 date out of range，只有 31 天的月份才僥倖沒事）
   const startDate = `${month}-01`;
-  const endDate = `${month}-31`; // PostgreSQL 會自動處理月底
 
   // 所有該月的調撥/借料明細
   const rows = await sql`
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     JOIN transfer_items ti ON ti.transfer_id = t.id
     JOIN items i ON ti.item_id = i.id
     WHERE t.created_at >= ${startDate}::date
-      AND t.created_at < (${endDate}::date + interval '1 day')
+      AND t.created_at < (${startDate}::date + interval '1 month')
     ORDER BY t.from_store_id, t.to_store_id, t.created_at
   `;
 
