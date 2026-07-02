@@ -11,7 +11,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, Trash2, AlertTriangle, EyeOff, Eye } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2, AlertTriangle, EyeOff, Eye, Ruler } from "lucide-react";
 import type { MenuItemBom } from "./types";
 import { CATEGORY_COLORS, MARGIN_THRESHOLDS } from "./types";
 
@@ -161,6 +161,14 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                     <AlertTriangle className="size-3.5" />
                   </div>
                 )}
+                {item.hasUnitMismatch && (
+                  <div
+                    className="shrink-0 flex items-center text-orange-600"
+                    title="有食材的用量單位與供應商計價單位跨維度（如 顆↔包），尚未設定換算，該食材成本未計入"
+                  >
+                    <Ruler className="size-3.5" />
+                  </div>
+                )}
               </button>
 
               {/* 操作按鈕 */}
@@ -231,6 +239,11 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                           {ing.priceSource === "none" && (
                             <span className="text-[10px] text-red-600 ml-1" title="無對應 SKU，成本無法計算">
                               ⚠ 未對應
+                            </span>
+                          )}
+                          {ing.unitMismatch && (
+                            <span className="text-[10px] text-orange-600 ml-1" title="用量單位與供應商計價單位跨維度，尚未設定換算，此食材成本未計入">
+                              ⚠ 單位待設定
                             </span>
                           )}
                           {ing.itemUnit && (

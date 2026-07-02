@@ -27,6 +27,10 @@ export interface Ingredient {
   supplierCount: number;
   /** 成本來源：'primary' (主家) | 'fallback' (舊 item_id) | 'none' (無對應) */
   priceSource: "primary" | "fallback" | "none";
+  /** 單位換算種類：match(一致)|weight(重量比例)|manual(人工係數)|mismatch(跨維度待設定) */
+  factorKind: "match" | "weight" | "manual" | "mismatch";
+  /** true = 此行 BOM 單位與 SKU 計價單位跨維度、無係數，成本已從菜品排除 */
+  unitMismatch: boolean;
 }
 
 export interface MenuItemBom {
@@ -47,6 +51,8 @@ export interface MenuItemBom {
   storeMargin: number;
   /** 有食材沒對到 items 表 → 成本可能不準 */
   hasUnknownIngredient: boolean;
+  /** 有食材 BOM 單位與 SKU 計價單位跨維度、未設換算 → 成本不完整（待設定單位） */
+  hasUnitMismatch: boolean;
   notes: string | null;
   isActive: boolean;
   ingredients: Ingredient[];

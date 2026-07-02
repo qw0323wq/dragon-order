@@ -9,6 +9,7 @@ import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
 import { getEffectiveStorePrice, DEFAULT_STORE_MARKUP_PCT } from "@/lib/permissions";
+import { resolveUnitFactor, type FactorKind } from "@/lib/bom-cost";
 
 
 export async function GET(request: NextRequest) {
@@ -118,7 +119,7 @@ export async function GET(request: NextRequest) {
   const showStore =
     userRole === "admin" || userRole === "buyer" || userRole === "manager";
 
-  /** 取單筆 BOM 行的「最佳價」（cost + store） + 用量 */
+  /** 取單筆 BOM 行的「最佳價」（cost + store） + 用量 + 單位換算係數 */
   function resolveBomRow(b: Record<string, unknown>): {
     qtyValue: number;
     costPrice: number;
@@ -128,6 +129,10 @@ export async function GET(request: NextRequest) {
     sourceItemUnit: string | null;
     sourceLevel: "primary" | "fallback" | "none";
     supplierCount: number;
+    /** BOM 用量 → SKU 計價單位的換算係數（成本 = qty × factor × price） */
+    factor: number;
+    /** 換算種類：match/weight/manual/mismatch（mismatch = 單位不符、成本待設定） */
+    factorKind: FactorKind;
   } {
     // 用量：先用拆出的 quantity_value，再 fallback parseFloat
     let qtyValue = 0;
@@ -162,6 +167,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // CRITICAL: 用量必須換算成 SKU 計價單位才能乘單價。
+    // 少了這步，"150g × 每公斤價" 會放大 1000 倍（分店毛利爆成負數萬%）。
+    // cost_factor 是跨維度（顆→包等）的人工係數，Phase B 才進 DB；現在為 undefined→null。
+    const costFactor = b.cost_factor != null ? Number(b.cost_factor) : null;
+    const uf = resolveUnitFactor(
+      b.quantity_unit as string | null,
+      sourceItemUnit,
+      costFactor
+    );
+
     return {
       qtyValue,
       costPrice,
@@ -171,6 +186,8 @@ export async function GET(request: NextRequest) {
       sourceItemUnit,
       sourceLevel,
       supplierCount: Number(b.supplier_count ?? 0),
+      factor: uf.factor,
+      factorKind: uf.kind,
     };
   }
 
@@ -180,14 +197,22 @@ export async function GET(request: NextRequest) {
     let hqCostSum = 0;      // 總公司向供應商買
     let hqRevenueSum = 0;   // 總公司賣給分店（= 分店向總公司買）
     let hasUnknownIngredient = false;
+    let hasUnitMismatch = false;
     for (const b of ings) {
       const r = resolveBomRow(b);
       if (r.sourceLevel === "none" || r.qtyValue <= 0) {
         hasUnknownIngredient = true;
         continue;
       }
-      hqCostSum += r.qtyValue * r.costPrice;
-      hqRevenueSum += r.qtyValue * effectiveStorePrice(r.costPrice, r.storePrice, r.markupPct);
+      // 跨維度單位（顆→包等）尚未設 cost_factor → 無法換算，排除成本並標記，
+      // 誠實顯示「單位待設定」，勝過顯示放大數百倍的假毛利。
+      if (r.factorKind === "mismatch") {
+        hasUnitMismatch = true;
+        continue;
+      }
+      const convertedQty = r.qtyValue * r.factor;
+      hqCostSum += convertedQty * r.costPrice;
+      hqRevenueSum += convertedQty * effectiveStorePrice(r.costPrice, r.storePrice, r.markupPct);
     }
 
     const sellPrice = Number(mi.sell_price) || 0;
@@ -211,6 +236,7 @@ export async function GET(request: NextRequest) {
       storeCost: showStore ? storeCost : 0,
       storeMargin: showStore ? storeMargin : 0,
       hasUnknownIngredient,
+      hasUnitMismatch,
       notes: mi.notes,
       isActive: mi.is_active,
       ingredients: ings.map((b) => {
@@ -240,6 +266,10 @@ export async function GET(request: NextRequest) {
           supplierCount: r.supplierCount,
           /** 用了哪一層：primary / fallback / none */
           priceSource: r.sourceLevel,
+          /** 單位換算種類；'mismatch' = BOM 單位與 SKU 計價單位跨維度、成本待設定 */
+          factorKind: r.factorKind,
+          /** true = 此行單位不符無法算成本（已從菜品成本排除） */
+          unitMismatch: r.factorKind === "mismatch",
         };
       }),
     };
