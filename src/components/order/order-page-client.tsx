@@ -109,6 +109,7 @@ export default function OrderPageClient({
   const [hasParsed, setHasParsed] = useState(false);
 
   const [isPending, startTransition] = useTransition();
+  const [submittingOrder, setSubmittingOrder] = useState(false);
 
   // Tab 切換
   const [activeTab, setActiveTab] = useState("list");
@@ -248,6 +249,9 @@ export default function OrderPageClient({
   async function handleSubmitOrder() {
     if (!selectedStoreId) { toast.error("請先選擇門市"); return; }
     if (cartItems.length === 0) { toast.error("購物車是空的"); return; }
+    // CRITICAL: 防連點/弱網重送 — 送出中直接擋掉後續點擊，避免同一車寫入兩份
+    if (submittingOrder) return;
+    setSubmittingOrder(true);
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -274,6 +278,8 @@ export default function OrderPageClient({
       setIsCartOpen(false);
     } catch {
       toast.error("送出失敗，請重試");
+    } finally {
+      setSubmittingOrder(false);
     }
   }
 
@@ -734,10 +740,10 @@ export default function OrderPageClient({
             <Button
               onClick={handleSubmitOrder}
               className="w-full h-14 text-lg font-bold gap-2 rounded-xl"
-              disabled={cartItems.length === 0 || !selectedStoreId}
+              disabled={cartItems.length === 0 || !selectedStoreId || submittingOrder}
             >
-              <SendIcon className="size-5" />
-              {!selectedStoreId ? "請先選擇門市" : "送出叫貨單"}
+              {submittingOrder ? <Loader2 className="size-5 animate-spin" /> : <SendIcon className="size-5" />}
+              {submittingOrder ? "送出中..." : !selectedStoreId ? "請先選擇門市" : "送出叫貨單"}
             </Button>
           </SheetFooter>
         </SheetContent>
