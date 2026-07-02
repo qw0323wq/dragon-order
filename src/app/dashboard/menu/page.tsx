@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Percent } from 'lucide-react'
+import { Plus, Search, Pencil, Percent, CalendarClock } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -65,9 +65,18 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 // ── 頁面 ──
 
+/** 某品項尚未生效的預約改價（用來提醒手動改價會被覆蓋） */
+interface PendingSchedule {
+  effectiveDate: string
+  newCostPrice: number | null
+  newStorePrice: number | null
+}
+
 export default function MenuPage() {
   const [items, setItems] = useState<ItemData[]>([])
   const [loading, setLoading] = useState(true)
+  // itemId → 最近一筆待生效的預約改價
+  const [pendingByItem, setPendingByItem] = useState<Map<number, PendingSchedule>>(new Map())
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('全部')
   const [supplierFilter, setSupplierFilter] = useState('全部')
@@ -105,7 +114,37 @@ export default function MenuPage() {
     }
   }, [])
 
-  useEffect(() => { fetchItems() }, [fetchItems])
+  // 載入待生效的預約改價（GET 已按 pending→effectiveDate 排序，同品項取最早一筆）
+  const fetchPending = useCallback(async () => {
+    try {
+      const res = await fetch('/api/price-schedule?status=pending')
+      if (!res.ok) return
+      const rows = (await res.json()) as Array<{
+        itemId: number
+        newCostPrice: number | null
+        newStorePrice: number | null
+        effectiveDate: string
+      }>
+      const map = new Map<number, PendingSchedule>()
+      for (const r of rows) {
+        if (!map.has(r.itemId)) {
+          map.set(r.itemId, {
+            effectiveDate: r.effectiveDate,
+            newCostPrice: r.newCostPrice,
+            newStorePrice: r.newStorePrice,
+          })
+        }
+      }
+      setPendingByItem(map)
+    } catch {
+      /* 預約改價提示是輔助資訊，載入失敗不阻斷品項編輯 */
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchItems()
+    fetchPending()
+  }, [fetchItems, fetchPending])
 
   // 從實際品項動態產生分類列表
   const categories = useMemo(() => {
@@ -371,6 +410,28 @@ export default function MenuPage() {
           <DialogHeader>
             <DialogTitle>{editTarget ? `編輯 ${editTarget.name}` : '新增品項'}</DialogTitle>
           </DialogHeader>
+          {/* 🟡9d 預約改價 vs 手動改價衝突提醒：此品項有待生效排程時，手動改價會在生效日被覆蓋 */}
+          {(() => {
+            const sched = editTarget ? pendingByItem.get(editTarget.id) : undefined
+            if (!sched) return null
+            return (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <div className="flex items-start gap-2">
+                  <CalendarClock className="size-4 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-medium">此品項有預約改價（{sched.effectiveDate} 生效）</p>
+                    <p className="text-xs">
+                      屆時進貨價將改為 <span className="font-semibold">${sched.newCostPrice ?? '—'}</span>
+                      {sched.newStorePrice != null && sched.newStorePrice > 0 && (
+                        <>、店家採購價改為 <span className="font-semibold">${sched.newStorePrice}</span></>
+                      )}
+                      。現在手動改價會在生效日被排程覆蓋，如要永久調整請一併到「預約改價」修改或取消該排程。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
           <div className="space-y-4 py-1">
             <div className="space-y-1.5">
               <Label>品項名稱</Label>
