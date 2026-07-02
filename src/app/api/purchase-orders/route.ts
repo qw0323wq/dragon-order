@@ -16,7 +16,7 @@ import {
   stores,
 } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAdmin } from "@/lib/api-auth";
+import { requireBuyerOrAbove } from "@/lib/api-auth";
 import { createLogger } from "@/lib/logger";
 import { notifyPOGenerated } from "@/lib/line-notify";
 import { roundMoney, sumBy } from "@/lib/format";
@@ -25,7 +25,7 @@ const log = createLogger("purchase-orders");
 
 /** GET — 讀取叫貨單列表（支援 date/status 篩選） */
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const date = request.nextUrl.searchParams.get("date");
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
  * Body: { date: "2026-03-27" }
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

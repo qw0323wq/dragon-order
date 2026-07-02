@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { formatDateLocal } from '@/lib/format';
 import { rawSql as sql } from '@/lib/db';
-import { requireAdmin } from '@/lib/api-auth';
+import { requireBuyerOrAbove } from '@/lib/api-auth';
 import * as XLSX from 'xlsx';
 import { parseIntSafe } from '@/lib/parse-int-safe';
 
@@ -81,7 +81,7 @@ function parseGenericQuote(sheet: XLSX.WorkSheet): PriceRow[] {
 
 export async function POST(req: NextRequest) {
   // CRITICAL: 報價上傳會修改進貨價，僅限管理員操作
-  const auth = await requireAdmin(req);
+  const auth = await requireBuyerOrAbove(req);
   if (!auth.ok) return auth.response;
 
   const formData = await req.formData();

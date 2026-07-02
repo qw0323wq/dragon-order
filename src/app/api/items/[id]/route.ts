@@ -6,14 +6,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { requireAdmin } from "@/lib/api-auth";
+import { requireBuyerOrAbove } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -61,7 +61,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

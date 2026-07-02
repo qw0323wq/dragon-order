@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { scheduledPriceChanges, items, suppliers } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAdmin, authenticateRequest } from "@/lib/api-auth";
+import { requireBuyerOrAbove, authenticateRequest } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
 export async function GET(request: NextRequest) {
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

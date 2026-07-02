@@ -6,7 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { rawSql as sql } from '@/lib/db';
-import { authenticateRequest, requireAdmin } from '@/lib/api-auth';
+import { authenticateRequest, requireBuyerOrAbove } from '@/lib/api-auth';
 import { parseIntSafe } from '@/lib/parse-int-safe';
 
 
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
  * Body: { records: [{ itemId, oldPrice, newPrice, priceDiff, changePercent, priceUnit, effectiveDate, source }] }
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin(req);
+  const auth = await requireBuyerOrAbove(req);
   if (!auth.ok) return auth.response;
 
   const { records } = await req.json() as {

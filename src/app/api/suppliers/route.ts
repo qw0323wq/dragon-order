@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { suppliers } from "@/lib/db/schema";
 import { eq, sql, like } from "drizzle-orm";
-import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
+import { authenticateRequest, requireBuyerOrAbove } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
 /** 供應商分類 → 代碼前綴 */
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

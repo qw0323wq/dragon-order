@@ -32,7 +32,18 @@ export type ApiRole = "admin" | "user";
 interface AuthSuccess {
   ok: true;
   source: "cookie" | "system-key" | "personal-token";
+  /**
+   * 粗分二元角色（向下相容舊 code）。
+   * CRITICAL: 不要拿這個當權限判斷依據 — buyer/manager 都會被歸成 "admin"。
+   * 真正的權限判斷請用 userRole（真實 4 層角色）。
+   */
   role: ApiRole;
+  /**
+   * 真實角色（admin/buyer/manager/staff）。requireAdmin/requireBuyerOrAbove/
+   * requireManagerOrAbove 一律用這個判斷，避免 buyer/manager 被誤放成 admin。
+   * system-key 全域 key → 'admin'；API_KEY_USER → 'staff'。
+   */
+  userRole: UserRole;
   /** 個人 token 認證時，帶入使用者資訊 */
   userId?: number;
   userName?: string;
@@ -57,7 +68,7 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     const session = verifySession<{ id: number; name: string; role: string; store_id: number | null }>(sessionCookie.value);
     if (session) {
       const role: ApiRole = session.role === "admin" || session.role === "owner" || session.role === "buyer" || session.role === "manager" ? "admin" : "user";
-      return { ok: true, source: "cookie", role, userId: session.id, userName: session.name, storeId: session.store_id };
+      return { ok: true, source: "cookie", role, userRole: normalizeRole(session.role), userId: session.id, userName: session.name, storeId: session.store_id };
     }
     // 簽名無效 → 當作沒登入，繼續往下走
   }
@@ -79,18 +90,18 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
   // 方式二：系統 Key（全域）— 使用 timing-safe 比對防止計時攻擊
   const adminKey = process.env.API_KEY_ADMIN;
   if (adminKey && safeCompare(token, adminKey)) {
-    return { ok: true, source: "system-key", role: "admin" };
+    return { ok: true, source: "system-key", role: "admin", userRole: "admin" };
   }
 
   const userKey = process.env.API_KEY_USER;
   if (userKey && safeCompare(token, userKey)) {
-    return { ok: true, source: "system-key", role: "user" };
+    return { ok: true, source: "system-key", role: "user", userRole: "staff" };
   }
 
   // 向下相容舊 Key
   const legacyKey = process.env.API_KEY;
   if (legacyKey && safeCompare(token, legacyKey)) {
-    return { ok: true, source: "system-key", role: "admin" };
+    return { ok: true, source: "system-key", role: "admin", userRole: "admin" };
   }
 
   // ── 方式三：個人 API Token（查 DB）──
@@ -113,6 +124,7 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
         ok: true,
         source: "personal-token",
         role,
+        userRole: normalizeRole(user.role),
         userId: user.id,
         userName: user.name,
         storeId: user.storeId,
@@ -153,47 +165,54 @@ export function getStoreScope(request: NextRequest, auth: AuthSuccess): number |
 export const VALID_ROLES = ["admin", "buyer", "manager", "staff"] as const;
 export type UserRole = (typeof VALID_ROLES)[number];
 
+/** 把 DB/session 的角色字串正規化成 UserRole（owner→admin，未知→staff 最保守） */
+export function normalizeRole(raw: string | null | undefined): UserRole {
+  if (raw === "owner") return "admin";
+  if (raw === "admin" || raw === "buyer" || raw === "manager" || raw === "staff") return raw;
+  return "staff";
+}
+
+function forbidden(msg: string): AuthFailure {
+  return { ok: false, response: NextResponse.json({ error: msg }, { status: 403 }) };
+}
+
 /**
- * 要求管理員權限
+ * 要求「管理員」權限 — 只有 admin 通過。
+ * 用於：使用者管理、權限設定、門市設定、刪除訂單等最高權限操作。
+ * CRITICAL: 用 userRole（真實角色）判斷，不用 role（buyer/manager 會被誤放成 admin）。
  */
 export async function requireAdmin(request: NextRequest): Promise<AuthResult> {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth;
-
-  if (auth.role !== "admin") {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: "權限不足，需要管理員權限" },
-        { status: 403 }
-      ),
-    };
+  if (auth.userRole !== "admin") {
+    return forbidden("權限不足，需要管理員權限");
   }
-
   return auth;
 }
 
 /**
- * 要求 manager 以上權限（庫存異動、調撥、驗收等操作用）
- * admin/buyer/manager 可通過，staff 被拒絕
+ * 要求「採購以上」權限 — admin 或 buyer 通過，manager/staff 被拒。
+ * 用於：品項/供應商/價格/帳務等採購管理操作（店長不該改進貨價、不該動這些）。
+ */
+export async function requireBuyerOrAbove(request: NextRequest): Promise<AuthResult> {
+  const auth = await authenticateRequest(request);
+  if (!auth.ok) return auth;
+  if (auth.userRole !== "admin" && auth.userRole !== "buyer") {
+    return forbidden("權限不足，此操作需要採購或管理員權限");
+  }
+  return auth;
+}
+
+/**
+ * 要求「店長以上」權限 — admin/buyer/manager 通過，staff 被拒。
+ * 用於：庫存異動、調撥、驗收、拆單等門市操作。
+ * CRITICAL: 改用 auth.userRole，讓個人 token 路徑也正確擋 staff（舊版讀 cookie，token 會漏擋）。
  */
 export async function requireManagerOrAbove(request: NextRequest): Promise<AuthResult> {
   const auth = await authenticateRequest(request);
   if (!auth.ok) return auth;
-
-  // system-key 直接通過
-  if (auth.source === "system-key") return auth;
-
-  const role = getSessionRole(request);
-  if (role === "staff") {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: "權限不足，此操作需要店長以上權限" },
-        { status: 403 }
-      ),
-    };
+  if (auth.userRole === "staff") {
+    return forbidden("權限不足，此操作需要店長以上權限");
   }
-
   return auth;
 }

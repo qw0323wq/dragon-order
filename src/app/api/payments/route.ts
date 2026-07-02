@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, rawSql } from "@/lib/db";
 import { stores } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
+import { authenticateRequest, requireBuyerOrAbove } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
 /** timestamp → 'YYYY-MM-DD'（本地時區，避免 toISOString UTC bug） */
@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
 // POST — 批次 upsert payments（標記已付/取消已付主流程）
 // ─────────────────────────────────────────────
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
@@ -358,7 +358,7 @@ export async function POST(request: NextRequest) {
 // 向後相容用；新流程建議走 POST upsert
 // ─────────────────────────────────────────────
 export async function PATCH(request: NextRequest) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

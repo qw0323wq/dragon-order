@@ -16,10 +16,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
 import { and, eq, gt, sql } from "drizzle-orm";
-import { requireAdmin } from "@/lib/api-auth";
+import { requireBuyerOrAbove } from "@/lib/api-auth";
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

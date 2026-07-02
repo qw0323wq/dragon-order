@@ -9,7 +9,7 @@ import { formatDateLocal } from '@/lib/format';
 import { db } from "@/lib/db";
 import { items, itemPriceHistory } from "@/lib/db/schema";
 import { eq, and, like } from "drizzle-orm";
-import { requireAdmin } from "@/lib/api-auth";
+import { requireBuyerOrAbove } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 
 /** 品項分類 → SKU 前綴 */
@@ -38,7 +38,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -71,7 +71,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -119,7 +119,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin(request);
+  const auth = await requireBuyerOrAbove(request);
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
