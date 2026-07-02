@@ -276,9 +276,12 @@ export default function OrderPageClient({
         toast.error(data.error || "送出失敗");
         return;
       }
-      toast.success("叫貨單已送出！");
+      // 這一步只是把品項存進「今日叫貨單（草稿）」，還要到「訂單」tab 按送出才會真的送給老闆。
+      // 之前 toast 寫「已送出」但其實是草稿 → 員工以為送了。改成誠實文案 + 自動帶去訂單 tab 完成送出。
+      toast.success("已加入今日叫貨單，請到「訂單」確認送出");
       setCartItems([]);
       setIsCartOpen(false);
+      setActiveTab("my-orders");
     } catch {
       toast.error("送出失敗，請重試");
     } finally {

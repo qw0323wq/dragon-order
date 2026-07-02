@@ -102,6 +102,20 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
   ]);
   const [revBomLoading, setRevBomLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // 待老闆處理的需求（讓員工看得到自己送出去的還在不在）
+  const [pendingReqs, setPendingReqs] = useState<Array<{ id: number; request_date: string; item_count: number; creator_name: string | null }>>([]);
+
+  const loadPendingReqs = useCallback(async () => {
+    if (!storeId) { setPendingReqs([]); return; }
+    try {
+      const res = await fetch(`/api/purchase-requests?status=pending&storeId=${storeId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setPendingReqs(Array.isArray(data) ? data : []);
+    } catch { /* 靜默：這是輔助資訊，失敗不擋主流程 */ }
+  }, [storeId]);
+
+  useEffect(() => { loadPendingReqs(); }, [loadPendingReqs]);
 
   // 載入食材建議（含庫存）
   const loadIngredients = useCallback(async () => {
@@ -276,6 +290,7 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
       }
       toast.success("已送出叫貨需求！老闆會處理");
       setInputs({});
+      loadPendingReqs(); // 送出後刷新「待處理」清單，員工看得到剛送的
     } finally {
       setSubmitting(false);
     }
@@ -444,6 +459,21 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
             );
           })}
         </div>
+      )}
+
+      {/* 待老闆處理的需求（讓員工確認自己送出的還在排隊） */}
+      {pendingReqs.length > 0 && (
+        <Card>
+          <CardContent className="py-3 px-3 space-y-1.5">
+            <p className="text-xs text-muted-foreground">待老闆處理的需求（{pendingReqs.length} 筆）</p>
+            {pendingReqs.slice(0, 5).map((r) => (
+              <div key={r.id} className="flex items-center justify-between text-sm">
+                <span>{r.request_date?.slice(5).replace("-", "/")} · {r.item_count} 項食材</span>
+                <Badge variant="outline" className="text-[10px]">待處理</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       {/* 送出按鈕（固定下方） */}
