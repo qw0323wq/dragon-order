@@ -79,11 +79,13 @@ interface RevBomReply {
 
 interface Props {
   stores: StoreOption[];
-  defaultStoreId?: number | null;
+  /** 受控門市（跟頁面頂部同步，單一來源） */
+  storeId: number | null;
+  onStoreChange: (id: number | null) => void;
 }
 
-export default function IngredientRequestTab({ stores, defaultStoreId }: Props) {
-  const [storeId, setStoreId] = useState<number | null>(defaultStoreId ?? stores[0]?.id ?? null);
+export default function IngredientRequestTab({ stores, storeId, onStoreChange }: Props) {
+  const setStoreId = onStoreChange; // 對外同步，不用內部 state
   const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");

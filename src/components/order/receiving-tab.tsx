@@ -151,10 +151,12 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
         const doneIds = new Set(toSubmit.map((s) => s.orderItemId));
         setItems((prev) => prev.filter((i) => !doneIds.has(i.orderItemId)));
       } else {
-        toast.error("驗收失敗");
+        // 顯示後端真正的錯誤（權限不足/庫存等），不要只丟「驗收失敗」
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || `驗收失敗（${res.status}）`);
       }
     } catch {
-      toast.error("驗收失敗");
+      toast.error("驗收失敗，請檢查網路");
     } finally {
       setSubmitting(false);
     }

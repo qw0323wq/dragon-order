@@ -111,6 +111,9 @@ export default function OrderPageClient({
   const [isPending, startTransition] = useTransition();
   const [submittingOrder, setSubmittingOrder] = useState(false);
 
+  // 店長以上才能做驗收/報廢/員工餐/盤點（後端 requireManagerOrAbove）
+  const canReceive = user.role !== "staff";
+
   // Tab 切換
   const [activeTab, setActiveTab] = useState("list");
 
@@ -396,13 +399,17 @@ export default function OrderPageClient({
                 <ClipboardList className="size-4" />
                 訂單
               </TabsTrigger>
-              <TabsTrigger value="receiving" className="flex-1 gap-1 text-sm">
-                <ClipboardCheck className="size-4" />
-                驗收
-              </TabsTrigger>
+              {/* 驗收需 store 層操作權限（後端 requireManagerOrAbove），員工不顯示避免填完吃 403 */}
+              {canReceive && (
+                <TabsTrigger value="receiving" className="flex-1 gap-1 text-sm">
+                  <ClipboardCheck className="size-4" />
+                  驗收
+                </TabsTrigger>
+              )}
             </TabsList>
 
-            {/* 更多功能下拉選單 */}
+            {/* 更多功能下拉選單（報廢/員工餐/盤點都需店長以上，員工不顯示） */}
+            {canReceive && (
             <DropdownMenu>
               <DropdownMenuTrigger className={`shrink-0 flex items-center justify-center size-10 rounded-xl border transition-colors cursor-pointer ${
                   ['waste', 'meal', 'stocktake'].includes(activeTab)
@@ -426,6 +433,7 @@ export default function OrderPageClient({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </div>
 
           {/* ===== Tab 1: 清單模式 ===== */}
@@ -557,7 +565,12 @@ export default function OrderPageClient({
 
           {/* ===== Tab 2: 食材本位（提叫貨需求） ===== */}
           <TabsContent value="ingredient">
-            <IngredientRequestTab stores={stores} defaultStoreId={user.store_id ?? null} />
+            {/* 門市跟頁面頂部同步（單一來源），避免頂部選 A、需求卻送到 B */}
+            <IngredientRequestTab
+              stores={stores}
+              storeId={selectedStoreId ? Number(selectedStoreId) : null}
+              onStoreChange={(id) => setSelectedStoreId(id ? String(id) : "")}
+            />
           </TabsContent>
 
           {/* ===== Tab 3: 文字模式 ===== */}
