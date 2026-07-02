@@ -205,10 +205,40 @@ export async function POST(request: NextRequest) {
         `;
       }
 
-      return count;
+      // G10：全部品項都驗收完 → 自動把訂單狀態推進到 received
+      // 判斷「全驗完」= 該訂單每個 order_item 都有對應 receiving 紀錄（退貨也算驗過，不看內容）；
+      // 只在 status IN ('ordered','receiving') 時推進，避免動到已 received/closed/cancelled 的單。
+      const advanced: number[] = [];
+      const orderItemIds = records.map((r) => r.orderItemId);
+      const affectedOrders = await tx`
+        SELECT DISTINCT order_id FROM order_items WHERE id = ANY(${orderItemIds})
+      `;
+      for (const row of affectedOrders) {
+        const orderId = row.order_id as number;
+        const [chk] = await tx`
+          SELECT COUNT(*)::int AS total, COUNT(r.id)::int AS received
+          FROM order_items oi
+          LEFT JOIN receiving r ON r.order_item_id = oi.id
+          WHERE oi.order_id = ${orderId}
+        `;
+        if (chk && (chk.total as number) > 0 && chk.total === chk.received) {
+          const updated = await tx`
+            UPDATE orders SET status = 'received', updated_at = NOW()
+            WHERE id = ${orderId} AND status IN ('ordered', 'receiving')
+            RETURNING id
+          `;
+          if (updated.length > 0) advanced.push(orderId);
+        }
+      }
+
+      return { count, advanced };
     });
 
-    return NextResponse.json({ success: true, count: resultsCount });
+    return NextResponse.json({
+      success: true,
+      count: resultsCount.count,
+      advancedOrders: resultsCount.advanced,
+    });
   } catch (err) {
     // 印出完整 error trace 到 Vercel logs（debug receiving 500 用）
     console.error("[receiving POST] error:", err);

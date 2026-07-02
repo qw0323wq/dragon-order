@@ -104,7 +104,9 @@ export function ReceivingTab({ orderId }: ReceivingTabProps) {
       })
 
       if (!res.ok) { toast.error('驗收送出失敗'); return }
-      toast.success('全部驗收完成！')
+      const data = await res.json().catch(() => ({}))
+      const advanced = Array.isArray(data.advancedOrders) ? data.advancedOrders.length : 0
+      toast.success(advanced > 0 ? '全部驗收完成！訂單已標記為已驗收' : '全部驗收完成！')
       await loadReceiving()
     } catch {
       toast.error('發生錯誤')

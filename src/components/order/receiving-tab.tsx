@@ -146,7 +146,13 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
         body: JSON.stringify({ records }),
       });
       if (res.ok) {
-        toast.success(`已驗收 ${toSubmit.length} 項`);
+        const data = await res.json().catch(() => ({}));
+        const advanced = Array.isArray(data.advancedOrders) ? data.advancedOrders.length : 0;
+        toast.success(
+          advanced > 0
+            ? `已驗收 ${toSubmit.length} 項，訂單已標記為已驗收`
+            : `已驗收 ${toSubmit.length} 項`
+        );
         // 已驗收的品項會從「未驗收清單」消失 — 直接把它們從畫面移除
         const doneIds = new Set(toSubmit.map((s) => s.orderItemId));
         setItems((prev) => prev.filter((i) => !doneIds.has(i.orderItemId)));
