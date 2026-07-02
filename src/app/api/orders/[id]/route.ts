@@ -245,8 +245,9 @@ import { sql } from "drizzle-orm";
 
 async function recalcOrderTotal(orderId: number) {
   const [{ total }] = await db
-    .select({ total: sql<number>`COALESCE(SUM(${orderItems.subtotal}), 0)::int` })
+    .select({ total: sql<string>`COALESCE(SUM(${orderItems.subtotal}), 0)` })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
-  await db.update(orders).set({ totalAmount: total, updatedAt: new Date() }).where(eq(orders.id, orderId));
+  // numeric SUM 回字串，轉成 number（totalAmount 是 numeric mode:'number'）
+  await db.update(orders).set({ totalAmount: Number(total) || 0, updatedAt: new Date() }).where(eq(orders.id, orderId));
 }

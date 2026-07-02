@@ -222,7 +222,7 @@ export const orders = pgTable('orders', {
    */
   status: varchar('status', { length: 20 }).default('draft').notNull(),
   /** 訂單總額（元），由 order_items 加總後更新 */
-  totalAmount: integer('total_amount').default(0).notNull(),
+  totalAmount: numeric('total_amount', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   notes: text('notes'),
   createdBy: integer('created_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -791,7 +791,7 @@ export const purchaseOrders = pgTable('purchase_orders', {
   /** 狀態：draft=草稿, sent=已傳送, received=已收貨, cancelled=已取消 */
   status: varchar('status', { length: 20 }).default('draft').notNull(),
   /** 總金額（含各店合計，元） */
-  totalAmount: integer('total_amount').default(0).notNull(),
+  totalAmount: numeric('total_amount', { precision: 10, scale: 2, mode: 'number' }).default(0).notNull(),
   /** 備註（給供應商看的） */
   notes: text('notes'),
   /** 建單人 */

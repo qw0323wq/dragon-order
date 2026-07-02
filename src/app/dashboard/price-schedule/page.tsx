@@ -104,8 +104,9 @@ export default function PriceSchedulePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         itemId: parseInt(formData.itemId),
-        newCostPrice: parseInt(formData.newCostPrice),
-        newStorePrice: formData.newStorePrice ? parseInt(formData.newStorePrice) : null,
+        // 金額保留小數（$63.3/公斤 這種），不要 parseInt 砍掉
+        newCostPrice: parseFloat(formData.newCostPrice),
+        newStorePrice: formData.newStorePrice ? parseFloat(formData.newStorePrice) : null,
         effectiveDate: formData.effectiveDate,
         source: formData.source || null,
         notes: formData.notes || null,
@@ -134,7 +135,7 @@ export default function PriceSchedulePage() {
 
   const selectedItem = items.find((i) => i.id === parseInt(formData.itemId))
   const priceDiff = selectedItem && formData.newCostPrice
-    ? parseInt(formData.newCostPrice) - selectedItem.costPrice
+    ? parseFloat(formData.newCostPrice) - selectedItem.costPrice
     : null
 
   return (
