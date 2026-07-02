@@ -17,6 +17,8 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { SkeletonTable } from '@/components/ui/skeleton'
+import { MonthSelector } from '@/components/month-selector'
+import { formatMonth } from '@/lib/format'
 
 import type {
   TabKey, ConsumptionData, SuggestionData, ComparisonData,
@@ -38,19 +40,30 @@ const TABS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
   { key: 'group', label: '集團報表', icon: Building2 },
 ]
 
-const ENDPOINTS: Record<TabKey, string> = {
-  consumption: '/api/reports/consumption',
-  suggestions: '/api/reorder-suggestions',
-  comparison: '/api/reports/order-comparison',
-  scores: '/api/reports/supplier-score',
-  settlement: '/api/reports/transfer-settlement',
-  group: '/api/reports/group-summary',
+/** 吃月份參數的報表（其餘忽略月份） */
+const MONTH_SCOPED = new Set<TabKey>(['consumption', 'settlement', 'group'])
+
+/** 依 tab + 月份組出 API URL（consumption/group 用 from/to，settlement 用 month） */
+function endpointUrl(t: TabKey, month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  const from = `${month}-01`
+  const to = `${month}-${String(lastDay).padStart(2, '0')}`
+  switch (t) {
+    case 'consumption': return `/api/reports/consumption?from=${from}&to=${to}`
+    case 'group': return `/api/reports/group-summary?from=${from}&to=${to}`
+    case 'settlement': return `/api/reports/transfer-settlement?month=${month}`
+    case 'suggestions': return '/api/reorder-suggestions'
+    case 'comparison': return '/api/reports/order-comparison'
+    case 'scores': return '/api/reports/supplier-score'
+  }
 }
 
 export default function ReportsPage() {
   const [tab, setTab] = useState<TabKey>('suggestions')
   const [loadingTab, setLoadingTab] = useState<TabKey | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState<string>(formatMonth(new Date()))
 
   const [consumption, setConsumption] = useState<ConsumptionData | null>(null)
   const [suggestions, setSuggestions] = useState<SuggestionData | null>(null)
@@ -75,7 +88,7 @@ export default function ReportsPage() {
     async (t: TabKey, options: { force?: boolean; silent?: boolean } = {}) => {
       if (!options.silent) setLoadingTab(t)
       try {
-        const res = await fetch(ENDPOINTS[t])
+        const res = await fetch(endpointUrl(t, selectedMonth))
         if (res.ok) {
           const data = await res.json()
           switch (t) {
@@ -95,7 +108,7 @@ export default function ReportsPage() {
         if (!options.silent) setLoadingTab(null)
       }
     },
-    []
+    [selectedMonth]
   )
 
   // Tab 切換時：已載入過的直接顯示，未載入的才 fetch
@@ -105,6 +118,15 @@ export default function ReportsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
+
+  // 換月份：清掉「吃月份」報表的快取，若當前 tab 也吃月份就重載
+  useEffect(() => {
+    setConsumption(null)
+    setSettlement(null)
+    setGroup(null)
+    if (MONTH_SCOPED.has(tab)) fetchTab(tab, { silent: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth])
 
   async function handleRefresh() {
     setRefreshing(true)
@@ -160,6 +182,11 @@ export default function ReportsPage() {
           )
         })}
       </div>
+
+      {/* 月份選擇（只對吃月份的報表顯示：消耗/調撥對帳/集團） */}
+      {MONTH_SCOPED.has(tab) && (
+        <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
+      )}
 
       {isFirstLoading ? (
         <SkeletonTable rows={8} cols={5} />
