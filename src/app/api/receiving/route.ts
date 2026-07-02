@@ -96,16 +96,33 @@ export async function POST(request: NextRequest) {
       const tx = _tx as unknown as typeof rawSql;
       let count = 0;
 
-      // Phase 1: 寫驗收紀錄（全部 20 筆先寫完再入庫）
+      // CRITICAL: 差額入庫（防重複入庫）
+      // 舊版每次收到 payload 就無條件把 qty 加進庫存 → 重送/「送出全部」含已驗品項會重複計。
+      // 改成：算「本次應入庫淨量」跟「這筆之前已入庫的淨量」的差額，只補差額。
+      //   入庫淨量 = (result 為 正常/未指定) ? (received - returned) : 0
+      //   重送同值 → 差額 0（不動）；改量 → 補差；正常改短缺/未到貨 → 差額為負（扣回）
+      function stockNet(result: string | undefined, received: string | number, returned: string | number | undefined): number {
+        const isStockIn = result === '正常' || result === undefined;
+        if (!isStockIn) return 0;
+        const r = parseFloat(String(received)) || 0;
+        const ret = parseFloat(String(returned ?? '0')) || 0;
+        return r - ret;
+      }
+
       for (const rec of records) {
         const resolvedReceivedBy = receivedByUserId ?? rec.receivedBy ?? null;
-        // 退貨量預設 0；未到貨時前端通常會傳 receivedQty=0、returnedQty=0
         const returnedQty = rec.returnedQty ?? '0';
 
+        // 先讀舊 receiving（拿舊淨量，算差額用）
         const [existing] = await tx`
-          SELECT id FROM receiving WHERE order_item_id = ${rec.orderItemId} LIMIT 1
+          SELECT received_qty, returned_qty, result FROM receiving
+          WHERE order_item_id = ${rec.orderItemId} LIMIT 1
         `;
+        const oldNet = existing
+          ? stockNet(existing.result as string, existing.received_qty as string, existing.returned_qty as string)
+          : 0;
 
+        // upsert receiving 紀錄
         if (existing) {
           await tx`
             UPDATE receiving SET
@@ -128,54 +145,43 @@ export async function POST(request: NextRequest) {
           `;
         }
         count++;
-      }
 
-      // Phase 2: 入庫（只對正常品項）
-      // CRITICAL: 入庫量 = receivedQty - returnedQty
-      //   - 正常 → returnedQty 通常 0，入全部
-      //   - 部分品質問題（result='品質問題'）→ 整筆走進這裡的話，退掉的不入庫
-      //     但目前判斷只有 '正常' 入庫，品質問題會被 skip → 維持原邏輯避免行為大改
-      //   - 短缺 → 跳過不入庫（維持原邏輯，未來若要改成「短缺也入收到的部分」再說）
-      //   - 未到貨 → 跳過不入庫
-      for (const rec of records) {
-        if (rec.result !== '正常' && rec.result !== undefined) continue;
+        // 差額入庫
+        const newNet = stockNet(rec.result, rec.receivedQty, returnedQty);
+        const delta = newNet - oldNet;
+        if (delta === 0) continue;
 
         const [oi] = await tx`
           SELECT item_id, store_id, unit FROM order_items WHERE id = ${rec.orderItemId}
         `;
         if (!oi) continue;
 
-        const receivedQty = parseFloat(rec.receivedQty) || 0;
-        const returnedQty = parseFloat(rec.returnedQty ?? '0') || 0;
-        const qty = receivedQty - returnedQty;
-        if (qty <= 0) continue;
-
-        // 鎖行後 upsert store_inventory
-        const [existing] = await tx`
+        // 鎖行 upsert store_inventory（加差額，可正可負）
+        const [inv] = await tx`
           SELECT id FROM store_inventory
           WHERE item_id = ${oi.item_id} AND store_id = ${oi.store_id}
           FOR UPDATE
         `;
-        if (existing) {
+        if (inv) {
           await tx`
-            UPDATE store_inventory SET current_stock = current_stock + ${qty}, updated_at = NOW()
+            UPDATE store_inventory SET current_stock = current_stock + ${delta}, updated_at = NOW()
             WHERE item_id = ${oi.item_id} AND store_id = ${oi.store_id}
           `;
         } else {
           await tx`
             INSERT INTO store_inventory (item_id, store_id, current_stock, stock_unit)
-            VALUES (${oi.item_id}, ${oi.store_id}, ${qty}, ${oi.unit})
+            VALUES (${oi.item_id}, ${oi.store_id}, ${delta}, ${oi.unit})
           `;
         }
 
-        // 同步 items.current_stock
+        // 同步 items.current_stock（跨店加總）
         const [{ total }] = await tx`
           SELECT COALESCE(SUM(current_stock::numeric), 0) as total
           FROM store_inventory WHERE item_id = ${oi.item_id}
         `;
         await tx`UPDATE items SET current_stock = ${total} WHERE id = ${oi.item_id}`;
 
-        // 記 inventory_log
+        // 記 inventory_log（差額的方向）
         const [stockRow] = await tx`
           SELECT current_stock FROM store_inventory
           WHERE item_id = ${oi.item_id} AND store_id = ${oi.store_id}
@@ -184,8 +190,8 @@ export async function POST(request: NextRequest) {
           INSERT INTO inventory_logs
             (item_id, type, quantity, unit, balance_after, store_id, source, created_by)
           VALUES
-            (${oi.item_id}, 'in', ${qty}, ${oi.unit},
-             ${stockRow?.current_stock || qty}, ${oi.store_id}, '驗收入庫', ${receivedByUserId})
+            (${oi.item_id}, ${delta > 0 ? 'in' : 'out'}, ${delta}, ${oi.unit},
+             ${stockRow?.current_stock ?? 0}, ${oi.store_id}, '驗收入庫', ${receivedByUserId})
         `;
       }
 

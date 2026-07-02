@@ -150,6 +150,17 @@ export async function POST(request: NextRequest) {
         const tx = _tx as unknown as typeof sql;
         const transferQty = Math.abs(quantity);
 
+        // CRITICAL: 鎖來源行 + 檢查庫存足夠，才准撥出（防憑空撥出變負庫存）
+        const [fromLock] = await tx`
+          SELECT current_stock FROM store_inventory
+          WHERE item_id = ${itemId} AND store_id = ${storeId}
+          FOR UPDATE
+        `;
+        const fromAvail = parseFloat(fromLock?.current_stock as string) || 0;
+        if (fromAvail < transferQty) {
+          throw new Error(`INSUFFICIENT:來源庫存不足（現有 ${fromAvail}，要撥 ${transferQty}）`);
+        }
+
         // 從來源扣庫存
         await upsertStoreStockTx(tx, itemId, storeId, -transferQty, unit);
         // 到目標加庫存
@@ -189,7 +200,11 @@ export async function POST(request: NextRequest) {
         fromStock: result.fromStock,
         toStock: result.toStock,
       });
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.startsWith("INSUFFICIENT:")) {
+        return NextResponse.json({ error: msg.replace("INSUFFICIENT:", "") }, { status: 400 });
+      }
       return NextResponse.json({ error: "撥貨失敗，已自動回滾" }, { status: 500 });
     }
   }
