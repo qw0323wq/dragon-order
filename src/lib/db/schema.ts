@@ -687,7 +687,9 @@ export type NewInventoryLog = typeof inventoryLogs.$inferInsert;
 
 // ─────────────────────────────────────────────
 // 分店庫存（各門市 + 總公司倉庫各自的庫存量）
-// store_id = NULL → 總公司倉庫
+// 總公司倉庫是 stores 表中 type='warehouse' 的門市（現行資料為 id=4「總公司」），
+// store_id 一律指向該筆 stores.id；庫存頁下拉會列出它，可正常盤點/進出/調整。
+// 註：storeId 欄位可為 NULL 是歷史遺留設計，現行資料不使用 NULL。
 // ─────────────────────────────────────────────
 export const storeInventory = pgTable('store_inventory', {
   id: serial('id').primaryKey(),
@@ -696,7 +698,7 @@ export const storeInventory = pgTable('store_inventory', {
   itemId: integer('item_id')
     .references(() => items.id, { onDelete: 'restrict' })
     .notNull(),
-  /** NULL = 總公司倉庫 */
+  /** 指向 stores.id（含 type='warehouse' 的總公司倉庫）；NULL 為歷史遺留、現行不使用 */
   storeId: integer('store_id').references(() => stores.id),
   currentStock: numeric('current_stock', { precision: 10, scale: 2 })
     .default('0')
