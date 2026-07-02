@@ -125,11 +125,12 @@ export async function PATCH(
       const tx = _tx as unknown as typeof sql;
 
       // 改主表
+      // CRITICAL: notes 也用 COALESCE — 取消需求時只傳 status，不可把既有備註洗成 NULL
       if (status || notes !== undefined) {
         await tx`
           UPDATE purchase_requests SET
             status = COALESCE(${status ?? null}, status),
-            notes = ${notes ?? null},
+            notes = COALESCE(${notes ?? null}, notes),
             updated_at = NOW()
           WHERE id = ${reqId}
         `;
