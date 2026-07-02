@@ -157,11 +157,11 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
     }));
   }
 
-  /** 補貨建議：把 suggestedQty 預填到所有食材的 neededQty */
+  /** 補貨建議：只預填「目前篩選看得到」的食材，避免把篩選外的也一起送出 */
   function autofillSuggested() {
     const next = { ...inputs };
     let filled = 0;
-    for (const ing of ingredients) {
+    for (const ing of filtered) {
       if (ing.suggestedQty > 0) {
         next[ing.id] = {
           currentStock: next[ing.id]?.currentStock ?? String(ing.totalStock),
@@ -171,7 +171,11 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
       }
     }
     setInputs(next);
-    toast.success(`已預填 ${filled} 個食材的建議叫貨量`);
+    toast.success(
+      filterCat === "全部"
+        ? `已預填 ${filled} 個食材的建議叫貨量`
+        : `已預填「${filterCat}」${filled} 個食材（只填目前篩選）`
+    );
   }
 
   /** 從銷量反推：呼叫 /api/sales/reverse-bom，把結果加到 neededQty */
