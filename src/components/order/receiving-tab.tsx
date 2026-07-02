@@ -5,7 +5,6 @@
  * 從 order-page-client.tsx 拆分出來
  */
 import { useState, useEffect } from "react";
-import { formatDateLocal } from '@/lib/format';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +18,6 @@ import {
 import {
   Loader2,
   ClipboardCheck,
-  CheckCircle2,
   AlertTriangle,
   AlertTriangleIcon,
 } from "lucide-react";
@@ -38,6 +36,7 @@ interface ReceivingItem {
   quantity: string;
   unit: string;
   supplierName: string;
+  orderDate: string;
   isReceived: boolean;
   receivedResult?: string;
 }
@@ -60,45 +59,23 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
   function loadData() {
     setLoading(true);
     setError("");
-    const today = formatDateLocal();
-    fetch(`/api/orders?date=${today}&limit=1`)
+    // CRITICAL: 用 /api/receiving/pending 撈「近 7 天所有未驗收」品項（跨多張訂單、跨多天）。
+    // 舊版只抓當天最新一張訂單，拆單產生的其他張 + 隔天到貨會漏掉。
+    fetch(`/api/receiving/pending?storeId=${storeId}&days=7`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then(async (ords) => {
-        if (ords.length === 0) {
-          setItems([]);
-          return;
-        }
-        const ord = ords[0];
-        const recRes = await fetch(`/api/receiving?orderId=${ord.id}`);
-        if (!recRes.ok) throw new Error(`HTTP ${recRes.status}`);
-        const { details, receivings } = await recRes.json();
-        const recMap = new Map<number, { result: string }>();
-        for (const r of receivings || []) recMap.set(r.orderItemId, r);
-        const myItems = (details || [])
-          .filter((d: { storeId: number }) => d.storeId === storeId)
-          .map(
-            (d: {
-              orderItemId: number;
-              itemName: string;
-              quantity: string;
-              unit: string;
-              supplierName: string;
-            }) => {
-              const rec = recMap.get(d.orderItemId);
-              return {
-                orderItemId: d.orderItemId,
-                itemName: d.itemName,
-                quantity: d.quantity,
-                unit: d.unit,
-                supplierName: d.supplierName,
-                isReceived: !!rec,
-                receivedResult: rec?.result,
-              };
-            }
-          );
+      .then((data: { items: Array<{ orderItemId: number; itemName: string; quantity: string; unit: string; supplierName: string; orderDate: string }> }) => {
+        const myItems: ReceivingItem[] = (data.items || []).map((d) => ({
+          orderItemId: d.orderItemId,
+          itemName: d.itemName,
+          quantity: d.quantity,
+          unit: d.unit,
+          supplierName: d.supplierName,
+          orderDate: d.orderDate,
+          isReceived: false, // pending endpoint 只回未驗收的
+        }));
         setItems(myItems);
         const newInputs: Record<number, RecInput> = {};
         for (const item of myItems) {
@@ -160,20 +137,9 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
       });
       if (res.ok) {
         toast.success(`已驗收 ${toSubmit.length} 項`);
-        setItems((prev) =>
-          prev.map((i) => {
-            const submitted = toSubmit.find(
-              (s) => s.orderItemId === i.orderItemId
-            );
-            if (submitted)
-              return {
-                ...i,
-                isReceived: true,
-                receivedResult: inputs[i.orderItemId]?.result || "正常",
-              };
-            return i;
-          })
-        );
+        // 已驗收的品項會從「未驗收清單」消失 — 直接把它們從畫面移除
+        const doneIds = new Set(toSubmit.map((s) => s.orderItemId));
+        setItems((prev) => prev.filter((i) => !doneIds.has(i.orderItemId)));
       } else {
         toast.error("驗收失敗");
       }
@@ -207,53 +173,38 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
   if (items.length === 0)
     return (
       <div className="text-center py-12 text-muted-foreground text-base">
-        今天沒有待驗收的品項
+        近期沒有待驗收的品項
       </div>
     );
 
-  const bySupplier = new Map<string, ReceivingItem[]>();
+  // 按「日期｜供應商」分組 — 拆單後同一天可能多家、隔天到貨也各自一組
+  const byGroup = new Map<string, ReceivingItem[]>();
   for (const item of items) {
-    const list = bySupplier.get(item.supplierName) || [];
+    const key = `${item.orderDate}｜${item.supplierName}`;
+    const list = byGroup.get(key) || [];
     list.push(item);
-    bySupplier.set(item.supplierName, list);
+    byGroup.set(key, list);
   }
-
-  const allDone = items.every((i) => i.isReceived);
-  const receivedCount = items.filter((i) => i.isReceived).length;
 
   return (
     <div className="space-y-3">
-      <div
-        className={`flex items-center gap-2 px-4 py-3 rounded-xl text-base font-semibold ${
-          allDone
-            ? "bg-green-50 text-green-700"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {allDone ? (
-          <CheckCircle2 className="size-5" />
-        ) : (
-          <AlertTriangle className="size-5" />
-        )}
-        {allDone
-          ? "全部驗收完成！"
-          : `驗收進度：${receivedCount} / ${items.length} 項`}
+      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-base font-semibold bg-muted text-muted-foreground">
+        <AlertTriangle className="size-5" />
+        {`還有 ${items.length} 項待驗收（近 7 天）`}
       </div>
 
-      {Array.from(bySupplier.entries()).map(([supplier, supplierItems]) => {
-        const supplierDone = supplierItems.every((i) => i.isReceived);
+      {Array.from(byGroup.entries()).map(([groupKey, supplierItems]) => {
+        const [gDate, gSupplier] = groupKey.split("｜");
+        // MM/DD 顯示
+        const dateLabel = gDate?.slice(5).replace("-", "/") ?? "";
         return (
           <div
-            key={supplier}
-            className={`bg-card border rounded-xl overflow-hidden ${supplierDone ? "border-green-200" : "border-border"}`}
+            key={groupKey}
+            className="bg-card border border-border rounded-xl overflow-hidden"
           >
             <div className="px-4 py-3 bg-muted/30 flex items-center justify-between">
-              <span className="font-semibold text-base">{supplier}</span>
-              {supplierDone && (
-                <Badge className="bg-green-100 text-green-700 text-xs">
-                  已驗收
-                </Badge>
-              )}
+              <span className="font-semibold text-base">{gSupplier}</span>
+              <Badge variant="outline" className="text-xs">{dateLabel} 到貨</Badge>
             </div>
             <div className="divide-y">
               {supplierItems.map((item) => {
@@ -385,22 +336,20 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
               })}
             </div>
 
-            {!supplierDone && (
-              <div className="px-4 pb-4">
-                <Button
-                  className="w-full h-12 gap-2 text-base rounded-xl"
-                  onClick={() => handleSubmitSupplier(supplierItems)}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <Loader2 className="size-5 animate-spin" />
-                  ) : (
-                    <ClipboardCheck className="size-5" />
-                  )}
-                  確認驗收（{supplier}）
-                </Button>
-              </div>
-            )}
+            <div className="px-4 pb-4">
+              <Button
+                className="w-full h-12 gap-2 text-base rounded-xl"
+                onClick={() => handleSubmitSupplier(supplierItems)}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : (
+                  <ClipboardCheck className="size-5" />
+                )}
+                確認驗收（{gSupplier}）
+              </Button>
+            </div>
           </div>
         );
       })}
