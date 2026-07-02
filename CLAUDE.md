@@ -77,7 +77,7 @@
   - 2026-04-15 從 integer 遷移到 numeric(10,2)：DB ALTER + Drizzle schema + Phase 1 完成；Phase 3-5 (UI 顯示一致 / 客戶端聚合精度) 待補
 - 🚫 aliases 是 text[]，是文字叫貨匹配的核心，格式不可改
 - 門市：林森店、信義安和店（兩間）
-- 訂單狀態機：draft → confirmed → ordered → received → closed
+- 訂單狀態機：draft（編輯中）→ submitted（已送出）→ ordered（已叫貨）→ receiving（待驗收）→ received（已驗收）→ closed（已結案）；另有 cancelled（已取消）。狀態標籤見 `src/app/dashboard/orders/_components/types.ts` 的 `STATUS_LABELS`
 - Session 用 HMAC-SHA256 簽名（防竄改），不用 JWT（Edge Runtime 相容）
 - 角色系統：admin（管理員）> buyer（採購）> manager（店長）> staff（員工）
 - 頁面權限存在 role_permissions 表，管理員可動態調整

@@ -217,8 +217,9 @@ export const orders = pgTable('orders', {
   orderDate: date('order_date').notNull(),
   /**
    * status 狀態機：
-   * draft → confirmed → ordered → received → closed
-   * CRITICAL: 狀態轉換邏輯在 src/lib/order-state.ts，不可跳過中間狀態
+   * draft（編輯中）→ submitted（已送出）→ ordered（已叫貨）→ receiving（待驗收）→ received（已驗收）→ closed（已結案）
+   * 另有 cancelled（已取消）；confirmed 為已棄用的舊值（僅向下相容）
+   * 狀態標籤定義在 src/app/dashboard/orders/_components/types.ts 的 STATUS_LABELS
    */
   status: varchar('status', { length: 20 }).default('draft').notNull(),
   /** 訂單總額（元），由 order_items 加總後更新 */

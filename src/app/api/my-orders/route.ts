@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
+import { formatDateLocal } from "@/lib/format";
 
 
 export async function GET(request: NextRequest) {
@@ -72,7 +73,8 @@ export async function GET(request: NextRequest) {
 
     result.push({
       id: o.id,
-      orderDate: (o.order_date as Date)?.toISOString?.()?.slice(0, 10) || String(o.order_date).slice(0, 10),
+      // 用 formatDateLocal 取台北時區日期，避免 toISOString 的 UTC 位移（凌晨會退一天）
+      orderDate: formatDateLocal(new Date(String(o.order_date))),
       status: o.status,
       totalAmount: o.total_amount,
       items: items.map(i => ({
