@@ -107,6 +107,7 @@ export function ItemCard({
               {editing ? (
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   step="0.5"
                   className="flex-1 h-12 text-center text-lg font-bold text-foreground bg-transparent outline-none border-x border-border"

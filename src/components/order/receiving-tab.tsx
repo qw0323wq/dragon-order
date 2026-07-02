@@ -255,6 +255,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
+                            inputMode="decimal"
                             step="0.5"
                             min="0"
                             className="w-20 h-11 text-center text-base border border-border rounded-xl bg-transparent"
@@ -306,6 +307,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                             <span className="text-sm text-red-600 font-medium shrink-0">退貨</span>
                             <input
                               type="number"
+                              inputMode="decimal"
                               step="0.5"
                               min="0"
                               max={input.receivedQty}

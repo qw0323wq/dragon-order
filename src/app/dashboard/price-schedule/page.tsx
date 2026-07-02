@@ -300,6 +300,7 @@ export default function PriceSchedulePage() {
                 <label className="block text-sm font-medium mb-1">新進貨價 *</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                   value={formData.newCostPrice}
                   onChange={(e) => setFormData({ ...formData, newCostPrice: e.target.value })}
@@ -310,6 +311,7 @@ export default function PriceSchedulePage() {
                 <label className="block text-sm font-medium mb-1">新店家價</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   className="w-full border rounded-lg px-3 py-2 text-sm"
                   value={formData.newStorePrice}
                   onChange={(e) => setFormData({ ...formData, newStorePrice: e.target.value })}
