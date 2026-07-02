@@ -21,11 +21,11 @@ export function ComparisonTab({ data }: { data: ComparisonData }) {
           <div className="text-xs text-muted-foreground">異常品項</div>
         </CardContent></Card>
         <Card><CardContent className="pt-4 text-center">
-          <div className="text-2xl font-bold text-green-600">{data.summary.increased}</div>
+          <div className="text-2xl font-bold text-red-600">{data.summary.increased}</div>
           <div className="text-xs text-muted-foreground">增加</div>
         </CardContent></Card>
         <Card><CardContent className="pt-4 text-center">
-          <div className="text-2xl font-bold text-red-600">{data.summary.decreased}</div>
+          <div className="text-2xl font-bold text-green-600">{data.summary.decreased}</div>
           <div className="text-xs text-muted-foreground">減少</div>
         </CardContent></Card>
       </div>
