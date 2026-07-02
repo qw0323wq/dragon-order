@@ -200,7 +200,7 @@ export default function DashboardPage() {
       const data: StatsResponse = await res.json()
       setStats(data)
     } catch {
-      toast.error('載入統計資料失敗，請重試')
+      toast.error('載入統計資料失敗')
     } finally {
       setStatsLoading(false)
     }
@@ -294,7 +294,9 @@ export default function DashboardPage() {
   const yTickFormatter = (v: number) =>
     v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`
 
-  const isLoading = statsLoading
+  // 只在「首次載入、還沒有任何資料」時顯示整頁骨架屏；
+  // 切月份時 stats 已有舊資料 → 保留畫面、無縫換成新月份，不再整頁閃爍
+  const showSkeleton = statsLoading && !stats
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -310,8 +312,8 @@ export default function DashboardPage() {
         <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
       </div>
 
-      {/* ── 載入中骨架屏（取代 spinner） ──────────────────────────────────────── */}
-      {isLoading && (
+      {/* ── 載入中骨架屏（僅首次載入；切月保留舊資料） ──────────────────────── */}
+      {showSkeleton && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -322,8 +324,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── 主要內容區（載入完成後顯示） ──────────────────────────────────── */}
-      {!isLoading && (
+      {/* ── 主要內容區（載入完成後顯示；切月時仍顯示舊資料直到新資料到位） ── */}
+      {!showSkeleton && (
         <>
           {/* ── 統計卡片 2x2（手機）/ 4 欄（桌面）────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
