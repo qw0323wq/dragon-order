@@ -90,9 +90,12 @@ export default function IngredientsHubPage() {
   const fetchList = useCallback(() => {
     setLoading(true);
     fetch("/api/ingredients")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`); // 401 不要往下 .map 非陣列
+        return r.json();
+      })
       .then((d) => {
-        setItems(d);
+        setItems(Array.isArray(d) ? d : []);
       })
       .catch(() => toast.error("載入失敗"))
       .finally(() => setLoading(false));

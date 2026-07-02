@@ -101,19 +101,27 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
     { menuItemId: null, quantity: "" },
   ]);
   const [revBomLoading, setRevBomLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   // 載入食材建議（含庫存）
   const loadIngredients = useCallback(async () => {
     if (!storeId) return;
     setLoading(true);
+    setLoadError(false);
     try {
       const res = await fetch(`/api/ingredients/suggestions?storeId=${storeId}`);
       if (!res.ok) {
-        toast.error("載入食材清單失敗");
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || `載入食材清單失敗（${res.status}）`);
+        setLoadError(true);
         return;
       }
       const data: IngredientRow[] = await res.json();
       setIngredients(data);
+    } catch {
+      // 斷網/逾時 → 標記錯誤，不要讓畫面誤顯示「沒有食材」
+      setLoadError(true);
+      toast.error("載入失敗，請檢查網路後重試");
     } finally {
       setLoading(false);
     }
@@ -353,10 +361,17 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
         <div className="flex items-center justify-center py-12">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
+      ) : loadError ? (
+        <Card>
+          <CardContent className="py-8 text-center space-y-3">
+            <p className="text-sm text-red-500">載入失敗</p>
+            <Button variant="outline" size="sm" onClick={loadIngredients}>重新載入</Button>
+          </CardContent>
+        </Card>
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground text-sm">
-            沒有食材
+            {storeId ? "沒有食材" : "請先選擇門市"}
           </CardContent>
         </Card>
       ) : (

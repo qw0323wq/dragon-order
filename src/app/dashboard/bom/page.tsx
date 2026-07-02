@@ -66,9 +66,12 @@ export default function BomPage() {
     setFetchError(false);
     const url = showInactive ? "/api/bom?includeInactive=true" : "/api/bom";
     fetch(url)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`); // 401/500 不要往下 setData 非陣列
+        return r.json();
+      })
       .then((d) => {
-        setData(d);
+        setData(Array.isArray(d) ? d : []);
         setLoading(false);
       })
       .catch(() => {
