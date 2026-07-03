@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
+import { parseQuantity } from "@/lib/bom-cost";
 
 export async function PUT(
   request: NextRequest,
@@ -80,12 +81,19 @@ export async function PUT(
         ingredientName = ingRow?.name ?? "";
       }
       if (!ingredientName) continue;
+      // CRITICAL: 拆 quantity → value/unit 一起寫入，否則全量覆蓋後單位變 null，
+      // 成本計算的單位換算失效會讓分店毛利爆表（見 memory: project_dragon_order_bom_unit_bug）
+      const pq = parseQuantity(ing.quantity || '');
       await sql`
         INSERT INTO bom_items
-          (menu_item_id, item_id, ingredient_id, ingredient_name, quantity, sort_order)
+          (menu_item_id, item_id, ingredient_id, ingredient_name, quantity,
+           quantity_value, quantity_unit, cost_factor, sort_order)
         VALUES
           (${menuItemId}, ${ing.itemId || null}, ${ing.ingredientId || null},
-           ${ingredientName}, ${ing.quantity || ''}, ${i + 1})
+           ${ingredientName}, ${ing.quantity || ''},
+           ${pq.value}, ${pq.unit},
+           ${ing.costFactor != null && Number.isFinite(Number(ing.costFactor)) ? Number(ing.costFactor) : null},
+           ${i + 1})
       `;
     }
   }

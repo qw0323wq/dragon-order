@@ -35,6 +35,32 @@ export function unitToGrams(unitRaw: string | null | undefined): number | null {
   return null;
 }
 
+export interface ParsedQuantity {
+  /** 用量數值（範圍取平均）；純文字（適量/混搭）為 null */
+  value: number | null;
+  /** 用量單位（數值後的殘餘字串）；無則 null */
+  unit: string | null;
+}
+
+/**
+ * 從用量原文拆出「數值 + 單位」。POST/PUT 寫入時用它填 quantity_value/quantity_unit，
+ * 避免全量覆蓋後這兩欄變 null 導致單位換算失效（成本爆表）。
+ *   "150g" → {150,"g"}   "5顆" → {5,"顆"}   "120g(2小包)" → {120,"g(2小包)"}
+ *   "2~2.5個" → {2.25,"個"}（範圍取平均）   "1整包" → {1,"整包"}
+ *   "適量"/"混搭" → {null,null}（無開頭數值 → 不計成本，比照原行為）
+ */
+export function parseQuantity(raw: string | null | undefined): ParsedQuantity {
+  if (!raw) return { value: null, unit: null };
+  const s = raw.trim();
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*(?:[~\-～]\s*(\d+(?:\.\d+)?))?/);
+  if (!m) return { value: null, unit: null }; // 開頭非數字（適量/混搭/鋪滿）
+  const lo = parseFloat(m[1]);
+  const hi = m[2] != null ? parseFloat(m[2]) : null;
+  const value = hi != null ? (lo + hi) / 2 : lo;
+  const unit = s.slice(m[0].length).trim() || null;
+  return { value: Number.isFinite(value) ? value : null, unit };
+}
+
 export type FactorKind = "match" | "weight" | "manual" | "mismatch";
 
 export interface UnitFactor {

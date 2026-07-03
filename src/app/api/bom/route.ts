@@ -9,7 +9,7 @@ import { rawSql as sql } from "@/lib/db";
 import { authenticateRequest } from "@/lib/api-auth";
 import { verifySession } from "@/lib/session";
 import { getEffectiveStorePrice, DEFAULT_STORE_MARKUP_PCT } from "@/lib/permissions";
-import { resolveUnitFactor, type FactorKind } from "@/lib/bom-cost";
+import { resolveUnitFactor, parseQuantity, type FactorKind } from "@/lib/bom-cost";
 
 
 export async function GET(request: NextRequest) {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   //   3. 跳過該行（標 hasUnknownIngredient）
   const bomItems = await sql`
     SELECT bi.id, bi.menu_item_id, bi.item_id, bi.ingredient_id, bi.ingredient_name,
-           bi.quantity, bi.quantity_value, bi.quantity_unit, bi.sort_order,
+           bi.quantity, bi.quantity_value, bi.quantity_unit, bi.cost_factor, bi.sort_order,
            -- 主供應商（preferred）
            prim.id           as primary_item_id,
            prim.name         as primary_item_name,
@@ -134,10 +134,11 @@ export async function GET(request: NextRequest) {
     /** 換算種類：match/weight/manual/mismatch（mismatch = 單位不符、成本待設定） */
     factorKind: FactorKind;
   } {
-    // 用量：先用拆出的 quantity_value，再 fallback parseFloat
+    // 用量：先用拆出的 quantity_value，再 fallback 從原文即時拆（防呆：舊資料可能 null）
+    const parsed = parseQuantity(b.quantity != null ? String(b.quantity) : null);
     let qtyValue = 0;
     if (b.quantity_value != null) qtyValue = parseFloat(String(b.quantity_value));
-    if (!qtyValue || isNaN(qtyValue)) qtyValue = parseFloat(String(b.quantity)) || 0;
+    if (!qtyValue || isNaN(qtyValue)) qtyValue = parsed.value ?? (parseFloat(String(b.quantity)) || 0);
 
     // 價格：先主供應商，再 fallback 舊 item_id
     let costPrice = 0;
@@ -171,11 +172,8 @@ export async function GET(request: NextRequest) {
     // 少了這步，"150g × 每公斤價" 會放大 1000 倍（分店毛利爆成負數萬%）。
     // cost_factor 是跨維度（顆→包等）的人工係數，Phase B 才進 DB；現在為 undefined→null。
     const costFactor = b.cost_factor != null ? Number(b.cost_factor) : null;
-    const uf = resolveUnitFactor(
-      b.quantity_unit as string | null,
-      sourceItemUnit,
-      costFactor
-    );
+    const bomUnit = (b.quantity_unit as string | null) ?? parsed.unit;
+    const uf = resolveUnitFactor(bomUnit, sourceItemUnit, costFactor);
 
     return {
       qtyValue,
@@ -255,6 +253,8 @@ export async function GET(request: NextRequest) {
           quantity: b.quantity,
           quantityValue: b.quantity_value != null ? Number(b.quantity_value) : null,
           quantityUnit: b.quantity_unit,
+          /** 跨維度換算係數（null = 未設）；供編輯 dialog 回填、避免全量覆蓋時遺失 */
+          costFactor: b.cost_factor != null ? Number(b.cost_factor) : null,
           // 來源顯示：主家 / fallback / 無
           itemId: b.item_id,
           itemName: r.sourceItemName,
@@ -308,12 +308,18 @@ export async function POST(request: NextRequest) {
         const [ingRow] = await sql`SELECT name FROM ingredients WHERE id = ${ing.ingredientId}`;
         ingredientName = ingRow?.name ?? "";
       }
+      // CRITICAL: 拆 quantity → value/unit 一起寫入，否則成本計算的單位換算會失效（爆表）
+      const pq = parseQuantity(ing.quantity);
       await sql`
         INSERT INTO bom_items
-          (menu_item_id, item_id, ingredient_id, ingredient_name, quantity, sort_order)
+          (menu_item_id, item_id, ingredient_id, ingredient_name, quantity,
+           quantity_value, quantity_unit, cost_factor, sort_order)
         VALUES
           (${menuItem.id}, ${ing.itemId || null}, ${ing.ingredientId || null},
-           ${ingredientName}, ${ing.quantity}, ${i + 1})
+           ${ingredientName}, ${ing.quantity},
+           ${pq.value}, ${pq.unit},
+           ${ing.costFactor != null && Number.isFinite(Number(ing.costFactor)) ? Number(ing.costFactor) : null},
+           ${i + 1})
       `;
     }
   }

@@ -80,8 +80,12 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                   ingredientName: ig.ingredientName,
                   quantity: ig.quantity,
                   itemId: ig.itemId,
+                  costFactor: ig.costFactor,
+                  itemUnit: ig.itemUnit,
+                  quantityUnit: ig.quantityUnit,
+                  factorKind: ig.factorKind,
                 }))
-              : [{ ingredientId: null, ingredientName: "", quantity: "", itemId: null }],
+              : [{ ingredientId: null, ingredientName: "", quantity: "", itemId: null, costFactor: null }],
         });
       } else {
         setForm(EMPTY_FORM);
@@ -107,7 +111,7 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
       ...prev,
       ingredients: [
         ...prev.ingredients,
-        { ingredientId: null, ingredientName: "", quantity: "", itemId: null },
+        { ingredientId: null, ingredientName: "", quantity: "", itemId: null, costFactor: null },
       ],
     }));
   }
@@ -143,6 +147,7 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
             ingredientName: ig.ingredientName.trim(),
             quantity: ig.quantity.trim(),
             itemId: ig.itemId,
+            costFactor: ig.costFactor,
           })),
       };
 
@@ -269,8 +274,22 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                 ...new Set(allIngredients.map((it) => it.category).filter((c): c is string => !!c)),
               ].sort();
 
+              // 跨維度單位（顆↔包 等）才顯示換算設定；重量↔重量由後端即時換算
+              const showFactor =
+                ig.factorKind === "mismatch" || ig.factorKind === "manual";
+              // costFactor = 1/N；回推 N 顯示（近整數就顯示整數，避免 8 位小數殘差）
+              let yieldN = "";
+              if (ig.costFactor && ig.costFactor > 0) {
+                const raw = 1 / ig.costFactor;
+                const rounded = Math.round(raw);
+                yieldN =
+                  Math.abs(raw - rounded) / raw < 0.005
+                    ? String(rounded)
+                    : String(+raw.toFixed(2));
+              }
               return (
-                <div key={idx} className="flex items-start gap-2">
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-start gap-2">
                   <span className="text-xs text-muted-foreground w-4 shrink-0 mt-2.5">
                     {idx + 1}
                   </span>
@@ -393,6 +412,34 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                     >
                       <X className="size-3.5" />
                     </Button>
+                  )}
+                  </div>
+
+                  {/* 跨維度單位換算設定（如 5顆 貢丸 vs $650/包） */}
+                  {showFactor && (
+                    <div className="ml-6 flex flex-wrap items-center gap-1.5 text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                      <span className="shrink-0">單位換算：1 {ig.itemUnit || "計價單位"} =</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        placeholder="?"
+                        value={yieldN}
+                        onChange={(e) => {
+                          const n = parseFloat(e.target.value);
+                          updateIngredient(
+                            idx,
+                            "costFactor",
+                            Number.isFinite(n) && n > 0 ? 1 / n : null
+                          );
+                        }}
+                        className="h-6 w-20 text-xs"
+                      />
+                      <span className="shrink-0">{ig.quantityUnit || "用量單位"}</span>
+                      {!ig.costFactor && (
+                        <span className="shrink-0 text-orange-600">← 未設定，此食材成本未計入</span>
+                      )}
+                    </div>
                   )}
                 </div>
               );

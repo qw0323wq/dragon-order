@@ -13,6 +13,8 @@ export interface Ingredient {
   quantityValue: number | null;
   /** 拆出的單位（如 "g"） */
   quantityUnit: string | null;
+  /** 跨維度換算係數（成本 = quantityValue × costFactor × cost_price）；null = 未設 */
+  costFactor: number | null;
   /** 用於成本計算的供應商來源 id（主家 or fallback 舊 item_id） */
   itemId: number | null;
   itemName: string | null;
@@ -66,6 +68,14 @@ export interface IngredientForm {
   quantity: string;
   /** 向下相容：舊 BOM 行可能用 item_id 不用 ingredient_id */
   itemId: number | null;
+  /** 跨維度換算係數（保留回填避免全量覆蓋遺失；編輯 dialog 可調） */
+  costFactor: number | null;
+  /** 顯示用：SKU 計價單位（如 "包"）；決定要不要顯示換算設定欄位 */
+  itemUnit?: string | null;
+  /** 顯示用：BOM 用量單位（如 "顆"） */
+  quantityUnit?: string | null;
+  /** 顯示用：'mismatch' = 跨維度待設定 */
+  factorKind?: "match" | "weight" | "manual" | "mismatch";
 }
 
 export interface BomFormData {
@@ -136,5 +146,5 @@ export const EMPTY_FORM: BomFormData = {
   category: "",
   sellPrice: 0,
   notes: "",
-  ingredients: [{ ingredientId: null, ingredientName: "", quantity: "", itemId: null }],
+  ingredients: [{ ingredientId: null, ingredientName: "", quantity: "", itemId: null, costFactor: null }],
 };

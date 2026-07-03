@@ -1,5 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { unitToGrams, resolveUnitFactor } from "../bom-cost";
+import { unitToGrams, resolveUnitFactor, parseQuantity } from "../bom-cost";
+
+describe("parseQuantity", () => {
+  it("拆出數值 + 單位", () => {
+    expect(parseQuantity("150g")).toEqual({ value: 150, unit: "g" });
+    expect(parseQuantity("5顆")).toEqual({ value: 5, unit: "顆" });
+    expect(parseQuantity("1整包")).toEqual({ value: 1, unit: "整包" });
+    expect(parseQuantity("0.5斤")).toEqual({ value: 0.5, unit: "斤" });
+  });
+  it("帶雜訊字尾保留在單位", () => {
+    expect(parseQuantity("120g(2小包)")).toEqual({ value: 120, unit: "g(2小包)" });
+  });
+  it("範圍取平均", () => {
+    expect(parseQuantity("2~2.5個")).toEqual({ value: 2.25, unit: "個" });
+    expect(parseQuantity("120~150g")).toEqual({ value: 135, unit: "g" });
+  });
+  it("純文字（適量/混搭）→ 無數值", () => {
+    expect(parseQuantity("適量")).toEqual({ value: null, unit: null });
+    expect(parseQuantity("混搭")).toEqual({ value: null, unit: null });
+    expect(parseQuantity("")).toEqual({ value: null, unit: null });
+    expect(parseQuantity(null)).toEqual({ value: null, unit: null });
+  });
+});
 
 describe("unitToGrams", () => {
   it("認得重量單位（台灣慣例）", () => {

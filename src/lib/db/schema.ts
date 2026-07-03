@@ -542,6 +542,13 @@ export const bomItems = pgTable('bom_items', {
   quantityValue: numeric('quantity_value', { precision: 10, scale: 3 }),
   /** 用量單位（從 quantity 字串拆出，如 "g" "顆"） */
   quantityUnit: varchar('quantity_unit', { length: 10 }),
+  /**
+   * 跨維度單位換算係數（成本 = quantity_value × cost_factor × cost_price）。
+   * 只在 BOM 用量單位與 SKU 計價單位「跨維度」（如 顆↔包、g↔件）時才需要；
+   * 重量↔重量由 src/lib/bom-cost.ts 即時換算，此欄位留 null。
+   * 值 = 1 /（1 個 SKU 計價單位含幾個 BOM 用量單位）。見 memory: project_dragon_order_bom_unit_bug
+   */
+  costFactor: numeric('cost_factor', { precision: 14, scale: 8 }),
   /** 排序（第幾項原料） */
   sortOrder: integer('sort_order').default(0).notNull(),
 });
