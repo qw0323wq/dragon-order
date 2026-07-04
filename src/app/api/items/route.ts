@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
   const offsetParam = searchParams.get("offset");
   const category = searchParams.get("category");
   const search = searchParams.get("search");
+  // 預設只回上架中品項；品項管理頁要管理下架品項時帶 includeInactive=1
+  const includeInactive = searchParams.get("includeInactive") === "1";
 
   // 分頁參數（向下相容：不帶 limit 時回傳全部）
   const limit = limitParam ? parseIntSafe(limitParam) : null;
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
     })
     .from(items)
     .innerJoin(suppliers, eq(items.supplierId, suppliers.id))
-    .where(eq(items.isActive, true))
+    .where(includeInactive ? undefined : eq(items.isActive, true))
     .orderBy(items.category, items.name);
 
   // 判斷使用者角色
