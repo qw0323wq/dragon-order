@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Percent, CalendarClock } from 'lucide-react'
+import { Plus, Search, Pencil, Percent, CalendarClock, Eye, EyeOff, Trash2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -80,6 +80,11 @@ export default function MenuPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('全部')
   const [supplierFilter, setSupplierFilter] = useState('全部')
+  // 顯示已下架品項（才看得到並能「重新上架」或「真刪除」）
+  const [showInactive, setShowInactive] = useState(false)
+  // 真刪除確認對話框的目標品項
+  const [deleteTarget, setDeleteTarget] = useState<ItemData | null>(null)
+  const [actingId, setActingId] = useState<number | null>(null)
 
   // Dialog
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -105,14 +110,14 @@ export default function MenuPage() {
 
   const fetchItems = useCallback(async () => {
     try {
-      const res = await fetch('/api/items')
+      const res = await fetch(`/api/items${showInactive ? '?includeInactive=1' : ''}`)
       if (res.ok) setItems(await res.json())
     } catch {
       toast.error('載入失敗')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [showInactive])
 
   // 載入待生效的預約改價（GET 已按 pending→effectiveDate 排序，同品項取最早一筆）
   const fetchPending = useCallback(async () => {
@@ -226,6 +231,53 @@ export default function MenuPage() {
     }
   }
 
+  // 下架（軟刪除）/ 重新上架 — 保留歷史，可逆
+  async function handleToggleActive(item: ItemData) {
+    setActingId(item.id)
+    try {
+      if (item.isActive) {
+        const res = await fetch(`/api/items/${item.id}`, { method: 'DELETE' })
+        if (!res.ok) { toast.error('下架失敗'); return }
+        toast.success(`已下架 ${item.name}`)
+      } else {
+        const res = await fetch(`/api/items/${item.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive: true }),
+        })
+        if (!res.ok) { toast.error('上架失敗'); return }
+        toast.success(`已重新上架 ${item.name}`)
+      }
+      fetchItems()
+    } catch {
+      toast.error('操作失敗')
+    } finally {
+      setActingId(null)
+    }
+  }
+
+  // 真刪除（硬刪）— 只在該品項完全沒被引用時成功；有關聯回 409，引導改用下架
+  async function handleHardDelete() {
+    if (!deleteTarget) return
+    const item = deleteTarget
+    setActingId(item.id)
+    try {
+      const res = await fetch(`/api/items/${item.id}?hard=1`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || '刪除失敗')
+        return
+      }
+      toast.success(`已永久刪除 ${item.name}`)
+      setDeleteTarget(null)
+      fetchItems()
+    } catch {
+      toast.error('操作失敗')
+    } finally {
+      setActingId(null)
+    }
+  }
+
   // 批次範圍內「有手動固定價」的品項數（不清除的話這些不受加成影響）
   const batchManualCount = useMemo(() => {
     return items.filter(
@@ -316,6 +368,21 @@ export default function MenuPage() {
         </Select>
       </div>
 
+      {/* 顯示已下架切換：打開才看得到已下架品項，並能「重新上架」或「永久刪除」 */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowInactive((v) => !v)}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors ${
+            showInactive
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-muted-foreground border-border hover:bg-accent'
+          }`}
+        >
+          {showInactive ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          {showInactive ? '顯示已下架' : '只看上架中'}
+        </button>
+      </div>
+
       {/* 品項列表 */}
       <Card>
         <CardContent className="pt-0 px-0">
@@ -345,9 +412,14 @@ export default function MenuPage() {
                   filteredItems.map((item) => {
                     const catStyle = CATEGORY_COLORS[item.category] ?? 'bg-muted text-muted-foreground'
                     return (
-                      <TableRow key={item.id}>
+                      <TableRow key={item.id} className={!item.isActive ? 'opacity-55' : ''}>
                         <TableCell className="pl-4 text-xs text-muted-foreground font-mono">{item.sku || '-'}</TableCell>
-                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="font-medium">
+                          {item.name}
+                          {!item.isActive && (
+                            <span className="ml-1.5 inline-flex h-4 items-center rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">已下架</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <span className={`inline-flex h-5 items-center rounded-full px-2 text-xs font-medium ${catStyle}`}>
                             {item.category}
@@ -361,9 +433,29 @@ export default function MenuPage() {
                           {item.storePrice > 0 ? formatCurrency(item.storePrice) : '-'}
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground">{item.unit}</TableCell>
-                        <TableCell className="pr-4 text-right">
+                        <TableCell className="pr-4 text-right whitespace-nowrap">
                           <Button variant="ghost" size="icon" onClick={() => openEdit(item)} title="編輯">
                             <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={item.isActive ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                            disabled={actingId === item.id}
+                            onClick={() => handleToggleActive(item)}
+                            title={item.isActive ? '下架（不出現在叫貨清單，保留歷史，可再上架）' : '重新上架'}
+                          >
+                            {item.isActive ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            disabled={actingId === item.id}
+                            onClick={() => setDeleteTarget(item)}
+                            title="永久刪除（僅限從未被叫貨/引用的品項）"
+                          >
+                            <Trash2 className="size-3.5" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -379,17 +471,42 @@ export default function MenuPage() {
             {filteredItems.map((item) => {
               const catStyle = CATEGORY_COLORS[item.category] ?? 'bg-muted text-muted-foreground'
               return (
-                <div key={item.id} className="p-3 space-y-1">
+                <div key={item.id} className={`p-3 space-y-1 ${!item.isActive ? 'opacity-55' : ''}`}>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{item.name}</span>
-                      <span className={`inline-flex h-4 items-center rounded-full px-1.5 text-[10px] font-medium ${catStyle}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-sm truncate">{item.name}</span>
+                      <span className={`inline-flex h-4 items-center rounded-full px-1.5 text-[10px] font-medium shrink-0 ${catStyle}`}>
                         {item.category}
                       </span>
+                      {!item.isActive && (
+                        <span className="inline-flex h-4 items-center rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground shrink-0">已下架</span>
+                      )}
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
-                      <Pencil className="size-3" />
-                    </Button>
+                    <div className="flex items-center shrink-0">
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(item)} title="編輯">
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`size-8 ${item.isActive ? 'text-orange-600' : 'text-green-600'}`}
+                        disabled={actingId === item.id}
+                        onClick={() => handleToggleActive(item)}
+                        title={item.isActive ? '下架' : '重新上架'}
+                      >
+                        {item.isActive ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-destructive"
+                        disabled={actingId === item.id}
+                        onClick={() => setDeleteTarget(item)}
+                        title="永久刪除"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{item.supplierName}</span>
@@ -561,6 +678,33 @@ export default function MenuPage() {
             <Button variant="outline" onClick={() => setBatchOpen(false)} disabled={batchSubmitting}>取消</Button>
             <Button onClick={handleBatchApply} disabled={batchSubmitting}>
               {batchSubmitting ? '套用中...' : '套用'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 永久刪除確認 Dialog */}
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>永久刪除品項？</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-1 text-sm">
+            <p>
+              即將永久刪除「<span className="font-semibold">{deleteTarget?.name}</span>」，此動作無法復原。
+            </p>
+            <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-amber-800 text-xs">
+              只有從未被叫貨、庫存、配方、價格排程等引用的品項才能真刪除；若已有關聯資料會被擋下，請改用「下架」。
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>
+            <Button
+              variant="destructive"
+              disabled={actingId === deleteTarget?.id}
+              onClick={handleHardDelete}
+            >
+              {actingId === deleteTarget?.id ? '刪除中...' : '確定永久刪除'}
             </Button>
           </DialogFooter>
         </DialogContent>
