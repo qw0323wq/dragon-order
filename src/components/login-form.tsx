@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useActionState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { login } from "@/app/actions/auth";
@@ -17,16 +18,21 @@ export default function LoginForm() {
 
   return (
     <div className="w-full max-w-sm rounded-2xl border border-border/60 bg-card p-7 shadow-xl shadow-black/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Logo（直接放，無外框）+ 標題 */}
+      {/* 品牌 Logo（去背，直接放無外框）+ 標題 */}
       <div className="mb-7 flex flex-col items-center text-center">
-        <div className="mb-4 text-5xl leading-none select-none" aria-hidden="true">
-          🔥🍲
-        </div>
+        <Image
+          src="/feilong-logo.png"
+          alt="肥龍老火鍋"
+          width={900}
+          height={708}
+          priority
+          className="mb-4 h-auto w-40 select-none"
+        />
         <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
           歡迎回來
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          肥龍老火鍋 · 採購系統
+          採購系統．員工登入
         </p>
       </div>
 
