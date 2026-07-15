@@ -19,19 +19,14 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-red-50 to-orange-50 px-4 py-12">
-      {/* Logo 區 */}
-      <div className="mb-8 text-center">
-        <div className="text-6xl mb-3 select-none" aria-hidden="true">
-          🔥🍲
-        </div>
-        <h1 className="text-2xl font-bold text-red-700 tracking-tight">
-          肥龍叫貨系統
-        </h1>
-        <p className="text-sm text-orange-600 mt-1">肥龍老火鍋 採購管理</p>
-      </div>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-b from-background to-muted/50 px-4 py-12">
+      {/* 柔和品牌暖光背景 */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
+      />
 
-      {/* 登入表單（Client Component 處理互動） */}
+      {/* 登入卡片（Client Component 處理互動，品牌與標題已收進卡片內） */}
       <LoginForm />
     </main>
   );
