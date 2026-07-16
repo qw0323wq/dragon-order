@@ -18,9 +18,11 @@ import { RESULT_OPTIONS } from './types'
 
 interface ReceivingTabProps {
   orderId: number
+  /** 驗收儲存成功後通知父層刷新 details（差異摘要靠父層資料計算） */
+  onSaved?: () => void
 }
 
-export function ReceivingTab({ orderId }: ReceivingTabProps) {
+export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [items, setItems] = useState<Array<{
@@ -108,6 +110,7 @@ export function ReceivingTab({ orderId }: ReceivingTabProps) {
       const advanced = Array.isArray(data.advancedOrders) ? data.advancedOrders.length : 0
       toast.success(advanced > 0 ? '全部驗收完成！訂單已標記為已驗收' : '全部驗收完成！')
       await loadReceiving()
+      onSaved?.()
     } catch {
       toast.error('發生錯誤')
     } finally {

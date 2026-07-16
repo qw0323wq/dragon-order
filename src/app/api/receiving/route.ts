@@ -9,6 +9,7 @@ import { receiving, orderItems, items, stores, suppliers } from "@/lib/db/schema
 import { eq, inArray } from "drizzle-orm";
 import { authenticateRequest, requireManagerOrAbove } from "@/lib/api-auth";
 import { parseIntSafe } from "@/lib/parse-int-safe";
+import { logOrderStatus } from "@/lib/order-history";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
@@ -233,6 +234,11 @@ export async function POST(request: NextRequest) {
 
       return { count, advanced };
     });
+
+    // 狀態歷史（tx 外寫入；失敗只記 log，不影響已完成的驗收）
+    for (const advancedOrderId of resultsCount.advanced) {
+      await logOrderStatus(advancedOrderId, "received", receivedByUserId, "全品項驗收完成，自動推進");
+    }
 
     return NextResponse.json({
       success: true,

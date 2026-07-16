@@ -10,6 +10,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { authenticateRequest, getStoreScope } from "@/lib/api-auth";
 import { createOrderSchema, parseBody } from "@/lib/validations";
 import { roundMoney, formatDateLocal } from '@/lib/format';
+import { logOrderStatus } from '@/lib/order-history';
 
 /** 預設分頁大小 + 上限（保護伺服器記憶體） */
 const DEFAULT_LIMIT = 100;
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
       })
       .returning();
     orderId = newOrder.id;
+    await logOrderStatus(orderId, "draft", userId, "訂單建立");
   }
 
   // CRITICAL: 從 DB 查真實 cost_price，不信任前端傳的 unitPrice（員工/店長角色可能為 0）

@@ -11,6 +11,7 @@ import { authenticateRequest, requireAdmin } from "@/lib/api-auth";
 import { notifyOrderSubmitted } from "@/lib/line-notify";
 import { parseIntSafe } from "@/lib/parse-int-safe";
 import { roundMoney } from "@/lib/format";
+import { logOrderStatus } from "@/lib/order-history";
 
 export async function GET(
   request: NextRequest,
@@ -150,6 +151,7 @@ export async function PATCH(
     }
 
     await db.update(orders).set({ status: "submitted", updatedAt: new Date() }).where(eq(orders.id, orderId));
+    await logOrderStatus(orderId, "submitted", auth.userId, "訂單送出");
 
     // LINE 通知（非阻塞，推播失敗不影響送出）
     notifyOrderSubmitted({
@@ -174,6 +176,7 @@ export async function PATCH(
       return NextResponse.json({ error: "無效的狀態" }, { status: 400 });
     }
     await db.update(orders).set({ status: body.status, updatedAt: new Date() }).where(eq(orders.id, orderId));
+    await logOrderStatus(orderId, body.status, auth.userId);
     return NextResponse.json({ success: true });
   }
 

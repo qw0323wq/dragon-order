@@ -316,6 +316,26 @@ export const payments = pgTable('payments', {
 export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
 
+// ─────────────────────────────────────────────
+// 訂單狀態歷史（audit trail：誰在何時把訂單推到哪個狀態）
+// 寫入點集中在 src/lib/order-history.ts 的 logOrderStatus()
+// ─────────────────────────────────────────────
+export const orderStatusHistory = pgTable('order_status_history', {
+  id: serial('id').primaryKey(),
+  orderId: integer('order_id')
+    .references(() => orders.id, { onDelete: 'cascade' })
+    .notNull(),
+  /** 變更後的狀態（同 orders.status 的值域） */
+  status: varchar('status', { length: 20 }).notNull(),
+  /** 操作人；系統自動推進（如驗收完成自動 received）時可為 null */
+  changedBy: integer('changed_by').references(() => users.id),
+  /** 補充說明（如「驗收完成自動推進」） */
+  note: text('note'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type OrderStatusHistory = typeof orderStatusHistory.$inferSelect;
+
 // 供應商叫貨單（purchaseOrders + purchaseOrderItems）定義在檔案尾部
 
 // ─────────────────────────────────────────────

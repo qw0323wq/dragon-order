@@ -13,6 +13,7 @@ import { Loader2, FileText, Download, Printer } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatDisplay } from './types';
 import type { POItem, PurchaseOrder } from './types';
 
 interface PurchaseOrdersTabProps {
@@ -90,46 +91,86 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
     }
   }
 
+  /**
+   * 列印正式叫貨單（參考 Costflows PO 文件版式，2026-07-17 升級）
+   * 頁首品牌區 + PO 號 + 資訊欄 + 序號明細表 + 簽收欄；維持無價格（給供應商）。
+   */
   function printPO(po: PurchaseOrder) {
     const { storeNames, grouped } = groupPOItems(po.items);
+    const hasNotes = grouped.some((g) => g.notes);
+    const deliveryDisplay = formatDisplay(selectedDate);
+    const printedAt = new Date().toLocaleString('zh-TW', { hour12: false });
+
+    const storeHeaders = storeNames
+      .map((s) => `<th class="c">${s}</th>`)
+      .join('');
     const rows = grouped
-      .map((g) => {
+      .map((g, idx) => {
         const storeCells = storeNames
-          .map(
-            (s) =>
-              `<td style="text-align:center;padding:6px;border:1px solid #ddd">${g.stores[s] || ''}</td>`
-          )
+          .map((s) => `<td class="c">${g.stores[s] || ''}</td>`)
           .join('');
         return `<tr>
-        <td style="padding:6px;border:1px solid #ddd;font-weight:500">${g.itemName}</td>
+        <td class="c muted">${idx + 1}</td>
+        <td class="name">${g.itemName}</td>
         ${storeCells}
-        <td style="text-align:center;padding:6px;border:1px solid #ddd;font-weight:700">${g.total}</td>
-        <td style="padding:6px;border:1px solid #ddd">${g.itemUnit}</td>
-        ${g.notes ? `<td style="padding:6px;border:1px solid #ddd;font-size:12px">${g.notes}</td>` : ''}
+        <td class="c total">${g.total}</td>
+        <td class="c">${g.itemUnit}</td>
+        ${hasNotes ? `<td class="notes">${g.notes || ''}</td>` : ''}
       </tr>`;
       })
       .join('');
 
-    const storeHeaders = storeNames
-      .map(
-        (s) =>
-          `<th style="text-align:center;padding:6px;border:1px solid #ddd">${s}</th>`
-      )
-      .join('');
-    const hasNotes = grouped.some((g) => g.notes);
-
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${po.poNumber} - ${po.supplierName}</title>
-      <style>body{font-family:"PingFang TC","Noto Sans TC",sans-serif;padding:20px;max-width:800px;margin:0 auto}
-      table{width:100%;border-collapse:collapse;margin-top:12px}th{background:#f5f5f5;padding:6px;border:1px solid #ddd;font-size:13px}
-      @media print{body{padding:10px}}</style></head><body>
-      <h2 style="margin:0">叫貨單 ${po.poNumber}</h2>
-      <p style="color:#666;margin:4px 0">供應商：${po.supplierName}　日期：${selectedDate}</p>
+      <style>
+        *{box-sizing:border-box}
+        body{font-family:"PingFang TC","Noto Sans TC",sans-serif;padding:28px;max-width:820px;margin:0 auto;color:#1a1a1a}
+        .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #b91c1c;padding-bottom:14px}
+        .brand{font-size:22px;font-weight:800;letter-spacing:1px}
+        .brand small{display:block;font-size:12px;color:#888;font-weight:400;letter-spacing:2px;margin-top:2px}
+        .doc{text-align:right}
+        .doc .t{font-size:18px;font-weight:700}
+        .doc .no{font-size:14px;color:#b91c1c;font-weight:600;margin-top:2px}
+        .info{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 24px;margin:16px 0 4px;font-size:13px}
+        .info b{display:block;color:#888;font-weight:500;font-size:11px;margin-bottom:1px}
+        table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
+        th{background:#f7f7f7;padding:7px 6px;border:1px solid #d9d9d9;font-size:12px;text-align:left}
+        td{padding:7px 6px;border:1px solid #d9d9d9;vertical-align:top}
+        .c{text-align:center}
+        .muted{color:#999;width:34px}
+        .name{font-weight:600}
+        .total{font-weight:800}
+        .notes{font-size:12px;color:#555}
+        .sign{display:flex;gap:48px;margin-top:36px;font-size:13px}
+        .sign div{flex:1}
+        .sign .line{border-bottom:1px solid #999;height:38px;margin-top:6px}
+        .foot{margin-top:28px;padding-top:10px;border-top:1px solid #eee;color:#aaa;font-size:11px;display:flex;justify-content:space-between}
+        @media print{body{padding:10px}}
+      </style></head><body>
+      <div class="head">
+        <div class="brand">肥龍老火鍋<small>FEI LONG HOTPOT · 採購部</small></div>
+        <div class="doc">
+          <div class="t">叫貨單 Purchase Order</div>
+          <div class="no">${po.poNumber}</div>
+        </div>
+      </div>
+      <div class="info">
+        <div><b>供應商</b>${po.supplierName}</div>
+        <div><b>送貨日期</b>${deliveryDisplay}</div>
+        <div><b>品項數</b>${grouped.length} 項</div>
+      </div>
       <table><thead><tr>
-        <th style="text-align:left">品名</th>${storeHeaders}
-        <th style="text-align:center">合計</th><th>單位</th>
+        <th class="c">#</th><th>品名</th>${storeHeaders}
+        <th class="c">合計</th><th class="c">單位</th>
         ${hasNotes ? '<th>備註</th>' : ''}
       </tr></thead><tbody>${rows}</tbody></table>
-      <p style="margin-top:20px;color:#999;font-size:12px">肥龍老火鍋 採購系統</p>
+      <div class="sign">
+        <div>供應商出貨確認<div class="line"></div></div>
+        <div>門市驗收簽名<div class="line"></div></div>
+      </div>
+      <div class="foot">
+        <span>肥龍老火鍋 採購系統</span>
+        <span>${po.poNumber} · 列印於 ${printedAt}</span>
+      </div>
       <script>window.onload=()=>window.print()</script></body></html>`;
 
     const w = window.open('', '_blank');

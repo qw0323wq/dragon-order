@@ -21,7 +21,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutList, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
-  Loader2, ClipboardCheck, CreditCard, PlusCircle, FileText, Trash2, ArrowLeft,
+  Loader2, ClipboardCheck, CreditCard, PlusCircle, FileText, Trash2, ArrowLeft, History,
 } from 'lucide-react'
 import Link from 'next/link'
 import { sumBy, formatCurrency } from '@/lib/format'
@@ -37,6 +37,8 @@ import {
 import { OrdersListView, type ListFilter } from './_components/orders-list-view'
 import { SupplierOrderCard } from './_components/supplier-order-card'
 import { ReceivingTab } from './_components/receiving-tab'
+import { ReceivingDiffSummary } from './_components/receiving-diff-summary'
+import { OrderHistoryDialog } from './_components/order-history-dialog'
 import { PaymentTab } from './_components/payment-tab'
 import { DetailTabWithFilter } from './_components/detail-tab-with-filter'
 import { PurchaseOrdersTab } from './_components/purchase-orders-tab'
@@ -89,6 +91,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [order, setOrder] = useState<Order | null>(null)
   const [details, setDetails] = useState<OrderDetail[]>([])
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const isToday = selectedDate === today
 
@@ -219,6 +222,9 @@ export default function OrdersPage() {
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge className={STATUS_COLORS[order.status] || ''}>{orderStatus}</Badge>
               {order.createdByName && <span className="text-xs text-muted-foreground">建單人：{order.createdByName}</span>}
+              <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={() => setHistoryOpen(true)}>
+                <History className="size-3 mr-1" /> 歷史
+              </Button>
               <Button variant="ghost" size="sm" className="text-xs text-destructive h-6 px-2" onClick={handleDeleteOrder}>
                 <Trash2 className="size-3 mr-1" /> 刪除訂單
               </Button>
@@ -278,7 +284,13 @@ export default function OrdersPage() {
 
           {viewMode === 'detail' && <DetailTabWithFilter details={details} />}
           {viewMode === 'purchase-orders' && <PurchaseOrdersTab selectedDate={selectedDate} />}
-          {viewMode === 'receiving' && <ReceivingTab orderId={order.id} />}
+          <OrderHistoryDialog orderId={order.id} open={historyOpen} onOpenChange={setHistoryOpen} />
+          {viewMode === 'receiving' && (
+            <div className="space-y-4">
+              <ReceivingDiffSummary details={details} />
+              <ReceivingTab orderId={order.id} onSaved={() => fetchOrder(selectedDate)} />
+            </div>
+          )}
           {viewMode === 'payment' && <PaymentTab details={details} orderId={order.id} />}
         </>
       )}
