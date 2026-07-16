@@ -6,9 +6,11 @@
  */
 
 import { useEffect, useState } from 'react'
-import { TrendingUp, TrendingDown, Minus, Upload, ArrowUpDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, Upload, ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { StatCard } from '@/components/ui/stat-card'
+import { DeltaBadge } from '@/components/ui/delta-badge'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface PriceRecord {
   id: number
@@ -149,33 +151,20 @@ export default function PriceTrendsPage() {
 
       {/* 統計卡片 */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="p-3 rounded-lg border bg-card">
-          <div className="text-sm text-muted-foreground">紀錄筆數</div>
-          <div className="text-2xl font-semibold mt-1">{records.length}</div>
-        </div>
-        <div className="p-3 rounded-lg border bg-card">
-          <div className="text-sm text-muted-foreground flex items-center gap-1">
-            <TrendingUp className="size-3.5 text-red-500" /> 漲價
-          </div>
-          <div className="text-2xl font-semibold mt-1 text-red-600">{upCount}</div>
-        </div>
-        <div className="p-3 rounded-lg border bg-card">
-          <div className="text-sm text-muted-foreground flex items-center gap-1">
-            <TrendingDown className="size-3.5 text-green-500" /> 降價
-          </div>
-          <div className="text-2xl font-semibold mt-1 text-green-600">{downCount}</div>
-        </div>
+        <StatCard label="紀錄筆數" value={records.length} icon={ArrowUpDown} accent="bg-muted text-muted-foreground" />
+        <StatCard label="漲價" value={upCount} icon={TrendingUp} accent="bg-red-100 text-red-600" />
+        <StatCard label="降價" value={downCount} icon={TrendingDown} accent="bg-green-100 text-green-600" />
       </div>
 
       {/* 價格變動列表 */}
       {loading ? (
         <p className="text-sm text-muted-foreground">載入中...</p>
       ) : records.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <ArrowUpDown className="size-8 mx-auto mb-2 opacity-50" />
-          <p>尚無價格變動紀錄</p>
-          <p className="text-xs mt-1">選擇供應商後上傳報價單，系統會自動比對價差</p>
-        </div>
+        <EmptyState
+          icon={ArrowUpDown}
+          title="尚無價格變動紀錄"
+          description="選擇供應商後上傳報價單，系統會自動比對前後價差並標示漲跌。"
+        />
       ) : (
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
@@ -190,10 +179,7 @@ export default function PriceTrendsPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {records.map((r) => {
-                const isUp = r.price_diff > 0
-                const isDown = r.price_diff < 0
-                return (
+              {records.map((r) => (
                   <tr key={r.id} className="hover:bg-muted/30">
                     <td className="px-4 py-2.5">
                       <div className="font-medium">{r.item_name}</div>
@@ -209,20 +195,10 @@ export default function PriceTrendsPage() {
                       ${r.new_price}/{r.price_unit}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium',
-                          isUp && 'bg-red-50 text-red-700',
-                          isDown && 'bg-green-50 text-green-700',
-                          !isUp && !isDown && 'bg-gray-50 text-gray-600'
-                        )}
-                      >
-                        {isUp && <TrendingUp className="size-3" />}
-                        {isDown && <TrendingDown className="size-3" />}
-                        {!isUp && !isDown && <Minus className="size-3" />}
-                        {isUp ? '+' : ''}
-                        {r.price_diff} ({r.change_percent}%)
-                      </span>
+                      <DeltaBadge
+                        percent={Number(r.change_percent)}
+                        amount={`${r.price_diff > 0 ? '+' : ''}${r.price_diff}`}
+                      />
                     </td>
                     <td className="px-4 py-2.5 hidden md:table-cell text-muted-foreground text-xs">
                       {r.effective_date}
@@ -231,8 +207,7 @@ export default function PriceTrendsPage() {
                       )}
                     </td>
                   </tr>
-                )
-              })}
+              ))}
             </tbody>
           </table>
         </div>

@@ -30,6 +30,7 @@ import {
   Store,
 } from 'lucide-react'
 import { MonthSelector } from '@/components/month-selector'
+import { StatCard } from '@/components/ui/stat-card'
 import { SkeletonStatCard, SkeletonTable } from '@/components/ui/skeleton'
 import {
   Card,
@@ -329,31 +330,16 @@ export default function DashboardPage() {
         <>
           {/* ── 統計卡片 2x2（手機）/ 4 欄（桌面）────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            {statCards.map((card) => {
-              const Icon = card.icon
-              return (
-                <Card key={card.title}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground truncate">{card.title}</p>
-                        <p className="text-2xl font-bold font-heading mt-1 leading-none">
-                          {card.value}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1.5 truncate">
-                          {card.desc}
-                        </p>
-                      </div>
-                      <div
-                        className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${card.iconBg}`}
-                      >
-                        <Icon className={`size-4 ${card.iconColor}`} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+            {statCards.map((card) => (
+              <StatCard
+                key={card.title}
+                label={card.title}
+                value={card.value}
+                icon={card.icon}
+                accent={`${card.iconBg} ${card.iconColor}`}
+                hint={card.desc}
+              />
+            ))}
           </div>
 
           {/* ── 品項排行（最重要區塊）──────────────────────────────────────── */}
