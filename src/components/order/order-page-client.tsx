@@ -89,6 +89,9 @@ export default function OrderPageClient({
   // 分類篩選
   const [activeCategory, setActiveCategory] = useState<string>("");
 
+  // 供應商篩選（"" = 所有供應商）
+  const [activeSupplierId, setActiveSupplierId] = useState<string>("");
+
   // 訂單日期
   const [orderDate, setOrderDate] = useState(() => formatDateLocal());
 
@@ -148,13 +151,28 @@ export default function OrderPageClient({
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const matchCategory = !activeCategory || item.category === activeCategory;
+      const matchSupplier =
+        !activeSupplierId || String(item.supplierId ?? "") === activeSupplierId;
       const matchSearch =
         !searchQuery ||
         item.name.includes(searchQuery) ||
         item.aliases.some((a) => a.includes(searchQuery));
-      return matchCategory && matchSearch;
+      return matchCategory && matchSupplier && matchSearch;
     });
-  }, [items, activeCategory, searchQuery]);
+  }, [items, activeCategory, activeSupplierId, searchQuery]);
+
+  // 供應商選項（從品項清單導出，去重 + 按名稱排序）
+  const supplierOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const item of items) {
+      if (item.supplierId != null && item.supplierName) {
+        map.set(item.supplierId, item.supplierName);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
+  }, [items]);
 
   // 分類數量
   const categoryCounts = useMemo(() => {
@@ -441,6 +459,38 @@ export default function OrderPageClient({
 
           {/* ===== Tab 1: 清單模式 ===== */}
           <TabsContent value="list">
+            {/* 供應商篩選（「今天要跟誰叫貨」的入口，與分類/搜尋可疊加） */}
+            {supplierOptions.length > 0 && (
+              <div className="mb-3">
+                <Select
+                  value={activeSupplierId || "all"}
+                  onValueChange={(v) => setActiveSupplierId(v && v !== "all" ? v : "")}
+                >
+                  <SelectTrigger
+                    className={`w-full h-11 rounded-xl text-base ${
+                      activeSupplierId ? "border-primary/40 bg-primary/5 text-primary font-semibold" : ""
+                    }`}
+                    aria-label="依供應商篩選"
+                  >
+                    {/* Base UI 的 SelectValue 在選單 mount 前解析不到 label，直接自控顯示文字 */}
+                    <SelectValue>
+                      {activeSupplierId
+                        ? supplierOptions.find((s) => String(s.id) === activeSupplierId)?.name ?? "所有供應商"
+                        : "所有供應商"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">所有供應商</SelectItem>
+                    {supplierOptions.map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* 搜尋框（浮動展開） */}
             {showSearch ? (
               <div className="relative mb-3">
@@ -513,8 +563,8 @@ export default function OrderPageClient({
               </div>
             )}
 
-            {/* 最近叫過（沒有搜尋、沒有分類篩選時才顯示） */}
-            {!searchQuery && !activeCategory && recentItems.length > 0 && (
+            {/* 最近叫過（沒有搜尋、沒有分類/供應商篩選時才顯示） */}
+            {!searchQuery && !activeCategory && !activeSupplierId && recentItems.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-1.5 mb-2 px-1">
                   <Clock className="size-4 text-muted-foreground" />

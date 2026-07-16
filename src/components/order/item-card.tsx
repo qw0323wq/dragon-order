@@ -66,9 +66,10 @@ export function ItemCard({
               {item.category}
             </span>
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground truncate">
             {item.unit}
             {showPrice && item.cost_price > 0 ? ` · $${item.cost_price}` : ''}
+            {item.supplierName && <span> · {item.supplierName}</span>}
             {inCart && (
               <span className="ml-2 text-primary font-medium">
                 · 已加 {cartQty}

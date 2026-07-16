@@ -27,6 +27,9 @@ export interface MenuItem {
   sell_price: number;
   /** 別名清單，用於文字模式解析 */
   aliases: string[];
+  /** 供應商（叫貨頁 server component 會帶；mock/測試資料可省略） */
+  supplierId?: number;
+  supplierName?: string;
 }
 
 /** 門市 */
