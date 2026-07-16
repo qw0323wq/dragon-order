@@ -110,6 +110,51 @@ export const STATUS_COLORS: Record<string, string> = {
 
 export const RESULT_OPTIONS = ['正常', '短缺', '品質問題', '未到貨']
 
+// ── 訂單列表（總覽模式）──
+
+/** GET /api/orders/overview 的每列資料 */
+export interface OrderOverviewRow {
+  id: number
+  orderDate: string
+  status: string
+  totalAmount: number
+  itemCount: number
+  supplierCount: number
+  receivedCount: number
+  paidSupplierCount: number
+}
+
+/**
+ * 衍生工作流狀態 — 訂單列表的狀態 pills 用這個，不用 DB status。
+ * 原因：status 常停在 draft（建單後沒人手動推進），但驗收/付款資料是可靠的，
+ * 所以「這張單走到哪」直接從驗收與付款進度推導。
+ */
+export type WorkflowStatus = 'pending-receiving' | 'pending-payment' | 'done' | 'cancelled' | 'empty'
+
+export function deriveWorkflowStatus(row: OrderOverviewRow): WorkflowStatus {
+  if (row.status === 'cancelled') return 'cancelled'
+  if (row.itemCount === 0) return 'empty'
+  if (row.receivedCount < row.itemCount) return 'pending-receiving'
+  if (row.paidSupplierCount < row.supplierCount) return 'pending-payment'
+  return 'done'
+}
+
+export const WORKFLOW_LABELS: Record<WorkflowStatus, string> = {
+  'pending-receiving': '待驗收',
+  'pending-payment': '待付款',
+  done: '已完成',
+  cancelled: '已取消',
+  empty: '空訂單',
+}
+
+export const WORKFLOW_COLORS: Record<WorkflowStatus, string> = {
+  'pending-receiving': 'bg-orange-100 text-orange-700',
+  'pending-payment': 'bg-blue-100 text-blue-700',
+  done: 'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-700',
+  empty: 'bg-gray-100 text-gray-500',
+}
+
 // ── 日期工具 ──
 
 /**

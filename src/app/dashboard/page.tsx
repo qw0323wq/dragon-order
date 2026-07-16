@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   BarChart,
@@ -28,7 +29,17 @@ import {
   Loader2,
   DollarSign,
   Store,
+  ClipboardCheck,
+  CreditCard,
+  CalendarPlus,
+  ChevronRight,
 } from 'lucide-react'
+import Link from 'next/link'
+import type { LucideIcon } from 'lucide-react'
+import {
+  deriveWorkflowStatus,
+  type OrderOverviewRow,
+} from './orders/_components/types'
 import { MonthSelector } from '@/components/month-selector'
 import { StatCard } from '@/components/ui/stat-card'
 import { SkeletonStatCard, SkeletonTable } from '@/components/ui/skeleton'
@@ -109,7 +120,45 @@ interface Order {
 }
 
 // ── 共用工具（從 lib/format 匯入）──
-import { formatMonth, formatMonthDisplay, addMonths } from "@/lib/format";
+import { formatMonth, formatMonthDisplay, formatDateLocal, formatCurrency } from "@/lib/format";
+
+// ── 待辦摘要（參考 Costflows 概覽的待辦導向卡片）──────────────────────────────
+
+interface Todos {
+  todayOrder: OrderOverviewRow | null
+  pendingReceiving: number
+  pendingPayment: number
+}
+
+/** 可點擊的待辦卡：urgent 時橘色強調，點了直達對應頁籤 */
+function TodoCard({
+  href, icon: Icon, label, value, urgent,
+}: {
+  href: string
+  icon: LucideIcon
+  label: string
+  value: string
+  urgent: boolean
+}) {
+  return (
+    <Link href={href} className="block">
+      <Card className={`transition-colors hover:bg-muted/50 ${urgent ? 'border-orange-300 dark:border-orange-700' : ''}`}>
+        <CardContent className="py-3 px-4 flex items-center gap-3">
+          <div className={`p-2 rounded-lg shrink-0 ${
+            urgent ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30' : 'bg-green-100 text-green-600 dark:bg-green-900/30'
+          }`}>
+            <Icon className="size-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="text-sm font-semibold truncate">{value}</p>
+          </div>
+          <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+        </CardContent>
+      </Card>
+    </Link>
+  )
+}
 
 // ── 訂單狀態對照表 ────────────────────────────────────────────────────────────
 
@@ -177,11 +226,13 @@ function BarTooltip({
 // ── 頁面主元件 ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const router = useRouter()
   const currentMonth = formatMonth(new Date())
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [recentOrders, setRecentOrders] = useState<Order[]>([])
+  const [todos, setTodos] = useState<Todos | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [ordersLoading, setOrdersLoading] = useState(true)
   // 品項排行排序方式：'qty' 依數量 | 'amount' 依金額
@@ -225,13 +276,39 @@ export default function DashboardPage() {
     }
   }, [])
 
+  // ── 載入待辦摘要（近 30 天，/api/orders/overview 預設範圍）──────────────
+  const loadTodos = useCallback(async () => {
+    try {
+      const res = await fetch('/api/orders/overview')
+      if (!res.ok) return // 待辦卡載入失敗不擋首頁其他區塊
+      const data = await res.json()
+      const rows: OrderOverviewRow[] = data.orders || []
+      const today = formatDateLocal()
+      let pendingReceiving = 0
+      let pendingPayment = 0
+      for (const r of rows) {
+        const w = deriveWorkflowStatus(r)
+        if (w === 'pending-receiving') pendingReceiving++
+        else if (w === 'pending-payment') pendingPayment++
+      }
+      setTodos({
+        todayOrder: rows.find((r) => r.orderDate === today) ?? null,
+        pendingReceiving,
+        pendingPayment,
+      })
+    } catch {
+      // 靜默：待辦卡是輔助資訊
+    }
+  }, [])
+
   useEffect(() => {
     loadStats(selectedMonth)
   }, [selectedMonth, loadStats])
 
   useEffect(() => {
     loadRecentOrders()
-  }, [loadRecentOrders])
+    loadTodos()
+  }, [loadRecentOrders, loadTodos])
 
   // ── 統計卡片資料（依 API 回傳動態計算） ───────────────────────────────────
   const summary = stats?.summary ?? { totalAmount: 0, itemCount: 0, orderCount: 0 }
@@ -312,6 +389,43 @@ export default function DashboardPage() {
         {/* 月份選擇器（統一用 MonthSelector 元件） */}
         <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
       </div>
+
+      {/* ── 待辦摘要卡（獨立載入，不受月份與骨架屏影響）───────────────────── */}
+      {todos && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {todos.todayOrder ? (
+            <TodoCard
+              href={`/dashboard/orders?date=${formatDateLocal()}`}
+              icon={CalendarPlus}
+              label="今日叫貨"
+              value={`已建單 · ${formatCurrency(todos.todayOrder.totalAmount)}`}
+              urgent={false}
+            />
+          ) : (
+            <TodoCard
+              href="/order"
+              icon={CalendarPlus}
+              label="今日叫貨"
+              value="尚未建單，去叫貨 →"
+              urgent
+            />
+          )}
+          <TodoCard
+            href="/dashboard/orders?filter=pending-receiving"
+            icon={ClipboardCheck}
+            label="待驗收（近 30 天）"
+            value={todos.pendingReceiving > 0 ? `${todos.pendingReceiving} 張訂單` : '全部驗收完成'}
+            urgent={todos.pendingReceiving > 0}
+          />
+          <TodoCard
+            href="/dashboard/orders?filter=pending-payment"
+            icon={CreditCard}
+            label="待付款（近 30 天）"
+            value={todos.pendingPayment > 0 ? `${todos.pendingPayment} 張訂單` : '全部付款完成'}
+            urgent={todos.pendingPayment > 0}
+          />
+        </div>
+      )}
 
       {/* ── 載入中骨架屏（僅首次載入；切月保留舊資料） ──────────────────────── */}
       {showSkeleton && (
@@ -573,7 +687,11 @@ export default function DashboardPage() {
                             variant: 'secondary' as const,
                           }
                         return (
-                          <TableRow key={order.id}>
+                          <TableRow
+                            key={order.id}
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/dashboard/orders?date=${order.orderDate}`)}
+                          >
                             <TableCell className="font-medium">
                               {order.orderDate}
                             </TableCell>

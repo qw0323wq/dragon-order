@@ -2,10 +2,14 @@
 
 /**
  * 訂單管理頁面（含叫貨單）
- * Tab: 彙總 | 明細 | 叫貨單 | 驗收 | 付款
+ *
+ * 雙模式（2026-07-16 參考 Costflows 改為列表優先）：
+ *   列表模式（預設）— 日期範圍 + 衍生狀態 pills + 訂單列表，點一筆進單日視圖
+ *   單日模式（?date=YYYY-MM-DD 或 ?tab=…）— 彙總 | 明細 | 叫貨單 | 驗收 | 付款
  *
  * 拆分（P2-C9，2026-04-24）：
- *   _components/types.ts                    — 共用型別（含 PO 型別）
+ *   _components/types.ts                    — 共用型別（含 PO 型別、衍生工作流狀態）
+ *   _components/orders-list-view.tsx        — 列表模式（範圍快選 + 狀態 pills + 列表）
  *   _components/supplier-order-card.tsx     — 彙總 Tab 的供應商卡片（行內編輯）
  *   _components/detail-tab-with-filter.tsx  — 明細 Tab（唯讀+門市篩選）
  *   _components/purchase-orders-tab.tsx     — 叫貨單 Tab（產生/複製/下載/列印）
@@ -17,7 +21,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutList, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
-  Loader2, ClipboardCheck, CreditCard, PlusCircle, FileText, Trash2,
+  Loader2, ClipboardCheck, CreditCard, PlusCircle, FileText, Trash2, ArrowLeft,
 } from 'lucide-react'
 import Link from 'next/link'
 import { sumBy, formatCurrency } from '@/lib/format'
@@ -30,6 +34,7 @@ import {
   STATUS_LABELS, STATUS_COLORS,
   type Order, type OrderDetail,
 } from './_components/types'
+import { OrdersListView, type ListFilter } from './_components/orders-list-view'
 import { SupplierOrderCard } from './_components/supplier-order-card'
 import { ReceivingTab } from './_components/receiving-tab'
 import { PaymentTab } from './_components/payment-tab'
@@ -39,21 +44,46 @@ import { PurchaseOrdersTab } from './_components/purchase-orders-tab'
 type ViewMode = 'summary' | 'detail' | 'purchase-orders' | 'receiving' | 'payment'
 const VALID_VIEW_MODES: ViewMode[] = ['summary', 'detail', 'purchase-orders', 'receiving', 'payment']
 
+/** 頁面模式：list = 訂單列表（預設）；day = 單日五 tab 視圖；null = URL 尚未解析 */
+type PageMode = 'list' | 'day'
+
+const VALID_FILTERS: ListFilter[] = ['all', 'pending-receiving', 'pending-payment', 'done', 'cancelled', 'empty']
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
 export default function OrdersPage() {
   const today = formatDate(new Date())
+  const [mode, setMode] = useState<PageMode | null>(null)
+  const [initialFilter, setInitialFilter] = useState<ListFilter>('all')
   const [selectedDate, setSelectedDate] = useState(today)
   const [viewMode, setViewMode] = useState<ViewMode>('summary')
 
-  // P2-C8: /purchase-orders 導過來會帶 ?tab=purchase-orders，進頁後切到對應 tab
+  // URL 判斷模式：?date= 或 ?tab=（purchase-orders 頁深連結）→ 單日；?filter= → 列表帶初始 pill
   // 用 useEffect 避免 useSearchParams 的 Suspense 要求（wrap 整頁太繁瑣）
-  useEffect(() => {
-    if (typeof window === 'undefined') return
+  const parseUrl = useCallback(() => {
     const params = new URLSearchParams(window.location.search)
+    const urlDate = params.get('date')
     const urlTab = params.get('tab') as ViewMode | null
-    if (urlTab && VALID_VIEW_MODES.includes(urlTab)) {
-      setViewMode(urlTab)
+    const urlFilter = params.get('filter') as ListFilter | null
+    if (urlTab && VALID_VIEW_MODES.includes(urlTab)) setViewMode(urlTab)
+    if (urlDate && DATE_RE.test(urlDate)) {
+      setSelectedDate(urlDate)
+      setMode('day')
+      return
     }
+    if (urlTab && VALID_VIEW_MODES.includes(urlTab)) {
+      setMode('day')
+      return
+    }
+    if (urlFilter && VALID_FILTERS.includes(urlFilter)) setInitialFilter(urlFilter)
+    setMode('list')
   }, [])
+
+  useEffect(() => {
+    parseUrl()
+    // 瀏覽器返回鍵：重新解析 URL，讓 列表 ⇄ 單日 跟著歷史紀錄走
+    window.addEventListener('popstate', parseUrl)
+    return () => window.removeEventListener('popstate', parseUrl)
+  }, [parseUrl])
 
   const [orderedSuppliers, setOrderedSuppliers] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -84,10 +114,28 @@ export default function OrdersPage() {
     }
   }, [])
 
-  useEffect(() => { fetchOrder(selectedDate) }, [selectedDate, fetchOrder])
+  useEffect(() => {
+    if (mode === 'day') fetchOrder(selectedDate)
+  }, [mode, selectedDate, fetchOrder])
 
   const supplierGroups = useMemo(() => groupBySupplier(details), [details])
   const grandTotal = useMemo(() => sumBy(details, d => d.subtotal), [details])
+
+  /** 進單日視圖（列表點行 / 日期導航共用），同步 URL 讓返回鍵可回列表 */
+  function openDay(date: string) {
+    setSelectedDate(date)
+    if (mode !== 'day') {
+      setMode('day')
+      window.history.pushState(null, '', `/dashboard/orders?date=${date}`)
+    } else {
+      window.history.replaceState(null, '', `/dashboard/orders?date=${date}`)
+    }
+  }
+
+  function backToList() {
+    setMode('list')
+    window.history.pushState(null, '', '/dashboard/orders')
+  }
 
   function toggleOrdered(supplier: string) {
     setOrderedSuppliers(prev => {
@@ -97,7 +145,7 @@ export default function OrdersPage() {
     })
   }
 
-  function goDay(offset: number) { setSelectedDate(prev => addDays(prev, offset)) }
+  function goDay(offset: number) { openDay(addDays(selectedDate, offset)) }
 
   async function handleDeleteOrder() {
     if (!order || !confirm('確定要刪除這整張訂單？所有品項都會被刪除。')) return
@@ -110,20 +158,50 @@ export default function OrdersPage() {
     }
   }
 
-  const orderedCount = orderedSuppliers.size
   const orderStatus = order ? STATUS_LABELS[order.status] || order.status : '無訂單'
 
-  const tabClass = (mode: ViewMode) =>
+  const tabClass = (m: ViewMode) =>
     `h-8 text-xs px-3 rounded-md font-medium transition-colors ${
-      viewMode === mode ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'
+      viewMode === m ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'
     }`
 
+  // URL 未解析完成（首次 render 的一瞬間）
+  if (mode === null) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // ── 列表模式 ──────────────────────────────────────────────
+  if (mode === 'list') {
+    return (
+      <div className="p-4 md:p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <h2 className="font-heading text-xl font-semibold">訂單管理</h2>
+          <Link href="/order">
+            <Button size="sm" className="gap-1.5"><PlusCircle className="size-3.5" /> 新增訂單</Button>
+          </Link>
+          <Button variant="outline" size="sm" className="ml-auto gap-1.5" onClick={() => openDay(today)}>
+            <CalendarDays className="size-3.5" /> 今日訂單
+          </Button>
+        </div>
+        <OrdersListView initialFilter={initialFilter} onSelectDate={openDay} />
+      </div>
+    )
+  }
+
+  // ── 單日模式（原有五 tab 視圖） ────────────────────────────
   return (
     <div className="p-4 md:p-6 space-y-5">
       {/* 頂部 */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="gap-1 -ml-2 text-muted-foreground" onClick={backToList}>
+              <ArrowLeft className="size-4" /> 列表
+            </Button>
             <h2 className="font-heading text-xl font-semibold">訂單管理</h2>
             <Link href="/order">
               <Button size="sm" className="gap-1.5"><PlusCircle className="size-3.5" /> 新增訂單</Button>
@@ -135,7 +213,7 @@ export default function OrdersPage() {
               <CalendarDays className="size-3.5 text-muted-foreground" />{formatDisplay(selectedDate)}
             </div>
             <Button variant="outline" size="icon" className="size-8" onClick={() => goDay(1)} disabled={isToday}><ChevronRight className="size-4" /></Button>
-            {!isToday && <Button variant="ghost" size="sm" onClick={() => setSelectedDate(today)}>回今天</Button>}
+            {!isToday && <Button variant="ghost" size="sm" onClick={() => openDay(today)}>回今天</Button>}
           </div>
           {order && (
             <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -204,9 +282,6 @@ export default function OrdersPage() {
           {viewMode === 'payment' && <PaymentTab details={details} orderId={order.id} />}
         </>
       )}
-
-      {/* orderedCount 只保留給未來可能用到的進度顯示 */}
-      {orderedCount > 0 && false}
     </div>
   )
 }
