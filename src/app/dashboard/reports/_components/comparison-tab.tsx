@@ -1,6 +1,8 @@
 import { Card, CardContent } from '@/components/ui/card'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/empty-state'
+import { DeltaBadge } from '@/components/ui/delta-badge'
 import type { ComparisonData } from './types'
 
 export function ComparisonTab({ data }: { data: ComparisonData }) {
@@ -31,7 +33,11 @@ export function ComparisonTab({ data }: { data: ComparisonData }) {
       </div>
 
       {data.items.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">此期間沒有叫貨紀錄</div>
+        <EmptyState
+          icon={ArrowLeftRight}
+          title="此期間沒有叫貨紀錄"
+          description="選擇有叫貨資料的兩個期間，即可比較各品項的採購量變化。"
+        />
       ) : (
         <Card>
           <CardContent className="pt-4">
@@ -56,9 +62,8 @@ export function ComparisonTab({ data }: { data: ComparisonData }) {
                       <td className="py-1.5 text-xs text-muted-foreground">{item.supplier}</td>
                       <td className="text-right py-1.5 tabular-nums">{item.period1Qty} {item.unit}</td>
                       <td className="text-right py-1.5 tabular-nums">{item.period2Qty} {item.unit}</td>
-                      <td className={cn('text-right py-1.5 tabular-nums font-medium',
-                        item.changeRate > 0 ? 'text-green-600' : item.changeRate < 0 ? 'text-red-600' : '')}>
-                        {item.changeRate > 0 ? '+' : ''}{item.changeRate}%
+                      <td className="text-right py-1.5">
+                        <DeltaBadge percent={item.changeRate} />
                       </td>
                     </tr>
                   ))}

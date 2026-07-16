@@ -1,4 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ArrowRightLeft } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import type { SettlementData } from './types'
 
@@ -27,7 +29,11 @@ export function SettlementTab({ data }: { data: SettlementData }) {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 text-muted-foreground">本月沒有門市間調撥紀錄</div>
+        <EmptyState
+          icon={ArrowRightLeft}
+          title="本月沒有門市間調撥紀錄"
+          description="當兩間門市之間有借料/調撥時，這裡會自動算出誰欠誰、月底一次結算。"
+        />
       )}
 
       {data.pairs.length > 0 && (

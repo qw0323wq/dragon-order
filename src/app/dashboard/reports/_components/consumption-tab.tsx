@@ -1,4 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
+import { Soup } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import type { ConsumptionData } from './types'
 
@@ -23,7 +25,11 @@ export function ConsumptionTab({ data }: { data: ConsumptionData }) {
       </div>
 
       {data.items.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">此期間沒有消耗資料（需要有訂單 + BOM 配方 + 庫存出貨紀錄）</div>
+        <EmptyState
+          icon={Soup}
+          title="此期間沒有消耗資料"
+          description="消耗需要有「訂單 + BOM 配方 + 庫存出貨紀錄」才算得出來，先確認這三項都有資料。"
+        />
       ) : (
         <Card>
           <CardContent className="pt-4">

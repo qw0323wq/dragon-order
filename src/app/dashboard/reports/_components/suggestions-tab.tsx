@@ -1,4 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PackageCheck } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import type { SuggestionData } from './types'
 
@@ -21,7 +23,11 @@ export function SuggestionsTab({ data }: { data: SuggestionData }) {
       </div>
 
       {data.suppliers.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">所有品項庫存充足，不需要補貨</div>
+        <EmptyState
+          icon={PackageCheck}
+          title="所有品項庫存充足"
+          description="目前沒有低於安全庫存的品項，暫時不需要補貨。"
+        />
       ) : (
         data.suppliers.map(group => (
           <Card key={group.supplierId}>

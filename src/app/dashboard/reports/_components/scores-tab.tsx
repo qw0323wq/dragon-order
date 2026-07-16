@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Star } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import type { ScoreData } from './types'
 
@@ -24,7 +25,11 @@ export function ScoresTab({ data }: { data: ScoreData }) {
       </div>
 
       {data.suppliers.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">此期間沒有叫貨單紀錄（需要有 PO + 驗收資料）</div>
+        <EmptyState
+          icon={Star}
+          title="此期間沒有叫貨單紀錄"
+          description="供應商評分需要有「叫貨單（PO）+ 驗收資料」，完成幾筆驗收後就會出現評分。"
+        />
       ) : (
         <div className="space-y-2">
           {data.suppliers.map(s => (

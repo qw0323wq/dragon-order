@@ -1,4 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Building2 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import type { GroupData } from './types'
 
 export function GroupTab({ data }: { data: GroupData }) {
@@ -101,7 +103,11 @@ export function GroupTab({ data }: { data: GroupData }) {
       )}
 
       {data.summary.grandTotal === 0 && (
-        <div className="text-center py-8 text-muted-foreground">此期間沒有採購紀錄</div>
+        <EmptyState
+          icon={Building2}
+          title="此期間沒有採購紀錄"
+          description="選擇有叫貨資料的月份，即可看到各門市的採購彙總與比較。"
+        />
       )}
     </div>
   )
