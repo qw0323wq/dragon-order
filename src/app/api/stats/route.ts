@@ -102,9 +102,16 @@ export async function GET(request: NextRequest) {
     .groupBy(orders.orderDate)
     .orderBy(orders.orderDate);
 
+  // 該月採購的「不重複品項數」— CRITICAL: 不可用 topItems.length，
+  // topItems 有 .limit(20) 會讓品項數永遠封頂在 20（超過 20 種就顯示錯的）。
+  const [{ distinctItems }] = await db
+    .select({ distinctItems: sql<number>`COUNT(DISTINCT ${orderItems.itemId})` })
+    .from(orderItems)
+    .where(sql`${orderIdFilter}${storeFilter}`);
+
   // 月度摘要
   const totalAmount = topSuppliers.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-  const itemCount = topItems.length;
+  const itemCount = Number(distinctItems);
   const orderCount = monthOrders.length;
 
   return NextResponse.json({
