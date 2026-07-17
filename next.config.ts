@@ -6,7 +6,14 @@ const nextConfig: NextConfig = {
   // CRITICAL: chromium 的 bin/*.br 是 runtime fs 讀取，file tracing 追不到，
   // 不強制 include 的話 lambda 上會噴 "bin does not exist"（2026-07-17 踩坑）
   outputFileTracingIncludes: {
-    "/api/purchase-orders/[id]/pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
+    // CRITICAL: key 是 picomatch glob —— [id] 會被當字元類，必須 escape 或用 **。
+    // 兩個 key 雙保險，效果相同：只有 PDF route 會夾帶 chromium bin（~80MB）。
+    "/api/purchase-orders/\\[id\\]/pdf/route": [
+      "./node_modules/@sparticuz/chromium/bin/**/*",
+    ],
+    "/api/purchase-orders/**/pdf/route": [
+      "./node_modules/@sparticuz/chromium/bin/**/*",
+    ],
   },
 };
 
