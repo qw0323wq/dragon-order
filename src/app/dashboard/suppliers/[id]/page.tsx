@@ -334,29 +334,29 @@ export default function SupplierDetailPage() {
           label="上架品項"
           value={formatAmount(activeItems.length)}
           icon={Package}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
           hint="可叫貨的品項數"
         />
         <StatCard
           label="已停用品項"
           value={formatAmount(inactiveItems.length)}
           icon={Archive}
-          accent="bg-slate-100 text-slate-600"
+          accent="bg-muted text-muted-foreground"
           hint="可隨時重新上架"
         />
         <StatCard
           label="待生效改價"
           value={formatAmount(Object.keys(pendingSchedules).length)}
           icon={CalendarClock}
-          accent="bg-amber-100 text-amber-600"
+          accent="bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400"
           hint="已排程的進貨價調整"
         />
       </div>
 
       {/* 上傳結果 */}
       {uploadResult && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="py-3 flex items-center gap-2 text-sm text-green-700">
+        <Card className="border-green-200 bg-green-50 dark:border-green-500/30 dark:bg-green-500/15">
+          <CardContent className="py-3 flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
             <FileSpreadsheet className="size-4 shrink-0" />
             <span className="tabular-nums">
               報價單匯入完成：更新 {uploadResult.updated} 個、新增 {uploadResult.created} 個品項
@@ -425,7 +425,7 @@ export default function SupplierDetailPage() {
                       <TableCell className="text-right tabular-nums">
                         {formatCurrency(item.costPrice)}
                         {pendingSchedules[item.id] && (
-                          <span className="ml-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded whitespace-nowrap">
+                          <span className="ml-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded whitespace-nowrap dark:text-amber-400 dark:bg-amber-500/15">
                             {pendingSchedules[item.id].effectiveDate.slice(5)} 起→{formatCurrency(pendingSchedules[item.id].newCostPrice)}
                           </span>
                         )}

@@ -309,7 +309,7 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                         )}
                         {selectedIng.primaryCost != null && selectedIng.primarySupplierName && (
                           <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-0.5">
-                            <Star className="size-3 fill-yellow-400 text-yellow-500" />
+                            <Star className="size-3 fill-yellow-400 text-yellow-500 dark:text-yellow-400" />
                             {selectedIng.primarySupplierName} ${selectedIng.primaryCost}/{selectedIng.unit}
                           </span>
                         )}
@@ -417,7 +417,7 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
 
                   {/* 跨維度單位換算設定（如 5顆 貢丸 vs $650/包） */}
                   {showFactor && (
-                    <div className="ml-6 flex flex-wrap items-center gap-1.5 text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                    <div className="ml-6 flex flex-wrap items-center gap-1.5 text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded px-2 py-1 dark:text-orange-300 dark:bg-orange-500/15 dark:border-orange-500/30">
                       <span className="shrink-0">單位換算：1 {ig.itemUnit || "計價單位"} =</span>
                       <Input
                         type="number"
@@ -437,7 +437,7 @@ export function BomDialog({ open, onOpenChange, editTarget, onSaved }: BomDialog
                       />
                       <span className="shrink-0">{ig.quantityUnit || "用量單位"}</span>
                       {!ig.costFactor && (
-                        <span className="shrink-0 text-orange-600">← 未設定，此食材成本未計入</span>
+                        <span className="shrink-0 text-orange-600 dark:text-orange-400">← 未設定，此食材成本未計入</span>
                       )}
                     </div>
                   )}

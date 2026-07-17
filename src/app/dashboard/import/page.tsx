@@ -193,32 +193,38 @@ function ItemOverviewTable({ rows, summary }: ItemOverviewTableProps) {
           label="總品項數"
           value={formatAmount(summary.totalItems)}
           icon={FileSpreadsheet}
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
         />
         <StatCard
           label="總銷售量"
           value={formatAmount(summary.totalQuantity)}
           icon={ShoppingCart}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
         />
         <StatCard
           label="總營業額"
           value={fmtMoney(summary.totalRevenue)}
           icon={TrendingUp}
-          accent="bg-red-100 text-red-600"
+          accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
         />
         <StatCard
           label="已比對品項"
           value={
-            <span className={matchedCount === rows.length ? 'text-green-600' : 'text-yellow-600'}>
+            <span
+              className={
+                matchedCount === rows.length
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-yellow-600 dark:text-yellow-400'
+              }
+            >
               {formatAmount(matchedCount)} / {formatAmount(rows.length)}
             </span>
           }
           icon={CheckCircle2}
           accent={
             matchedCount === rows.length
-              ? 'bg-green-100 text-green-600'
-              : 'bg-yellow-100 text-yellow-600'
+              ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400'
+              : 'bg-yellow-100 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-400'
           }
           hint={matchedCount === rows.length ? '全部比對成功' : '未匹配的品項無法算毛利'}
         />
@@ -286,8 +292,8 @@ function ItemOverviewTable({ rows, summary }: ItemOverviewTableProps) {
                       <span
                         className={
                           row.estimatedProfit >= 0
-                            ? 'text-green-600 font-medium'
-                            : 'text-red-600 font-medium'
+                            ? 'text-green-600 dark:text-green-400 font-medium'
+                            : 'text-red-600 dark:text-red-400 font-medium'
                         }
                       >
                         {fmtMoney(row.estimatedProfit)}
@@ -322,19 +328,19 @@ function CategoryOverviewTable({
           label="分類數"
           value={formatAmount(summary.totalCategories)}
           icon={BarChart3}
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
         />
         <StatCard
           label="總銷售量"
           value={formatAmount(summary.totalQuantity)}
           icon={ShoppingCart}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
         />
         <StatCard
           label="總營業額"
           value={fmtMoney(summary.totalRevenue)}
           icon={TrendingUp}
-          accent="bg-red-100 text-red-600"
+          accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
         />
       </div>
 
@@ -407,13 +413,13 @@ function CheckoutTable({
           label="總訂單數"
           value={formatAmount(summary.totalOrders)}
           icon={ShoppingCart}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
         />
         <StatCard
           label="總營業額"
           value={fmtMoney(summary.totalRevenue)}
           icon={TrendingUp}
-          accent="bg-red-100 text-red-600"
+          accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
         />
         <div className="col-span-2 md:col-span-1">
           <div className="flex h-full items-start justify-between gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
@@ -431,7 +437,7 @@ function CheckoutTable({
                 ))}
               </div>
             </div>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
               <CreditCard className="size-5" />
             </div>
           </div>

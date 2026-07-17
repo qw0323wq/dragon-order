@@ -46,9 +46,9 @@ interface ReceivingItem {
 
 const RESULT_OPTIONS = ["正常", "短缺", "品質問題", "未到貨"];
 const RESULT_COLORS: Record<string, string> = {
-  正常: "text-green-600",
-  短缺: "text-yellow-600",
-  品質問題: "text-red-600",
+  正常: "text-green-600 dark:text-green-400",
+  短缺: "text-yellow-600 dark:text-yellow-400",
+  品質問題: "text-red-600 dark:text-red-400",
   未到貨: "text-muted-foreground",
 };
 
@@ -223,7 +223,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-base font-semibold bg-orange-50 text-orange-700 ring-1 ring-orange-200">
+      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-base font-semibold bg-orange-50 text-orange-700 ring-1 ring-orange-200 dark:bg-orange-500/15 dark:text-orange-400 dark:ring-orange-500/30">
         <AlertTriangle className="size-5 shrink-0" />
         <span>
           還有 <span className="tabular-nums">{items.length}</span> 項待驗收（近 7 天）
@@ -254,7 +254,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                 return (
                   <div
                     key={item.orderItemId}
-                    className={`px-3 py-3 sm:px-4 space-y-2 flex gap-2 sm:gap-3 transition-colors ${item.isReceived ? "bg-green-50/50" : "hover:bg-muted/30"}`}
+                    className={`px-3 py-3 sm:px-4 space-y-2 flex gap-2 sm:gap-3 transition-colors ${item.isReceived ? "bg-green-50/50 dark:bg-green-500/10" : "hover:bg-muted/30"}`}
                   >
                     <div
                       className={`w-1 rounded-full shrink-0 self-stretch ${item.isReceived ? "bg-green-400" : "bg-transparent"}`}
@@ -333,14 +333,14 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                         input &&
                         input.result === "品質問題" && (
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-red-600 font-medium shrink-0">退貨</span>
+                            <span className="text-sm text-red-600 dark:text-red-400 font-medium shrink-0">退貨</span>
                             <input
                               type="number"
                               inputMode="decimal"
                               step="0.5"
                               min="0"
                               max={input.receivedQty}
-                              className="w-20 h-12 shrink-0 text-center text-base tabular-nums border border-red-300 rounded-xl bg-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-red-400/40 focus:border-red-400"
+                              className="w-20 h-12 shrink-0 text-center text-base tabular-nums border border-red-300 dark:border-red-500/30 rounded-xl bg-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-red-400/40 focus:border-red-400"
                               value={input.returnedQty}
                               onChange={(e) =>
                                 updateInput(

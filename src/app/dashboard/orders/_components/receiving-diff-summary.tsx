@@ -100,14 +100,14 @@ export function ReceivingDiffSummary({ details }: ReceivingDiffSummaryProps) {
             label="訂購金額"
             value={formatCurrency(orderedTotal)}
             icon={ShoppingCart}
-            accent="bg-red-100 text-red-600"
+            accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
             hint="按訂購量 × 單價"
           />
           <StatCard
             label="應付金額"
             value={<span className="text-primary">{formatCurrency(payableTotal)}</span>}
             icon={Receipt}
-            accent="bg-orange-100 text-orange-600"
+            accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
             /*
               invert：短收（應付 < 訂購）要顯示紅色警示，與下方差異表的紅色一致。
               預設的「漲紅跌綠」會把短收畫成綠色（像是省到錢），語意相反。
@@ -124,15 +124,15 @@ export function ReceivingDiffSummary({ details }: ReceivingDiffSummaryProps) {
           <StatCard
             label="差異品項"
             value={
-              <span className={diffRows.length > 0 ? 'text-orange-600' : 'text-green-600'}>
+              <span className={diffRows.length > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}>
                 {diffRows.length} 項
               </span>
             }
             icon={PackageX}
             accent={
               diffRows.length > 0
-                ? 'bg-orange-100 text-orange-600'
-                : 'bg-green-100 text-green-600'
+                ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400'
+                : 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400'
             }
             hint={diffRows.length > 0 ? '需要跟供應商確認' : '全部如數到貨'}
           />
@@ -167,7 +167,9 @@ export function ReceivingDiffSummary({ details }: ReceivingDiffSummaryProps) {
                     </TableCell>
                     <TableCell
                       className={`text-right tabular-nums font-medium ${
-                        r.qtyDiff < 0 ? 'text-red-600' : 'text-orange-600'
+                        r.qtyDiff < 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-orange-600 dark:text-orange-400'
                       }`}
                     >
                       {r.qtyDiff > 0 ? '+' : ''}
@@ -175,7 +177,9 @@ export function ReceivingDiffSummary({ details }: ReceivingDiffSummaryProps) {
                     </TableCell>
                     <TableCell
                       className={`text-right tabular-nums font-semibold ${
-                        r.amountImpact < 0 ? 'text-red-600' : 'text-orange-600'
+                        r.amountImpact < 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-orange-600 dark:text-orange-400'
                       }`}
                     >
                       {r.amountImpact > 0 ? '+' : ''}

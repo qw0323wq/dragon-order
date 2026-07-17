@@ -48,7 +48,7 @@ export function SuggestionsTab({ data }: { data: SuggestionData }) {
                       <span className="text-xs text-muted-foreground ml-1">{item.category}</span>
                     </div>
                     <div className="text-right text-xs">
-                      <span className="text-red-600">庫存 {item.currentStock}</span>
+                      <span className="text-red-600 dark:text-red-400">庫存 {item.currentStock}</span>
                       <span className="text-muted-foreground mx-1">/</span>
                       <span>安全 {item.safetyStock}</span>
                       <span className="ml-2 font-semibold text-primary">建議叫 {item.suggestedQty} {item.unit}</span>

@@ -69,20 +69,20 @@ export function GroupTab({ data }: { data: GroupData }) {
           label="總採購金額"
           value={formatCurrency(grandTotal)}
           icon={Wallet}
-          accent="bg-red-100 text-red-600"
+          accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
           hint="本期間合計"
         />
         <StatCard
           label="訂單數"
           value={data.summary.totalOrders}
           icon={ClipboardList}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
         />
         <StatCard
           label="門市數"
           value={data.summary.storeCount}
           icon={Store}
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
         />
       </div>
 

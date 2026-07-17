@@ -454,7 +454,7 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
             return (
               <Card
                 key={ing.id}
-                className={`${ing.isLow ? "border-amber-300" : ""} ${hasNeed ? "ring-1 ring-primary/30" : ""}`}
+                className={`${ing.isLow ? "border-amber-300 dark:border-amber-500/30" : ""} ${hasNeed ? "ring-1 ring-primary/30" : ""}`}
               >
                 <CardContent className="py-3 px-3 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -466,7 +466,7 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
                     <span className="font-medium text-base">{ing.name}</span>
                     <span className="text-xs text-muted-foreground">/{ing.unit}</span>
                     {ing.isLow && (
-                      <span className="text-xs text-amber-700 flex items-center gap-0.5 shrink-0">
+                      <span className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-0.5 shrink-0">
                         <AlertCircle className="size-3.5" />
                         低於安全庫存
                       </span>
@@ -481,7 +481,7 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
                       </span>
                     )}
                     {ing.suggestedQty > 0 && (
-                      <Badge variant="outline" className="text-xs tabular-nums border-blue-200 text-blue-700 bg-blue-50">
+                      <Badge variant="outline" className="text-xs tabular-nums border-blue-200 text-blue-700 bg-blue-50 dark:border-blue-500/30 dark:text-blue-400 dark:bg-blue-500/15">
                         建議 {ing.suggestedQty}
                       </Badge>
                     )}

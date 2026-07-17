@@ -283,8 +283,8 @@ export default function PaymentsPage() {
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:items-center sm:gap-6 print:flex print:gap-6">
                       <TotalFigure label="採購" value={fmtAmount(report.summary.totalAmount)} className="text-muted-foreground" />
                       <TotalFigure label="應付" value={fmtAmount(report.summary.payableAmount)} className="text-primary" emphasis />
-                      <TotalFigure label="已付" value={fmtAmount(report.summary.paidAmount)} className="text-green-600" />
-                      <TotalFigure label="未付" value={fmtAmount(report.summary.unpaidAmount)} className="text-red-600" />
+                      <TotalFigure label="已付" value={fmtAmount(report.summary.paidAmount)} className="text-green-600 dark:text-green-400" />
+                      <TotalFigure label="未付" value={fmtAmount(report.summary.unpaidAmount)} className="text-red-600 dark:text-red-400" />
                     </div>
                   </div>
                 </CardContent>

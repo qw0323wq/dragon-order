@@ -196,7 +196,7 @@ interface ActionConfig {
 const WASTE_CONFIG: ActionConfig = {
   type: "waste",
   recentKey: RECENT_WASTE_KEY,
-  banner: { bg: "bg-orange-50 text-orange-700", text: "orange", icon: <Trash2 className="size-4 shrink-0" />, message: "食材報廢登記（過期、損壞等），會自動扣除庫存" },
+  banner: { bg: "bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400", text: "orange", icon: <Trash2 className="size-4 shrink-0" />, message: "食材報廢登記（過期、損壞等），會自動扣除庫存" },
   buttonText: "送出報廢",
   buttonIcon: <Trash2 className="size-5" />,
   successVerb: "報廢",
@@ -207,7 +207,7 @@ const WASTE_CONFIG: ActionConfig = {
 const MEAL_CONFIG: ActionConfig = {
   type: "meal",
   recentKey: RECENT_MEAL_KEY,
-  banner: { bg: "bg-purple-50 text-purple-700", text: "purple", icon: <UtensilsCrossed className="size-4 shrink-0" />, message: "員工用餐登記，會自動扣除庫存" },
+  banner: { bg: "bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400", text: "purple", icon: <UtensilsCrossed className="size-4 shrink-0" />, message: "員工用餐登記，會自動扣除庫存" },
   buttonText: "送出登記",
   buttonIcon: <UtensilsCrossed className="size-5" />,
   successVerb: "員工餐",
@@ -494,7 +494,7 @@ export function StocktakeTab({ storeId }: TabProps) {
   if (!loaded) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-xl text-sm font-medium">
+        <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400 rounded-xl text-sm font-medium">
           <ClipboardCheck className="size-4 shrink-0" />
           盤點實際庫存，系統會自動調整差異
         </div>
@@ -512,7 +512,7 @@ export function StocktakeTab({ storeId }: TabProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-xl text-sm font-medium">
+      <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400 rounded-xl text-sm font-medium">
         <ClipboardCheck className="size-4 shrink-0" />
         填入實際庫存數量，留空 = 不調整
       </div>
@@ -560,7 +560,7 @@ export function StocktakeTab({ storeId }: TabProps) {
                 <div className="text-sm text-muted-foreground">
                   系統：{item.current_stock} {item.unit}
                   {diff !== null && diff !== 0 && (
-                    <span className={`ml-2 font-semibold ${diff > 0 ? "text-green-600" : "text-red-600"}`}>
+                    <span className={`ml-2 font-semibold ${diff > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                       {diff > 0 ? "+" : ""}{diff.toFixed(1)}
                     </span>
                   )}

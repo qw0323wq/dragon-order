@@ -185,21 +185,21 @@ export default function PriceSchedulePage() {
             label={STAT_LABEL[statusFilter] ?? '全部排程'}
             value={formatAmount(schedules.length)}
             icon={CalendarClock}
-            accent="bg-blue-100 text-blue-600"
+            accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
             hint="筆排程"
           />
           <StatCard
             label="漲價"
             value={formatAmount(upCount)}
             icon={TrendingUp}
-            accent="bg-red-100 text-red-600"
+            accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
             hint="筆成本調高"
           />
           <StatCard
             label="降價"
             value={formatAmount(downCount)}
             icon={TrendingDown}
-            accent="bg-green-100 text-green-600"
+            accent="bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400"
             hint="筆成本調低"
           />
         </div>
@@ -261,8 +261,8 @@ export default function PriceSchedulePage() {
                 key={s.id}
                 className={cn(
                   'rounded-xl p-3 md:p-4 ring-1 transition-shadow hover:shadow-sm',
-                  s.status === 'pending' ? 'bg-amber-50 ring-amber-200' :
-                  s.status === 'applied' ? 'bg-green-50 ring-green-200' :
+                  s.status === 'pending' ? 'bg-amber-50 ring-amber-200 dark:bg-amber-500/15 dark:ring-amber-500/30' :
+                  s.status === 'applied' ? 'bg-green-50 ring-green-200 dark:bg-green-500/15 dark:ring-green-500/30' :
                   'bg-muted/40 ring-foreground/10'
                 )}
               >
@@ -283,7 +283,7 @@ export default function PriceSchedulePage() {
                       <span
                         className={cn(
                           'font-semibold tabular-nums',
-                          isUp ? 'text-red-600' : 'text-green-600'
+                          isUp ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
                         )}
                       >
                         {formatCurrency(newCost)}/{s.itemUnit}
@@ -314,14 +314,14 @@ export default function PriceSchedulePage() {
                         size="sm"
                         onClick={() => handleCancel(s.id)}
                         title="取消排程"
-                        className="size-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                        className="size-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/20"
                       >
                         <Ban className="h-4 w-4" />
                       </Button>
                     )}
                     {s.status === 'applied' && (
                       <span title="已生效" className="flex size-8 items-center justify-center">
-                        <Check className="h-5 w-5 text-green-600" />
+                        <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
                       </span>
                     )}
                     {s.status === 'cancelled' && (
@@ -426,7 +426,11 @@ export default function PriceSchedulePage() {
                 <span
                   className={cn(
                     'font-semibold tabular-nums',
-                    priceDiff > 0 ? 'text-red-600' : priceDiff < 0 ? 'text-green-600' : 'text-foreground'
+                    priceDiff > 0
+                      ? 'text-red-600 dark:text-red-400'
+                      : priceDiff < 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-foreground'
                   )}
                 >
                   {formatCurrency(roundMoney(parseFloat(formData.newCostPrice) || 0))}

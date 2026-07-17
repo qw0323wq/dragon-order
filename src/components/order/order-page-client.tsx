@@ -349,7 +349,7 @@ export default function OrderPageClient({
               max={formatDateLocal()}
             />
             {orderDate !== formatDateLocal() && (
-              <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-semibold">
+              <span className="text-xs bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 px-2 py-0.5 rounded-full font-semibold">
                 補單
               </span>
             )}
@@ -441,15 +441,15 @@ export default function OrderPageClient({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem onClick={() => setActiveTab('waste')} className="gap-2 text-base py-3">
-                  <Trash2 className="size-4 text-orange-500" />
+                  <Trash2 className="size-4 text-orange-500 dark:text-orange-400" />
                   報廢
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setActiveTab('meal')} className="gap-2 text-base py-3">
-                  <UtensilsCrossed className="size-4 text-purple-500" />
+                  <UtensilsCrossed className="size-4 text-purple-500 dark:text-purple-400" />
                   員工餐
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setActiveTab('stocktake')} className="gap-2 text-base py-3">
-                  <PackageCheck className="size-4 text-blue-500" />
+                  <PackageCheck className="size-4 text-blue-500 dark:text-blue-400" />
                   盤點
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -789,8 +789,8 @@ export default function OrderPageClient({
           <SheetFooter className="flex-col gap-2">
             {/* 門市未選時在 Sheet 內提示選擇 */}
             {!selectedStoreId && (
-              <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-xl w-full">
-                <AlertTriangle className="size-5 text-orange-500 shrink-0" />
+              <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-500/15 rounded-xl w-full">
+                <AlertTriangle className="size-5 text-orange-500 dark:text-orange-400 shrink-0" />
                 <Select value={selectedStoreId} onValueChange={(v) => setSelectedStoreId(v ?? "")}>
                   <SelectTrigger className="flex-1 h-11 rounded-xl text-base">
                     <SelectValue placeholder="請先選擇門市" />

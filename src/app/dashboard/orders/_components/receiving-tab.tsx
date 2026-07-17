@@ -151,7 +151,9 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
     <div className="space-y-4">
       {/* 驗收進度：完成綠底、未完成灰底 + 進度數字 */}
       <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${
-        allDone ? 'bg-green-50 text-green-700' : 'bg-muted text-muted-foreground'
+        allDone
+          ? 'bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-400'
+          : 'bg-muted text-muted-foreground'
       }`}>
         {allDone ? (
           <CheckCircle2 className="size-4 shrink-0" />
@@ -172,12 +174,12 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
       {Array.from(supplierGroups.entries()).map(([supplierName, supplierItems]) => {
         const allSupplierReceived = supplierItems.every((i) => receivedIds.has(i.orderItemId))
         return (
-          <Card key={supplierName} className={allSupplierReceived ? 'border-green-200' : ''}>
+          <Card key={supplierName} className={allSupplierReceived ? 'border-green-200 dark:border-green-500/30' : ''}>
             <CardHeader className="border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base">{supplierName}</CardTitle>
                 {allSupplierReceived && (
-                  <Badge className="gap-1 bg-green-100 text-green-700 border-green-200">
+                  <Badge className="gap-1 bg-green-100 text-green-700 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30">
                     <CheckCircle2 className="size-3" /> 已驗收
                   </Badge>
                 )}
@@ -205,11 +207,15 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
                     return (
                       <TableRow
                         key={item.orderItemId}
-                        className={isReceived ? 'bg-green-50/50 hover:bg-green-50' : 'hover:bg-muted/30'}
+                        className={
+                          isReceived
+                            ? 'bg-green-50/50 hover:bg-green-50 dark:bg-green-500/10 dark:hover:bg-green-500/15'
+                            : 'hover:bg-muted/30'
+                        }
                       >
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-1.5">
-                            {isReceived && <CheckCircle2 className="size-3.5 text-green-500 shrink-0" />}
+                            {isReceived && <CheckCircle2 className="size-3.5 text-green-500 dark:text-green-400 shrink-0" />}
                             {item.itemName}
                           </div>
                         </TableCell>
@@ -242,7 +248,7 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
                             <div className="flex items-center gap-1">
                               <Input
                                 type="number" step="0.5" min="0" max={input.receivedQty}
-                                className="w-16 h-8 text-sm text-center tabular-nums border-red-300"
+                                className="w-16 h-8 text-sm text-center tabular-nums border-red-300 dark:border-red-500/30"
                                 placeholder="0"
                                 value={input.returnedQty}
                                 onChange={(e) => handleInputChange(item.orderItemId, 'returnedQty', e.target.value)}

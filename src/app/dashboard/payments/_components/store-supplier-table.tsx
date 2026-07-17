@@ -55,17 +55,17 @@ export function StoreSupplierTable({ suppliers }: StoreTableProps) {
                     {s.payableAmount === null ? (
                       <span className="text-muted-foreground text-xs">未驗收</span>
                     ) : (
-                      <span className={s.payableAmount !== s.totalAmount ? 'text-orange-600' : ''}>
+                      <span className={s.payableAmount !== s.totalAmount ? 'text-orange-600 dark:text-orange-400' : ''}>
                         {fmtAmount(s.payableAmount)}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums text-green-600">
+                  <TableCell className="text-right tabular-nums text-green-600 dark:text-green-400">
                     {fmtAmount(s.paidAmount)}
                   </TableCell>
                   <TableCell
                     className={`text-right font-semibold tabular-nums ${
-                      s.unpaidAmount > 0 ? 'text-red-600' : 'text-muted-foreground'
+                      s.unpaidAmount > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
                     }`}
                   >
                     {fmtAmount(s.unpaidAmount)}
@@ -78,8 +78,8 @@ export function StoreSupplierTable({ suppliers }: StoreTableProps) {
               <TableCell colSpan={2}>合計</TableCell>
               <TableCell className="text-right tabular-nums text-muted-foreground">{fmtAmount(subtotalAmount)}</TableCell>
               <TableCell className="text-right tabular-nums text-primary">{fmtAmount(subtotalPayable)}</TableCell>
-              <TableCell className="text-right tabular-nums text-green-600">{fmtAmount(subtotalPaid)}</TableCell>
-              <TableCell className="text-right tabular-nums text-red-600">{fmtAmount(subtotalUnpaid)}</TableCell>
+              <TableCell className="text-right tabular-nums text-green-600 dark:text-green-400">{fmtAmount(subtotalPaid)}</TableCell>
+              <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400">{fmtAmount(subtotalUnpaid)}</TableCell>
             </TableRow>
           </TableBody>
         </Table>

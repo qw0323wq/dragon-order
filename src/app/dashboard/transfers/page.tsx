@@ -54,10 +54,11 @@ interface StoreOption { id: number; name: string }
 interface ItemOption { id: number; name: string; unit: string; category: string }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  pending: { label: '待確認', color: 'bg-yellow-100 text-yellow-700' },
-  confirmed: { label: '已確認', color: 'bg-blue-100 text-blue-700' },
-  returned: { label: '已歸還', color: 'bg-green-100 text-green-700' },
-  settled: { label: '已沖銷', color: 'bg-gray-100 text-gray-700' },
+  pending: { label: '待確認', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400' },
+  confirmed: { label: '已確認', color: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },
+  returned: { label: '已歸還', color: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' },
+  // 中性狀態改用語意 token，深色自動適應（原本 bg-gray-100 text-gray-700 是淺色專用）
+  settled: { label: '已沖銷', color: 'bg-muted text-muted-foreground' },
 }
 
 export default function TransfersPage() {
@@ -217,21 +218,21 @@ export default function TransfersPage() {
           label="調撥紀錄"
           value={formatAmount(transfers.length)}
           icon={ArrowRightLeft}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
           hint="筆（依目前篩選）"
         />
         <StatCard
           label="進行中"
           value={formatAmount(activeCount)}
           icon={Clock}
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
           hint="尚未歸還或沖銷"
         />
         <StatCard
           label="未歸還借料"
           value={formatAmount(borrowCount)}
           icon={RotateCcw}
-          accent="bg-amber-100 text-amber-600"
+          accent="bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400"
           hint={borrowCount > 0 ? '記得追回' : '都已結清'}
           className="col-span-2 sm:col-span-1"
         />
@@ -324,10 +325,10 @@ export default function TransfersPage() {
                         <span className="min-w-0 truncate">{item.item_name}</span>
                         <div className="flex shrink-0 items-center gap-2 tabular-nums">
                           {isBorrow && item.returned_qty > 0 && (
-                            <span className="text-green-600">已還 {item.returned_qty}</span>
+                            <span className="text-green-600 dark:text-green-400">已還 {item.returned_qty}</span>
                           )}
                           {isBorrow && item.quantity > item.returned_qty && isActive && (
-                            <span className="text-amber-600">
+                            <span className="text-amber-600 dark:text-amber-400">
                               未還 {(item.quantity - item.returned_qty).toFixed(1)}
                             </span>
                           )}

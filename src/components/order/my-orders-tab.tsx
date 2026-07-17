@@ -19,11 +19,11 @@ import {
 } from "lucide-react";
 
 const STATUS: Record<string, { label: string; color: string }> = {
-  draft: { label: "編輯中", color: "bg-yellow-100 text-yellow-700" },
-  submitted: { label: "已送出", color: "bg-blue-100 text-blue-700" },
-  ordered: { label: "已叫貨", color: "bg-purple-100 text-purple-700" },
-  receiving: { label: "待驗收", color: "bg-orange-100 text-orange-700" },
-  received: { label: "已驗收", color: "bg-green-100 text-green-700" },
+  draft: { label: "編輯中", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" },
+  submitted: { label: "已送出", color: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400" },
+  ordered: { label: "已叫貨", color: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400" },
+  receiving: { label: "待驗收", color: "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400" },
+  received: { label: "已驗收", color: "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" },
   closed: { label: "已結案", color: "bg-muted text-muted-foreground" },
 };
 

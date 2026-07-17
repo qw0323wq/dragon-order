@@ -127,21 +127,21 @@ export default function SuppliersPage() {
             label="供應商"
             value={`${formatAmount(suppliers.length)} 家`}
             icon={Store}
-            accent="bg-blue-100 text-blue-600"
+            accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
             hint={`${stats.categoryCount} 個分類`}
           />
           <StatCard
             label="品項總數"
             value={formatAmount(stats.totalItems)}
             icon={Package}
-            accent="bg-orange-100 text-orange-600"
+            accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
             hint="所有供應商合計"
           />
           <StatCard
             label="現結供應商"
             value={`${formatAmount(stats.cashCount)} 家`}
             icon={CreditCard}
-            accent="bg-red-100 text-red-600"
+            accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
             hint={`月結 ${formatAmount(stats.monthlyCount)} 家`}
           />
         </div>

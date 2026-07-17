@@ -17,7 +17,7 @@ export function ConsumptionTab({ data }: { data: ConsumptionData }) {
           <div className="text-xs text-muted-foreground">平均損耗率</div>
         </CardContent></Card>
         <Card><CardContent className="pt-4 text-center">
-          <div className={cn('text-2xl font-bold', data.summary.highWaste > 0 ? 'text-red-600' : 'text-green-600')}>
+          <div className={cn('text-2xl font-bold', data.summary.highWaste > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')}>
             {data.summary.highWaste}
           </div>
           <div className="text-xs text-muted-foreground">高損耗品項(&gt;10%)</div>
@@ -46,17 +46,17 @@ export function ConsumptionTab({ data }: { data: ConsumptionData }) {
                 </thead>
                 <tbody>
                   {data.items.map(item => (
-                    <tr key={item.itemId} className={cn('border-b border-border/50', item.wasteRate !== null && item.wasteRate > 10 && 'bg-red-50/50')}>
+                    <tr key={item.itemId} className={cn('border-b border-border/50', item.wasteRate !== null && item.wasteRate > 10 && 'bg-red-50/50 dark:bg-red-500/10')}>
                       <td className="py-1.5">
                         <span className="font-medium">{item.itemName}</span>
                         <span className="text-xs text-muted-foreground ml-1">{item.unit}</span>
                       </td>
                       <td className="text-right py-1.5 tabular-nums">{item.theoreticalQty}</td>
                       <td className="text-right py-1.5 tabular-nums">{item.actualQty}</td>
-                      <td className={cn('text-right py-1.5 tabular-nums', item.diff > 0 ? 'text-red-600' : item.diff < 0 ? 'text-green-600' : '')}>
+                      <td className={cn('text-right py-1.5 tabular-nums', item.diff > 0 ? 'text-red-600 dark:text-red-400' : item.diff < 0 ? 'text-green-600 dark:text-green-400' : '')}>
                         {item.diff > 0 ? '+' : ''}{item.diff}
                       </td>
-                      <td className={cn('text-right py-1.5 font-medium', item.wasteRate !== null && item.wasteRate > 10 ? 'text-red-600' : item.wasteRate !== null && item.wasteRate > 5 ? 'text-yellow-600' : 'text-green-600')}>
+                      <td className={cn('text-right py-1.5 font-medium', item.wasteRate !== null && item.wasteRate > 10 ? 'text-red-600 dark:text-red-400' : item.wasteRate !== null && item.wasteRate > 5 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400')}>
                         {item.wasteRate !== null ? `${item.wasteRate}%` : '—'}
                       </td>
                     </tr>

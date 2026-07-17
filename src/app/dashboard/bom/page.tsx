@@ -271,21 +271,21 @@ export default function BomPage() {
           label="菜品總數"
           value={formatAmount(data.length)}
           icon={BookOpen}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
           hint={showInactive ? "含已下架" : "上架中"}
         />
         <StatCard
           label="配方明細"
           value={formatAmount(stats.ingredientCount)}
           icon={ListTree}
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
           hint="食材對應筆數"
         />
         <StatCard
           label="低毛利菜品"
           value={formatAmount(stats.lowMarginCount)}
           icon={AlertTriangle}
-          accent="bg-red-100 text-red-600"
+          accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
           hint={`分店毛利 < ${MARGIN_THRESHOLDS.STORE_LOW * 100}%`}
         />
       </div>

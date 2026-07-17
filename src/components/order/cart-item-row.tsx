@@ -55,7 +55,7 @@ export function CartItemRow({ cartItem, showPrice, onQuantityChange, onRemove }:
         className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors shrink-0 ${
           confirmDelete
             ? 'bg-red-500 text-white animate-pulse'
-            : 'text-red-400 hover:text-red-600 hover:bg-red-50'
+            : 'text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-500/15'
         }`}
         aria-label={confirmDelete ? `確認移除 ${item.name}` : `移除 ${item.name}`}>
         <TrashIcon className="size-5" />

@@ -30,36 +30,36 @@ export function SummaryCards({ totalAmount, payableAmount, paidAmount, unpaidAmo
         label="採購金額"
         value={<span className="text-primary">{fmtAmount(totalAmount)}</span>}
         icon={ShoppingCart}
-        accent="bg-red-100 text-red-600"
+        accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
         hint="按訂購量 × 單價"
       />
       <StatCard
         label="應付金額"
         value={
-          <span className={hasDiff ? 'text-orange-600' : 'text-primary'}>
+          <span className={hasDiff ? 'text-orange-600 dark:text-orange-400' : 'text-primary'}>
             {fmtAmount(payableAmount)}
           </span>
         }
         icon={Receipt}
-        accent="bg-orange-100 text-orange-600"
+        accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
         hint={hasDiff ? '按實收 − 退貨' : '與採購金額相符'}
       />
       <StatCard
         label="已付金額"
-        value={<span className="text-green-600">{fmtAmount(paidAmount)}</span>}
+        value={<span className="text-green-600 dark:text-green-400">{fmtAmount(paidAmount)}</span>}
         icon={CheckCircle2}
-        accent="bg-green-100 text-green-600"
+        accent="bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400"
         hint={isSettled ? '本月已結清' : undefined}
       />
       <StatCard
         label="未付金額"
         value={
-          <span className={unpaidAmount > 0 ? 'text-red-600' : 'text-muted-foreground'}>
+          <span className={unpaidAmount > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}>
             {fmtAmount(unpaidAmount)}
           </span>
         }
         icon={AlertCircle}
-        accent={unpaidAmount > 0 ? 'bg-red-100 text-red-600' : 'bg-muted text-muted-foreground'}
+        accent={unpaidAmount > 0 ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400' : 'bg-muted text-muted-foreground'}
         hint={unpaidAmount > 0 ? '尚有帳款待付' : undefined}
       />
     </div>

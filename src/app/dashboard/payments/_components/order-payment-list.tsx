@@ -176,8 +176,8 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
           <Badge
             className={
               paymentType === '月結'
-                ? 'bg-blue-100 text-blue-700 border-blue-200'
-                : 'bg-orange-100 text-orange-700 border-orange-200'
+                ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30'
+                : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30'
             }
           >
             {filtered.length} 張
@@ -276,14 +276,14 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                     {o.payableAmount === null ? (
                       <span className="text-muted-foreground text-xs">未驗收</span>
                     ) : (
-                      <span className={o.payableAmount !== o.totalAmount ? 'text-orange-600' : ''}>
+                      <span className={o.payableAmount !== o.totalAmount ? 'text-orange-600 dark:text-orange-400' : ''}>
                         {fmtAmount(o.payableAmount)}
                       </span>
                     )}
                   </TableCell>
                   <TableCell className="text-right text-sm tabular-nums">
                     {isPaid ? (
-                      <span className="text-green-600">
+                      <span className="text-green-600 dark:text-green-400">
                         {fmtAmount(o.paidAmount)}
                         {o.paidAt && (
                           <span className="text-muted-foreground text-xs ml-1">/ {o.paidAt}</span>
@@ -342,13 +342,13 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                           }}
                           title="修改匯款日期"
                         >
-                          <CheckCircle2 className="size-3 text-green-600" />
+                          <CheckCircle2 className="size-3 text-green-600 dark:text-green-400" />
                           已付
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="size-8 px-0 text-orange-600"
+                          className="size-8 px-0 text-orange-600 dark:text-orange-400"
                           disabled={isThisSubmitting}
                           onClick={() => postUpsert(o, 'unpaid')}
                           title="取消付款"

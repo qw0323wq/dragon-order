@@ -9,16 +9,18 @@
  * - 加手動刷新按鈕（避免資料過時）
  * - Skeleton 取代 spinner
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
-  Loader2, ShoppingCart, BarChart3, ArrowUpDown, Award, Building2, ArrowRightLeft, RefreshCw,
+  Loader2, ShoppingCart, BarChart3, ArrowUpDown, Award, Building2, ArrowRightLeft, RefreshCw, Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { SkeletonTable } from '@/components/ui/skeleton'
 import { MonthSelector } from '@/components/month-selector'
 import { formatMonth } from '@/lib/format'
+import { downloadCsv } from '@/lib/csv'
+import { buildReportCsv } from './_components/export-csv'
 
 import type {
   TabKey, ConsumptionData, SuggestionData, ComparisonData,
@@ -138,22 +140,45 @@ export default function ReportsPage() {
   const data = currentData(tab)
   const isFirstLoading = loadingTab === tab && !data
 
+  // 匯出用 CSV：當前 tab 的資料轉字串（無資料回 null → 按鈕 disabled）
+  const exportCsv = useMemo(() => (data ? buildReportCsv(tab, data) : null), [tab, data])
+
+  function handleExport() {
+    if (!exportCsv) return
+    const label = TABS.find(t => t.key === tab)?.label ?? '報表'
+    downloadCsv(`${label}_${selectedMonth}.csv`, exportCsv)
+    toast.success('已匯出 CSV')
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-6xl">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-heading text-lg font-semibold">營運報表</h2>
-        {data && (
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             className="gap-1.5"
-            disabled={refreshing}
-            onClick={handleRefresh}
+            disabled={!exportCsv}
+            onClick={handleExport}
+            title={exportCsv ? '匯出當前報表為 CSV' : '沒有可匯出的資料'}
           >
-            <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} />
-            刷新
+            <Download className="size-3.5" />
+            匯出 CSV
           </Button>
-        )}
+          {data && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={refreshing}
+              onClick={handleRefresh}
+            >
+              <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} />
+              刷新
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-1.5 flex-wrap">

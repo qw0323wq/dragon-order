@@ -289,7 +289,7 @@ export default function IngredientsHubPage() {
                       <span className="tabular-nums">用在 {ing.menuUseCount} 道菜</span>
                     )}
                     {ing.supplierCount === 0 && (
-                      <span className="text-amber-600 flex items-center gap-1">
+                      <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
                         <AlertCircle className="size-3" /> 無對應 SKU
                       </span>
                     )}
@@ -300,7 +300,7 @@ export default function IngredientsHubPage() {
                 {ing.primarySupplierName && ing.primaryCost != null ? (
                   <div className="text-right shrink-0">
                     <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                      <Star className="size-3 fill-yellow-400 text-yellow-500" />
+                      <Star className="size-3 fill-yellow-400 text-yellow-500 dark:text-yellow-400" />
                       {ing.primarySupplierName}
                     </div>
                     <div className="text-sm font-semibold tabular-nums">
@@ -309,7 +309,7 @@ export default function IngredientsHubPage() {
                     </div>
                   </div>
                 ) : ing.supplierCount > 0 ? (
-                  <span className="text-xs text-amber-600 shrink-0">尚未設主供應商</span>
+                  <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0">尚未設主供應商</span>
                 ) : null}
               </button>
 
@@ -328,7 +328,7 @@ export default function IngredientsHubPage() {
                           compact
                           label="總庫存"
                           icon={Boxes}
-                          accent="bg-orange-100 text-orange-600"
+                          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
                           value={
                             <>
                               {detail.summary.totalStock}
@@ -342,7 +342,7 @@ export default function IngredientsHubPage() {
                           compact
                           label="7 日消耗"
                           icon={Flame}
-                          accent="bg-purple-100 text-purple-600"
+                          accent="bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
                           value={
                             <>
                               {detail.summary.last7DaysOutflow}
@@ -356,7 +356,7 @@ export default function IngredientsHubPage() {
                           compact
                           label="供應商"
                           icon={Truck}
-                          accent="bg-blue-100 text-blue-600"
+                          accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
                           value={
                             <>
                               {detail.summary.skuCount}
@@ -368,7 +368,7 @@ export default function IngredientsHubPage() {
                           compact
                           label="用在"
                           icon={UtensilsCrossed}
-                          accent="bg-emerald-100 text-emerald-600"
+                          accent="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400"
                           value={
                             <>
                               {detail.summary.menuCount}
@@ -393,15 +393,15 @@ export default function IngredientsHubPage() {
                             {detail.skus.map((sku) => (
                               <Card
                                 key={sku.id}
-                                className={`${!sku.is_active ? "opacity-50" : ""} ${sku.is_primary ? "border-yellow-400/60 bg-yellow-50/30" : ""}`}
+                                className={`${!sku.is_active ? "opacity-50" : ""} ${sku.is_primary ? "border-yellow-400/60 bg-yellow-50/30 dark:border-yellow-500/40 dark:bg-yellow-500/10" : ""}`}
                               >
                                 <CardContent className="py-2.5 px-3 flex items-center gap-2 flex-wrap">
                                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                     {sku.is_primary && (
-                                      <Star className="size-3.5 fill-yellow-400 text-yellow-500 shrink-0" />
+                                      <Star className="size-3.5 fill-yellow-400 text-yellow-500 dark:text-yellow-400 shrink-0" />
                                     )}
                                     {sku.isCheapest && !sku.is_primary && (
-                                      <Sparkles className="size-3.5 text-green-600 shrink-0" />
+                                      <Sparkles className="size-3.5 text-green-600 dark:text-green-400 shrink-0" />
                                     )}
                                     <Badge variant="outline" className="text-[10px] shrink-0">
                                       {sku.supplier_name}
@@ -413,7 +413,7 @@ export default function IngredientsHubPage() {
                                       </span>
                                     )}
                                     {!sku.is_active && (
-                                      <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700">
+                                      <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700 dark:border-orange-500/30 dark:text-orange-400">
                                         已停用
                                       </Badge>
                                     )}
@@ -431,7 +431,7 @@ export default function IngredientsHubPage() {
                                       <span className="text-muted-foreground">庫存</span>{" "}
                                       <span
                                         className={
-                                          sku.total_stock <= 0 ? "font-semibold text-red-600" : "font-medium"
+                                          sku.total_stock <= 0 ? "font-semibold text-red-600 dark:text-red-400" : "font-medium"
                                         }
                                       >
                                         {sku.total_stock}

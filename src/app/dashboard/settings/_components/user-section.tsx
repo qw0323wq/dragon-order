@@ -87,7 +87,7 @@ export default function UserSection({
                     <TableCell>
                       {user.hasApiToken ? (
                         <div className="flex items-center gap-1">
-                          <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs dark:bg-green-500/20 dark:text-green-300">
                             <KeyIcon className="size-3 mr-0.5" />已啟用
                           </Badge>
                           <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => onRevokeToken(user)} title="撤銷">
@@ -108,7 +108,7 @@ export default function UserSection({
                         <Button variant="ghost" size="sm" onClick={() => onResetPassword(user)} title="重設密碼">
                           <KeyRoundIcon className="size-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => onToggleActive(user)} title="停用" className="text-red-500 hover:text-red-700">
+                        <Button variant="ghost" size="sm" onClick={() => onToggleActive(user)} title="停用" className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
                           <UserXIcon className="size-4" />
                         </Button>
                       </div>
@@ -137,7 +137,7 @@ export default function UserSection({
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-sm text-muted-foreground">{user.employeeId}</span>
                   {user.hasApiToken ? (
-                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs gap-0.5">
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs gap-0.5 dark:bg-green-500/20 dark:text-green-300">
                       <KeyIcon className="size-3" />API
                     </Badge>
                   ) : null}
@@ -151,7 +151,7 @@ export default function UserSection({
                       <KeyRoundIcon className="size-3.5 mr-1" />密碼
                     </Button>
                     {user.hasApiToken ? (
-                      <Button variant="outline" size="sm" className="text-red-500 border-red-200" onClick={() => onRevokeToken(user)}>
+                      <Button variant="outline" size="sm" className="text-red-500 border-red-200 dark:text-red-400 dark:border-red-500/30" onClick={() => onRevokeToken(user)}>
                         <XCircleIcon className="size-3.5 mr-1" />撤銷 Token
                       </Button>
                     ) : (
@@ -159,7 +159,7 @@ export default function UserSection({
                         <KeyIcon className="size-3.5 mr-1" />產生 Token
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => onToggleActive(user)} className="text-red-500 border-red-200">
+                    <Button variant="outline" size="sm" onClick={() => onToggleActive(user)} className="text-red-500 border-red-200 dark:text-red-400 dark:border-red-500/30">
                       <UserXIcon className="size-3.5" />
                     </Button>
                   </div>
@@ -189,7 +189,7 @@ export default function UserSection({
                       {ROLE_LABELS[user.role]}
                     </Badge>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => onToggleActive(user)} className="text-green-600 border-green-200">
+                  <Button variant="outline" size="sm" onClick={() => onToggleActive(user)} className="text-green-600 border-green-200 dark:text-green-400 dark:border-green-500/30">
                     <UserCheckIcon className="size-3.5 mr-1" />重新啟用
                   </Button>
                 </div>

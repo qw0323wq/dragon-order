@@ -251,7 +251,7 @@ function ProgressText({ done, total }: { done: number; total: number }) {
   if (total === 0) return <span className="text-muted-foreground">—</span>
   const complete = done >= total
   return (
-    <span className={complete ? 'text-green-600' : 'text-orange-600 font-medium'}>
+    <span className={complete ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400 font-medium'}>
       {done}/{total}
     </span>
   )

@@ -178,7 +178,9 @@ function TodoCard({
       <Card className={`transition-colors hover:bg-muted/50 ${urgent ? 'border-orange-300 dark:border-orange-700' : ''}`}>
         <CardContent className="py-3 px-3 sm:px-4 flex items-center gap-3">
           <div className={`p-2 rounded-lg shrink-0 ${
-            urgent ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30' : 'bg-green-100 text-green-600 dark:bg-green-900/30'
+            urgent
+              ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'
+              : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
           }`}>
             <Icon className="size-4" />
           </div>
@@ -430,7 +432,7 @@ export default function DashboardPage() {
       format: formatCurrency,
       icon: DollarSign,
       desc: formatMonthDisplay(selectedMonth),
-      accent: 'bg-red-100 text-red-600 dark:bg-red-900/30',
+      accent: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
       delta: deltaPercent(summary.totalAmount, prevStats?.summary.totalAmount),
     },
     {
@@ -439,7 +441,7 @@ export default function DashboardPage() {
       format: formatAmount,
       icon: ShoppingCart,
       desc: '叫貨次數',
-      accent: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30',
+      accent: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
       delta: deltaPercent(summary.orderCount, prevStats?.summary.orderCount),
     },
     {
@@ -448,7 +450,7 @@ export default function DashboardPage() {
       format: formatAmount,
       icon: PackageSearch,
       desc: '採購品項',
-      accent: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30',
+      accent: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400',
       delta: deltaPercent(summary.itemCount, prevStats?.summary.itemCount),
     },
     {
@@ -457,7 +459,7 @@ export default function DashboardPage() {
       format: formatAmount,
       icon: Store,
       desc: '往來廠商',
-      accent: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30',
+      accent: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
       delta: deltaPercent(supplierCount, prevStats?.topSuppliers.length),
     },
   ]
@@ -645,7 +647,7 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="size-4 text-orange-500" />
+                  <TrendingUp className="size-4 text-orange-500 dark:text-orange-400" />
                   品項排行
                 </CardTitle>
                 {/* 排序切換按鈕 */}

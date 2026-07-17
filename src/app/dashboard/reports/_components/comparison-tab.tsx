@@ -21,32 +21,36 @@ export function ComparisonTab({ data }: { data: ComparisonData }) {
           label="品項"
           value={data.summary.totalItems}
           icon={Package}
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
           hint="納入比較"
         />
         <StatCard
           label="異常品項"
           value={
-            <span className={data.summary.anomalies > 0 ? 'text-red-600' : 'text-green-600'}>
+            <span className={data.summary.anomalies > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
               {data.summary.anomalies}
             </span>
           }
           icon={AlertTriangle}
-          accent={data.summary.anomalies > 0 ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}
+          accent={
+            data.summary.anomalies > 0
+              ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400'
+              : 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400'
+          }
           hint="變動幅度過大"
         />
         <StatCard
           label="增加"
-          value={<span className="text-red-600">{data.summary.increased}</span>}
+          value={<span className="text-red-600 dark:text-red-400">{data.summary.increased}</span>}
           icon={TrendingUp}
-          accent="bg-red-100 text-red-600"
+          accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
           hint="本期用量上升"
         />
         <StatCard
           label="減少"
-          value={<span className="text-green-600">{data.summary.decreased}</span>}
+          value={<span className="text-green-600 dark:text-green-400">{data.summary.decreased}</span>}
           icon={TrendingDown}
-          accent="bg-green-100 text-green-600"
+          accent="bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400"
           hint="本期用量下降"
         />
       </div>
@@ -90,13 +94,16 @@ export function ComparisonTab({ data }: { data: ComparisonData }) {
                         key={item.itemId}
                         className={cn(
                           'border-b border-border/50 transition-colors hover:bg-muted/30',
-                          item.isAnomaly && 'bg-yellow-50/60 hover:bg-yellow-50',
+                          item.isAnomaly &&
+                            'bg-yellow-50/60 hover:bg-yellow-50 dark:bg-yellow-500/10 dark:hover:bg-yellow-500/15',
                         )}
                       >
                         <td className="px-2 py-2 whitespace-nowrap">
                           <span className="font-medium">{item.name}</span>
                           <span className="ml-1 text-xs text-muted-foreground">{item.unit}</span>
-                          {item.isAnomaly && <AlertTriangle className="ml-1 inline size-3 text-yellow-600" />}
+                          {item.isAnomaly && (
+                            <AlertTriangle className="ml-1 inline size-3 text-yellow-600 dark:text-yellow-400" />
+                          )}
                         </td>
                         <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">
                           {item.supplier}

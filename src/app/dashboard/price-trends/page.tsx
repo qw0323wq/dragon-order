@@ -152,8 +152,8 @@ export default function PriceTrendsPage() {
       {/* 統計卡片 */}
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="紀錄筆數" value={records.length} icon={ArrowUpDown} accent="bg-muted text-muted-foreground" />
-        <StatCard label="漲價" value={upCount} icon={TrendingUp} accent="bg-red-100 text-red-600" />
-        <StatCard label="降價" value={downCount} icon={TrendingDown} accent="bg-green-100 text-green-600" />
+        <StatCard label="漲價" value={upCount} icon={TrendingUp} accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400" />
+        <StatCard label="降價" value={downCount} icon={TrendingDown} accent="bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400" />
       </div>
 
       {/* 價格變動列表 */}

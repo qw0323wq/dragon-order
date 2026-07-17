@@ -127,7 +127,7 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
                             <Input type="number" min={0} step={0.5} className="w-16 h-8 text-sm text-right tabular-nums"
                               value={editQty} onChange={e => setEditQty(e.target.value)} autoFocus
                               onKeyDown={e => e.key === 'Enter' && handleUpdateQty(item.id)} />
-                            <Button variant="ghost" size="icon" className="size-8 text-green-600" onClick={() => handleUpdateQty(item.id)}><Save className="size-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="size-8 text-green-600 dark:text-green-400" onClick={() => handleUpdateQty(item.id)}><Save className="size-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="size-8" onClick={() => setEditingId(null)}><X className="size-3.5" /></Button>
                           </div>
                         ) : (

@@ -158,10 +158,10 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
           const { storeNames, grouped } = groupPOItems(po.items);
           const stColor =
             po.status === 'draft'
-              ? 'bg-yellow-100 text-yellow-700'
+              ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400'
               : po.status === 'confirmed'
-              ? 'bg-blue-100 text-blue-700'
-              : 'bg-green-100 text-green-700';
+              ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
+              : 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400';
           return (
             <Card key={po.id}>
               <div className="flex items-center justify-between px-4 pt-4 pb-2">

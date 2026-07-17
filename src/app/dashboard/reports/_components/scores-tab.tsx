@@ -17,7 +17,7 @@ export function ScoresTab({ data }: { data: ScoreData }) {
           <div className="text-xs text-muted-foreground">平均評分</div>
         </CardContent></Card>
         <Card><CardContent className="pt-4 text-center">
-          <div className={cn('text-2xl font-bold', data.summary.lowScore > 0 ? 'text-red-600' : 'text-green-600')}>
+          <div className={cn('text-2xl font-bold', data.summary.lowScore > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')}>
             {data.summary.lowScore}
           </div>
           <div className="text-xs text-muted-foreground">低評分(&lt;70)</div>
@@ -42,7 +42,7 @@ export function ScoresTab({ data }: { data: ScoreData }) {
                   </div>
                   <div className="flex items-center gap-1">
                     <Star className={cn('size-4', s.scores.overall >= 80 ? 'text-yellow-500 fill-yellow-500' : s.scores.overall >= 60 ? 'text-yellow-500' : 'text-muted-foreground')} />
-                    <span className={cn('text-lg font-bold', s.scores.overall >= 80 ? 'text-green-600' : s.scores.overall >= 60 ? 'text-yellow-600' : 'text-red-600')}>
+                    <span className={cn('text-lg font-bold', s.scores.overall >= 80 ? 'text-green-600 dark:text-green-400' : s.scores.overall >= 60 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400')}>
                       {s.scores.overall}
                     </span>
                   </div>
@@ -64,8 +64,8 @@ export function ScoresTab({ data }: { data: ScoreData }) {
                 <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                   <span>{s.totalPOs} 筆 PO</span>
                   <span>{s.totalReceiving} 筆驗收</span>
-                  {s.issues.qualityIssues > 0 && <span className="text-red-600">{s.issues.qualityIssues} 品質問題</span>}
-                  {s.issues.shortages > 0 && <span className="text-yellow-600">{s.issues.shortages} 短缺</span>}
+                  {s.issues.qualityIssues > 0 && <span className="text-red-600 dark:text-red-400">{s.issues.qualityIssues} 品質問題</span>}
+                  {s.issues.shortages > 0 && <span className="text-yellow-600 dark:text-yellow-400">{s.issues.shortages} 短缺</span>}
                 </div>
               </CardContent>
             </Card>

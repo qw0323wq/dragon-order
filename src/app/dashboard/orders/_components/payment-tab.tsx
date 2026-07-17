@@ -117,7 +117,7 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
           label="採購總計"
           value={<span className="text-primary">{formatCurrency(grandTotal)}</span>}
           icon={ShoppingCart}
-          accent="bg-red-100 text-red-600"
+          accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
           hint="按訂購量 × 單價"
         />
         <StatCard
@@ -125,17 +125,17 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
           value={
             grandPayable === null
               ? <span className="text-muted-foreground">—</span>
-              : <span className="text-orange-600">{formatCurrency(grandPayable)}</span>
+              : <span className="text-orange-600 dark:text-orange-400">{formatCurrency(grandPayable)}</span>
           }
           icon={Receipt}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
           hint={grandPayable === null ? '未完成驗收' : '按實收 − 退貨'}
         />
         <StatCard
           label="已付金額"
-          value={<span className="text-green-600">{formatCurrency(paidTotal)}</span>}
+          value={<span className="text-green-600 dark:text-green-400">{formatCurrency(paidTotal)}</span>}
           icon={CheckCircle2}
-          accent="bg-green-100 text-green-600"
+          accent="bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400"
           hint={`${paidSuppliers.size} / ${supplierPayments.length} 家已付`}
         />
       </div>
@@ -165,8 +165,8 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                     <TableCell>
                       <Badge variant="outline" className={
                         s.paymentType === '現結'
-                          ? 'border-red-200 text-red-700 bg-red-50'
-                          : 'border-blue-200 text-blue-700 bg-blue-50'
+                          ? 'border-red-200 text-red-700 bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:bg-red-500/15'
+                          : 'border-blue-200 text-blue-700 bg-blue-50 dark:border-blue-500/30 dark:text-blue-400 dark:bg-blue-500/15'
                       }>
                         {s.paymentType}
                       </Badge>
@@ -176,14 +176,14 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                       {s.payableAmount === null ? (
                         <span className="text-muted-foreground text-xs">未驗收</span>
                       ) : (
-                        <span className={s.payableAmount !== s.totalAmount ? 'text-orange-600' : ''}>
+                        <span className={s.payableAmount !== s.totalAmount ? 'text-orange-600 dark:text-orange-400' : ''}>
                           {formatCurrency(s.payableAmount)}
                         </span>
                       )}
                     </TableCell>
                     <TableCell className="pr-4">
                       {isPaid ? (
-                        <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                        <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
                           <CheckCircle2 className="size-3.5" /> 已付款
                         </span>
                       ) : isEditing ? (

@@ -19,9 +19,9 @@ import { CATEGORY_COLORS, MARGIN_THRESHOLDS } from "./types";
 
 // 配色門檻與篩選器共用同一組常數（MARGIN_THRESHOLDS），確保顯示與篩選一致
 function marginColorClass(rate: number): string {
-  if (rate >= MARGIN_THRESHOLDS.STORE_HIGH) return "text-green-600";
-  if (rate >= MARGIN_THRESHOLDS.STORE_LOW) return "text-yellow-600";
-  return "text-red-600";
+  if (rate >= MARGIN_THRESHOLDS.STORE_HIGH) return "text-green-600 dark:text-green-400";
+  if (rate >= MARGIN_THRESHOLDS.STORE_LOW) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
 }
 
 interface MenuListProps {
@@ -48,7 +48,7 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
     <div className="space-y-2">
       {items.map((item) => {
         const isExpanded = expandedIds.has(item.id);
-        const catColor = CATEGORY_COLORS[item.category] || "bg-gray-100 text-gray-700";
+        const catColor = CATEGORY_COLORS[item.category] || "bg-muted text-muted-foreground";
 
         const isInactive = !item.isActive;
         return (
@@ -79,7 +79,7 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                       {item.category}
                     </Badge>
                     {isInactive && (
-                      <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700 bg-orange-50">
+                      <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700 bg-orange-50 dark:border-orange-500/30 dark:text-orange-400 dark:bg-orange-500/15">
                         已下架
                       </Badge>
                     )}
@@ -159,7 +159,7 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                 {/* 警示符號（共用） */}
                 {item.hasUnknownIngredient && (
                   <div
-                    className="shrink-0 flex items-center text-amber-600"
+                    className="shrink-0 flex items-center text-amber-600 dark:text-amber-400"
                     title="有食材未對應品項，成本可能不準"
                   >
                     <AlertTriangle className="size-3.5" />
@@ -167,7 +167,7 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                 )}
                 {item.hasUnitMismatch && (
                   <div
-                    className="shrink-0 flex items-center text-orange-600"
+                    className="shrink-0 flex items-center text-orange-600 dark:text-orange-400"
                     title="有食材的用量單位與供應商計價單位跨維度（如 顆↔包），尚未設定換算，該食材成本未計入"
                   >
                     <Ruler className="size-3.5" />
@@ -189,7 +189,7 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`size-8 ${isInactive ? "text-green-600 hover:text-green-700" : "text-orange-600 hover:text-orange-700"}`}
+                  className={`size-8 ${isInactive ? "text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300" : "text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"}`}
                   onClick={() => onToggleActive(item)}
                   title={isInactive ? "重新上架" : "下架"}
                 >
@@ -231,22 +231,22 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                         <td className="py-1.5">
                           {ing.ingredientName}
                           {ing.supplierCount > 1 && (
-                            <span className="text-[10px] text-blue-600 ml-1" title={`${ing.supplierCount} 家供應商可選`}>
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 ml-1" title={`${ing.supplierCount} 家供應商可選`}>
                               ({ing.supplierCount}家)
                             </span>
                           )}
                           {ing.priceSource === "fallback" && (
-                            <span className="text-[10px] text-amber-600 ml-1" title="主供應商未設定，用備援來源算成本">
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-1" title="主供應商未設定，用備援來源算成本">
                               ⚠ 備援
                             </span>
                           )}
                           {ing.priceSource === "none" && (
-                            <span className="text-[10px] text-red-600 ml-1" title="無對應 SKU，成本無法計算">
+                            <span className="text-[10px] text-red-600 dark:text-red-400 ml-1" title="無對應 SKU，成本無法計算">
                               ⚠ 未對應
                             </span>
                           )}
                           {ing.unitMismatch && (
-                            <span className="text-[10px] text-orange-600 ml-1" title="用量單位與供應商計價單位跨維度，尚未設定換算，此食材成本未計入">
+                            <span className="text-[10px] text-orange-600 dark:text-orange-400 ml-1" title="用量單位與供應商計價單位跨維度，尚未設定換算，此食材成本未計入">
                               ⚠ 單位待設定
                             </span>
                           )}

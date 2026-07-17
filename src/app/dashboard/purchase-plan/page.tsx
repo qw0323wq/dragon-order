@@ -279,14 +279,14 @@ export default function PurchasePlanPage() {
             label={STAT_LABEL[statusFilter]}
             value={formatAmount(requests.length)}
             icon={ClipboardList}
-            accent="bg-blue-100 text-blue-600"
+            accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
             hint="張需求單"
           />
           <StatCard
             label="食材項次"
             value={formatAmount(requests.reduce((sum, r) => sum + r.item_count, 0))}
             icon={Package}
-            accent="bg-orange-100 text-orange-600"
+            accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
             hint="合計品項數"
           />
         </div>
@@ -356,12 +356,12 @@ export default function PurchasePlanPage() {
                       <span className="text-xs text-muted-foreground">{req.creator_name} 提</span>
                     )}
                     {req.status === "processed" && (
-                      <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">
+                      <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 dark:bg-green-500/20 dark:text-green-300 dark:border-green-500/30">
                         已拆 {req.order_ids?.length ?? 0} 張單
                       </Badge>
                     )}
                     {req.status === "cancelled" && (
-                      <Badge className="text-[10px] bg-gray-100 text-gray-700">已取消</Badge>
+                      <Badge className="text-[10px] bg-muted text-muted-foreground">已取消</Badge>
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">
@@ -443,7 +443,7 @@ export default function PurchasePlanPage() {
 
                                 {/* 廠商選擇 */}
                                 {it.skuOptions.length === 0 ? (
-                                  <div className="text-xs text-amber-600 flex items-center gap-1">
+                                  <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                                     <AlertCircle className="size-3" />
                                     沒有對應的供應商 SKU，請先建品項
                                   </div>
@@ -462,10 +462,10 @@ export default function PurchasePlanPage() {
                                         <SelectItem key={s.id} value={String(s.id)}>
                                           <div className="flex items-center gap-1.5">
                                             {s.isPrimary && (
-                                              <Star className="size-3 fill-yellow-400 text-yellow-500" />
+                                              <Star className="size-3 fill-yellow-400 text-yellow-500 dark:fill-yellow-500 dark:text-yellow-400" />
                                             )}
                                             {s.costPrice === cheapest && !s.isPrimary && (
-                                              <Sparkles className="size-3 text-green-600" />
+                                              <Sparkles className="size-3 text-green-600 dark:text-green-400" />
                                             )}
                                             <span className="font-medium">{s.supplierName}</span>
                                             <span className="text-xs text-muted-foreground tabular-nums">

@@ -322,10 +322,10 @@ export default function UserDialogs({ stores, suppliers, onRefetch }: UserDialog
                   <CopyIcon className="size-3.5" />
                 </Button>
               </div>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-700 space-y-1">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-700 space-y-1 dark:bg-yellow-500/15 dark:border-yellow-500/30 dark:text-yellow-400">
                 <p className="font-semibold">使用方式：</p>
                 <p>AI 助理呼叫 API 時帶入 Header：</p>
-                <code className="block bg-yellow-100 px-2 py-1 rounded text-[11px]">
+                <code className="block bg-yellow-100 px-2 py-1 rounded text-[11px] dark:bg-yellow-500/20">
                   Authorization: Bearer {showTokenResult?.slice(0, 8)}...
                 </code>
               </div>

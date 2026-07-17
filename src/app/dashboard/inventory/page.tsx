@@ -74,11 +74,11 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  in: 'text-green-600',
-  out: 'text-red-600',
-  adjust: 'text-blue-600',
-  waste: 'text-orange-600',
-  meal: 'text-purple-600',
+  in: 'text-green-600 dark:text-green-400',
+  out: 'text-red-600 dark:text-red-400',
+  adjust: 'text-blue-600 dark:text-blue-400',
+  waste: 'text-orange-600 dark:text-orange-400',
+  meal: 'text-purple-600 dark:text-purple-400',
 }
 
 interface StoreOption {
@@ -259,21 +259,21 @@ export default function InventoryPage() {
           label="品項總數"
           value={formatAmount(items.length)}
           icon={Package}
-          accent="bg-orange-100 text-orange-600"
+          accent="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
           hint="個品項"
         />
         <StatCard
           label="低於安全庫存"
           value={formatAmount(lowCount)}
           icon={AlertTriangle}
-          accent="bg-red-100 text-red-600"
+          accent="bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400"
           hint={lowCount > 0 ? '需要補貨' : '庫存無虞'}
         />
         <StatCard
           label="品項分類"
           value={formatAmount(categoryCount)}
           icon={Boxes}
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
           hint="個分類"
           className="col-span-2 sm:col-span-1"
         />
@@ -389,7 +389,9 @@ export default function InventoryPage() {
                       key={item.id}
                       className={cn(
                         'transition-colors',
-                        item.isLow ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-muted/30',
+                        item.isLow
+                          ? 'bg-red-50/50 hover:bg-red-50 dark:bg-red-500/10 dark:hover:bg-red-500/15'
+                          : 'hover:bg-muted/30',
                       )}
                     >
                       <TableCell className="pl-4 text-xs text-muted-foreground font-mono tabular-nums">{item.sku || '-'}</TableCell>
@@ -402,7 +404,7 @@ export default function InventoryPage() {
                       <TableCell className="text-xs text-muted-foreground">{item.category}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{item.supplier_name}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums whitespace-nowrap">
-                        <span className={cn('font-semibold', item.isLow && 'text-red-600')}>
+                        <span className={cn('font-semibold', item.isLow && 'text-red-600 dark:text-red-400')}>
                           {item.current_stock}
                         </span>
                         <span className="text-xs text-muted-foreground ml-1">
@@ -414,11 +416,11 @@ export default function InventoryPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         {item.isLow ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/15 dark:text-red-400">
                             <AlertTriangle className="size-3" /> 不足
                           </span>
                         ) : item.current_stock > 0 ? (
-                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-500/15 dark:text-green-400">
                             正常
                           </span>
                         ) : (
@@ -431,22 +433,22 @@ export default function InventoryPage() {
                             <>
                               <Button variant="ghost" size="icon" title="進貨"
                                 onClick={() => openAction(item, 'in')}
-                                className="size-8 text-green-600 hover:bg-green-50 hover:text-green-700">
+                                className="size-8 text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-500/15 dark:hover:text-green-300">
                                 <Plus className="size-3.5" />
                               </Button>
                               <Button variant="ghost" size="icon" title="出貨"
                                 onClick={() => openAction(item, 'out')}
-                                className="size-8 text-red-600 hover:bg-red-50 hover:text-red-700">
+                                className="size-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/15 dark:hover:text-red-300">
                                 <Minus className="size-3.5" />
                               </Button>
                               <Button variant="ghost" size="icon" title="盤點"
                                 onClick={() => openAction(item, 'adjust')}
-                                className="size-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
+                                className="size-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-500/15 dark:hover:text-blue-300">
                                 <ClipboardCheck className="size-3.5" />
                               </Button>
                               <Button variant="ghost" size="icon" title="撥貨"
                                 onClick={() => openAction(item, 'transfer')}
-                                className="size-8 text-purple-600 hover:bg-purple-50 hover:text-purple-700">
+                                className="size-8 text-purple-600 hover:bg-purple-50 hover:text-purple-700 dark:text-purple-400 dark:hover:bg-purple-500/15 dark:hover:text-purple-300">
                                 <ArrowRightLeft className="size-3.5" />
                               </Button>
                             </>
@@ -471,7 +473,7 @@ export default function InventoryPage() {
                   key={item.id}
                   className={cn(
                     'space-y-2 p-3 transition-colors',
-                    item.isLow ? 'bg-red-50/50' : 'active:bg-muted/30',
+                    item.isLow ? 'bg-red-50/50 dark:bg-red-500/10' : 'active:bg-muted/30',
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -481,14 +483,14 @@ export default function InventoryPage() {
                       <span className="text-[10px] text-muted-foreground ml-1">{item.category}</span>
                     </div>
                     {item.isLow && (
-                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/15 dark:text-red-400">
                         <AlertTriangle className="size-3" /> 不足
                       </span>
                     )}
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-xs text-muted-foreground tabular-nums">
-                      庫存: <span className={cn('font-semibold', item.isLow ? 'text-red-600' : 'text-foreground')}>
+                      庫存: <span className={cn('font-semibold', item.isLow ? 'text-red-600 dark:text-red-400' : 'text-foreground')}>
                         {item.current_stock}
                       </span> {item.stock_unit || item.unit}
                       {item.safety_stock > 0 && (
@@ -497,13 +499,13 @@ export default function InventoryPage() {
                     </div>
                     {canAct ? (
                       <div className="flex shrink-0 gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'in')} className="h-8 gap-1 px-2 text-green-600">
+                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'in')} className="h-8 gap-1 px-2 text-green-600 dark:text-green-400">
                           <Plus className="size-3.5" /> 進
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'out')} className="h-8 gap-1 px-2 text-red-600">
+                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'out')} className="h-8 gap-1 px-2 text-red-600 dark:text-red-400">
                           <Minus className="size-3.5" /> 出
                         </Button>
-                        <Button variant="ghost" size="icon" title="盤點" onClick={() => openAction(item, 'adjust')} className="size-8 text-blue-600">
+                        <Button variant="ghost" size="icon" title="盤點" onClick={() => openAction(item, 'adjust')} className="size-8 text-blue-600 dark:text-blue-400">
                           <ClipboardCheck className="size-3.5" />
                         </Button>
                       </div>
@@ -531,7 +533,7 @@ export default function InventoryPage() {
               目前庫存: <strong className="text-foreground">{selectedItem?.current_stock}</strong> {selectedItem?.stock_unit || selectedItem?.unit}
             </p>
             {dialogType === 'adjust' && formQty && selectedItem && parseFloat(formQty) !== selectedItem.current_stock && (
-              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300">
                 <ClipboardCheck className="mt-0.5 size-3.5 shrink-0" />
                 <span className="tabular-nums">
                   {(() => {

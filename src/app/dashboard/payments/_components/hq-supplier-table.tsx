@@ -41,8 +41,8 @@ export function HQSupplierTable({ suppliers, paymentType }: HQTableProps) {
           <Badge
             className={
               isMonthly
-                ? 'bg-blue-100 text-blue-700 border-blue-200'
-                : 'bg-orange-100 text-orange-700 border-orange-200'
+                ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30'
+                : 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30'
             }
           >
             {suppliers.length} 家
@@ -79,29 +79,29 @@ export function HQSupplierTable({ suppliers, paymentType }: HQTableProps) {
                     {s.payableAmount === null ? (
                       <span className="text-muted-foreground text-xs">未驗收</span>
                     ) : (
-                      <span className={s.payableAmount !== s.totalAmount ? 'text-orange-600' : ''}>
+                      <span className={s.payableAmount !== s.totalAmount ? 'text-orange-600 dark:text-orange-400' : ''}>
                         {fmtAmount(s.payableAmount)}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums text-green-600">
+                  <TableCell className="text-right tabular-nums text-green-600 dark:text-green-400">
                     {fmtAmount(s.paidAmount)}
                   </TableCell>
                   <TableCell
                     className={`text-right font-semibold tabular-nums ${
-                      s.unpaidAmount > 0 ? 'text-red-600' : 'text-muted-foreground'
+                      s.unpaidAmount > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
                     }`}
                   >
                     {fmtAmount(s.unpaidAmount)}
                   </TableCell>
                   <TableCell className="print:hidden">
                     {isFullyPaid ? (
-                      <span className="flex items-center gap-1 text-xs text-green-600">
+                      <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                         <CheckCircle2 className="size-3.5" />
                         已結清
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-xs text-orange-600">
+                      <span className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
                         <AlertCircle className="size-3.5" />
                         待付款
                       </span>
@@ -114,15 +114,15 @@ export function HQSupplierTable({ suppliers, paymentType }: HQTableProps) {
             <TableRow
               className={`font-semibold ${
                 isMonthly
-                  ? 'bg-blue-50/50 hover:bg-blue-50/50'
-                  : 'bg-orange-50/50 hover:bg-orange-50/50'
+                  ? 'bg-blue-50/50 hover:bg-blue-50/50 dark:bg-blue-500/10 dark:hover:bg-blue-500/10'
+                  : 'bg-orange-50/50 hover:bg-orange-50/50 dark:bg-orange-500/10 dark:hover:bg-orange-500/10'
               }`}
             >
               <TableCell colSpan={2}>{paymentType}小計</TableCell>
               <TableCell className="text-right tabular-nums text-muted-foreground">{fmtAmount(subtotalAmount)}</TableCell>
               <TableCell className="text-right tabular-nums">{fmtAmount(subtotalPayable)}</TableCell>
-              <TableCell className="text-right tabular-nums text-green-600">{fmtAmount(subtotalPaid)}</TableCell>
-              <TableCell className="text-right tabular-nums text-red-600">{fmtAmount(subtotalUnpaid)}</TableCell>
+              <TableCell className="text-right tabular-nums text-green-600 dark:text-green-400">{fmtAmount(subtotalPaid)}</TableCell>
+              <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400">{fmtAmount(subtotalUnpaid)}</TableCell>
               <TableCell className="print:hidden" />
             </TableRow>
           </TableBody>

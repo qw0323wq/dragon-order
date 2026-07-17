@@ -48,21 +48,21 @@ interface ItemData {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  肉品: 'bg-red-100 text-red-700',
-  海鮮: 'bg-blue-100 text-blue-700',
-  蔬菜: 'bg-green-100 text-green-700',
-  菇類: 'bg-emerald-100 text-emerald-700',
-  豆製品: 'bg-amber-100 text-amber-700',
-  火鍋料: 'bg-orange-100 text-orange-700',
-  特色: 'bg-rose-100 text-rose-700',
-  內臟: 'bg-pink-100 text-pink-700',
-  滷煮: 'bg-stone-100 text-stone-700',
-  底料: 'bg-yellow-100 text-yellow-700',
-  飲料: 'bg-purple-100 text-purple-700',
-  酒類: 'bg-indigo-100 text-indigo-700',
-  甜點: 'bg-fuchsia-100 text-fuchsia-700',
-  雜貨: 'bg-gray-100 text-gray-700',
-  耗材: 'bg-slate-100 text-slate-700',
+  肉品: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+  海鮮: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+  蔬菜: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400',
+  菇類: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+  豆製品: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+  火鍋料: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400',
+  特色: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400',
+  內臟: 'bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-400',
+  滷煮: 'bg-stone-100 text-stone-700 dark:bg-stone-500/20 dark:text-stone-400',
+  底料: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400',
+  飲料: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400',
+  酒類: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400',
+  甜點: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-400',
+  雜貨: 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-400',
+  耗材: 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-400',
 }
 
 // ── 頁面 ──
@@ -474,7 +474,9 @@ export default function MenuPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className={item.isActive ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                            className={item.isActive
+                              ? 'text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
+                              : 'text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300'}
                             disabled={actingId === item.id}
                             onClick={() => handleToggleActive(item)}
                             title={item.isActive ? '下架（不出現在叫貨清單，保留歷史，可再上架）' : '重新上架'}
@@ -524,7 +526,7 @@ export default function MenuPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={`size-8 ${item.isActive ? 'text-orange-600' : 'text-green-600'}`}
+                        className={`size-8 ${item.isActive ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}
                         disabled={actingId === item.id}
                         onClick={() => handleToggleActive(item)}
                         title={item.isActive ? '下架' : '重新上架'}
@@ -573,7 +575,7 @@ export default function MenuPage() {
             const sched = editTarget ? pendingByItem.get(editTarget.id) : undefined
             if (!sched) return null
             return (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300">
                 <div className="flex items-start gap-2">
                   <CalendarClock className="size-4 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
@@ -705,14 +707,14 @@ export default function MenuPage() {
 
             {/* 有手動固定價的提醒 + 清除選項 */}
             {batchManualCount > 0 && (
-              <label className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm cursor-pointer">
+              <label className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm cursor-pointer dark:border-amber-500/30 dark:bg-amber-500/15">
                 <input
                   type="checkbox"
                   checked={batchClearManual}
                   onChange={(e) => setBatchClearManual(e.target.checked)}
                   className="size-4 accent-primary mt-0.5 shrink-0"
                 />
-                <span className="text-amber-800">
+                <span className="text-amber-800 dark:text-amber-300">
                   這範圍有 <strong>{batchManualCount}</strong> 項設了「手動固定價」，
                   預設<strong>不會</strong>被加成影響。
                   <br />勾此項＝連手動固定價一起清掉，讓全部改吃 {batchPct}% 加成。
@@ -739,7 +741,7 @@ export default function MenuPage() {
             <p>
               即將永久刪除「<span className="font-semibold">{deleteTarget?.name}</span>」，此動作無法復原。
             </p>
-            <p className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-amber-800 text-xs">
+            <p className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-amber-800 text-xs dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-300">
               只有從未被叫貨、庫存、配方、價格排程等引用的品項才能真刪除；若已有關聯資料會被擋下，請改用「下架」。
             </p>
           </div>

@@ -53,7 +53,7 @@ export function SettlementTab({ data }: { data: SettlementData }) {
                     <div key={j} className="flex justify-between py-1">
                       <span>{item.transferNumber} &middot; {item.itemName} &times;{item.quantity}</span>
                       <span className="tabular-nums">
-                        {item.returnedQty > 0 && <span className="text-green-600 mr-1">還{item.returnedQty}</span>}
+                        {item.returnedQty > 0 && <span className="text-green-600 dark:text-green-400 mr-1">還{item.returnedQty}</span>}
                         淨{item.netQty} &middot; ${item.amount}
                       </span>
                     </div>
