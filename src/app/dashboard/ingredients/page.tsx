@@ -325,6 +325,7 @@ export default function IngredientsHubPage() {
                       {/* 庫存 + 消耗 summary */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <StatCard
+                          compact
                           label="總庫存"
                           icon={Boxes}
                           accent="bg-orange-100 text-orange-600"
@@ -338,13 +339,21 @@ export default function IngredientsHubPage() {
                           }
                         />
                         <StatCard
+                          compact
                           label="7 日消耗"
                           icon={Flame}
                           accent="bg-purple-100 text-purple-600"
-                          value={detail.summary.last7DaysOutflow}
-                          hint={detail.ingredient.unit}
+                          value={
+                            <>
+                              {detail.summary.last7DaysOutflow}
+                              <span className="ml-1 text-sm font-normal text-muted-foreground">
+                                {detail.ingredient.unit}
+                              </span>
+                            </>
+                          }
                         />
                         <StatCard
+                          compact
                           label="供應商"
                           icon={Truck}
                           accent="bg-blue-100 text-blue-600"
@@ -356,6 +365,7 @@ export default function IngredientsHubPage() {
                           }
                         />
                         <StatCard
+                          compact
                           label="用在"
                           icon={UtensilsCrossed}
                           accent="bg-emerald-100 text-emerald-600"

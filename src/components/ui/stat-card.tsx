@@ -14,6 +14,11 @@ interface StatCardProps {
   hint?: React.ReactNode
   /** 趨勢徽章，通常放 <DeltaBadge />（顯示在 hint 前） */
   trend?: React.ReactNode
+  /**
+   * 緊湊版 — 給「嵌在展開明細/卡片內」的次級指標用。
+   * 預設版是頁面級 KPI（p-4 + text-2xl），塞進巢狀區塊會過胖（手機尤其明顯）。
+   */
+  compact?: boolean
   className?: string
 }
 
@@ -28,18 +33,26 @@ export function StatCard({
   accent = "bg-primary/10 text-primary",
   hint,
   trend,
+  compact = false,
   className,
 }: StatCardProps) {
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-shadow hover:shadow-sm",
+        "flex items-start justify-between rounded-xl bg-card ring-1 ring-foreground/10 transition-shadow hover:shadow-sm",
+        compact ? "gap-2 p-2.5" : "gap-3 p-4",
         className,
       )}
     >
       <div className="min-w-0 space-y-1">
         <p className="truncate text-xs text-muted-foreground">{label}</p>
-        <p className="font-heading text-2xl font-semibold leading-tight tabular-nums text-foreground">
+        {/* 數值不換行：避免「0」與單位「副」被拆成兩行 */}
+        <p
+          className={cn(
+            "font-heading font-semibold leading-tight tabular-nums whitespace-nowrap text-foreground",
+            compact ? "text-lg" : "text-2xl",
+          )}
+        >
           {value}
         </p>
         {(trend || hint) && (
@@ -52,11 +65,12 @@ export function StatCard({
       {Icon && (
         <div
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-lg",
+            "flex shrink-0 items-center justify-center rounded-lg",
+            compact ? "size-7" : "size-9",
             accent,
           )}
         >
-          <Icon className="size-5" />
+          <Icon className={compact ? "size-4" : "size-5"} />
         </div>
       )}
     </div>
