@@ -13,7 +13,7 @@ import { Loader2, FileText, Download, Printer } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatDisplay } from './types';
+import { buildPoHtml, type PoTemplateItem } from '@/lib/po-template';
 import type { POItem, PurchaseOrder } from './types';
 
 interface PurchaseOrdersTabProps {
@@ -24,6 +24,7 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
   const [pos, setPOs] = useState<PurchaseOrder[]>([]);
   const [generating, setGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   const fetchPOs = useCallback(async () => {
     try {
@@ -74,104 +75,51 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
     }
   }
 
-  async function downloadPOText(po: PurchaseOrder) {
+  /** 下載 PDF（伺服器渲染，版式同列印；手機下載後可直接 LINE 傳給供應商） */
+  async function downloadPOPdf(po: PurchaseOrder) {
+    setDownloadingId(po.id);
     try {
-      const res = await fetch(`/api/purchase-orders/${po.id}?export=1`);
-      const text = await res.text();
-      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const res = await fetch(`/api/purchase-orders/${po.id}/pdf`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || 'PDF 產生失敗');
+        return;
+      }
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${po.poNumber}_${po.supplierName}.txt`;
+      a.download = `${po.poNumber}_${po.supplierName}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success(`已下載 ${po.supplierName} 叫貨單`);
+      toast.success(`已下載 ${po.supplierName} 叫貨單 PDF`);
     } catch {
       toast.error('下載失敗');
+    } finally {
+      setDownloadingId(null);
     }
   }
 
   /**
-   * 列印正式叫貨單（參考 Costflows PO 文件版式，2026-07-17 升級）
-   * 頁首品牌區 + PO 號 + 資訊欄 + 序號明細表 + 簽收欄；維持無價格（給供應商）。
+   * 列印正式叫貨單 — 版式來自共用模板 lib/po-template.ts（與 PDF API 同一份）
    */
   function printPO(po: PurchaseOrder) {
-    const { storeNames, grouped } = groupPOItems(po.items);
-    const hasNotes = grouped.some((g) => g.notes);
-    const deliveryDisplay = formatDisplay(selectedDate);
-    const printedAt = new Date().toLocaleString('zh-TW', { hour12: false });
-
-    const storeHeaders = storeNames
-      .map((s) => `<th class="c">${s}</th>`)
-      .join('');
-    const rows = grouped
-      .map((g, idx) => {
-        const storeCells = storeNames
-          .map((s) => `<td class="c">${g.stores[s] || ''}</td>`)
-          .join('');
-        return `<tr>
-        <td class="c muted">${idx + 1}</td>
-        <td class="name">${g.itemName}</td>
-        ${storeCells}
-        <td class="c total">${g.total}</td>
-        <td class="c">${g.itemUnit}</td>
-        ${hasNotes ? `<td class="notes">${g.notes || ''}</td>` : ''}
-      </tr>`;
-      })
-      .join('');
-
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${po.poNumber} - ${po.supplierName}</title>
-      <style>
-        *{box-sizing:border-box}
-        body{font-family:"PingFang TC","Noto Sans TC",sans-serif;padding:28px;max-width:820px;margin:0 auto;color:#1a1a1a}
-        .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #b91c1c;padding-bottom:14px}
-        .brand{font-size:22px;font-weight:800;letter-spacing:1px}
-        .brand small{display:block;font-size:12px;color:#888;font-weight:400;letter-spacing:2px;margin-top:2px}
-        .doc{text-align:right}
-        .doc .t{font-size:18px;font-weight:700}
-        .doc .no{font-size:14px;color:#b91c1c;font-weight:600;margin-top:2px}
-        .info{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 24px;margin:16px 0 4px;font-size:13px}
-        .info b{display:block;color:#888;font-weight:500;font-size:11px;margin-bottom:1px}
-        table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
-        th{background:#f7f7f7;padding:7px 6px;border:1px solid #d9d9d9;font-size:12px;text-align:left}
-        td{padding:7px 6px;border:1px solid #d9d9d9;vertical-align:top}
-        .c{text-align:center}
-        .muted{color:#999;width:34px}
-        .name{font-weight:600}
-        .total{font-weight:800}
-        .notes{font-size:12px;color:#555}
-        .sign{display:flex;gap:48px;margin-top:36px;font-size:13px}
-        .sign div{flex:1}
-        .sign .line{border-bottom:1px solid #999;height:38px;margin-top:6px}
-        .foot{margin-top:28px;padding-top:10px;border-top:1px solid #eee;color:#aaa;font-size:11px;display:flex;justify-content:space-between}
-        @media print{body{padding:10px}}
-      </style></head><body>
-      <div class="head">
-        <div class="brand">肥龍老火鍋<small>FEI LONG HOTPOT · 採購部</small></div>
-        <div class="doc">
-          <div class="t">叫貨單 Purchase Order</div>
-          <div class="no">${po.poNumber}</div>
-        </div>
-      </div>
-      <div class="info">
-        <div><b>供應商</b>${po.supplierName}</div>
-        <div><b>送貨日期</b>${deliveryDisplay}</div>
-        <div><b>品項數</b>${grouped.length} 項</div>
-      </div>
-      <table><thead><tr>
-        <th class="c">#</th><th>品名</th>${storeHeaders}
-        <th class="c">合計</th><th class="c">單位</th>
-        ${hasNotes ? '<th>備註</th>' : ''}
-      </tr></thead><tbody>${rows}</tbody></table>
-      <div class="sign">
-        <div>供應商出貨確認<div class="line"></div></div>
-        <div>門市驗收簽名<div class="line"></div></div>
-      </div>
-      <div class="foot">
-        <span>肥龍老火鍋 採購系統</span>
-        <span>${po.poNumber} · 列印於 ${printedAt}</span>
-      </div>
-      <script>window.onload=()=>window.print()</script></body></html>`;
+    const templateItems: PoTemplateItem[] = po.items.map((pi) => ({
+      itemName: pi.itemName,
+      unit: pi.itemUnit,
+      storeName: pi.storeName,
+      quantity: parseFloat(pi.quantity) || 0,
+      notes: pi.notes,
+    }));
+    const html = buildPoHtml(
+      {
+        poNumber: po.poNumber,
+        supplierName: po.supplierName,
+        deliveryDate: selectedDate,
+        items: templateItems,
+      },
+      { autoPrint: true }
+    );
 
     const w = window.open('', '_blank');
     if (w) {
@@ -232,10 +180,17 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
                     size="sm"
                     variant="ghost"
                     className="gap-1 text-xs h-7 px-2"
-                    onClick={() => downloadPOText(po)}
-                    title="下載文字檔"
+                    onClick={() => downloadPOPdf(po)}
+                    disabled={downloadingId === po.id}
+                    title="下載 PDF"
                   >
-                    <Download className="size-3" />
+                    {downloadingId === po.id ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <>
+                        <Download className="size-3" /> PDF
+                      </>
+                    )}
                   </Button>
                   <Button
                     size="sm"
