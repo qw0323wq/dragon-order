@@ -188,7 +188,10 @@ export default function DashboardLayout({
 
         {/* 頁面主體（列印時展開，不裁頁） */}
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0 print:overflow-visible print:pb-0">
-          {children}
+          {/* 切換路由時淡入 — key 讓它重新掛載才會重播動畫；列印不套動畫 */}
+          <div key={pathname} className="animate-in fade-in duration-300 print:animate-none">
+            {children}
+          </div>
         </main>
       </div>
 

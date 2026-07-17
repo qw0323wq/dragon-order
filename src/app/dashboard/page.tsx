@@ -46,6 +46,7 @@ import {
 } from './orders/_components/types'
 import { MonthSelector } from '@/components/month-selector'
 import { StatCard } from '@/components/ui/stat-card'
+import { CountUp } from '@/components/ui/count-up'
 import { DeltaBadge } from '@/components/ui/delta-badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SkeletonStatCard, SkeletonTable } from '@/components/ui/skeleton'
@@ -425,7 +426,8 @@ export default function DashboardPage() {
   const statCards = [
     {
       title: '採購額',
-      value: formatCurrency(summary.totalAmount),
+      raw: summary.totalAmount,
+      format: formatCurrency,
       icon: DollarSign,
       desc: formatMonthDisplay(selectedMonth),
       accent: 'bg-red-100 text-red-600 dark:bg-red-900/30',
@@ -433,7 +435,8 @@ export default function DashboardPage() {
     },
     {
       title: '訂單數',
-      value: formatAmount(summary.orderCount),
+      raw: summary.orderCount,
+      format: formatAmount,
       icon: ShoppingCart,
       desc: '叫貨次數',
       accent: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30',
@@ -441,7 +444,8 @@ export default function DashboardPage() {
     },
     {
       title: '品項數',
-      value: formatAmount(summary.itemCount),
+      raw: summary.itemCount,
+      format: formatAmount,
       icon: PackageSearch,
       desc: '採購品項',
       accent: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30',
@@ -449,7 +453,8 @@ export default function DashboardPage() {
     },
     {
       title: '供應商數',
-      value: formatAmount(supplierCount),
+      raw: supplierCount,
+      format: formatAmount,
       icon: Store,
       desc: '往來廠商',
       accent: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30',
@@ -608,7 +613,8 @@ export default function DashboardPage() {
                 <StatCard
                   key={card.title}
                   label={card.title}
-                  value={card.value}
+                  // 切月份時數字滾動過去，不硬跳
+                  value={<CountUp value={card.raw} format={card.format} />}
                   icon={card.icon}
                   accent={card.accent}
                   // 上月有資料才顯示徽章；採購成本上升 = 壞事 → 沿用預設漲紅跌綠
