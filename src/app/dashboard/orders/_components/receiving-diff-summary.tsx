@@ -12,8 +12,10 @@
  */
 
 import { useMemo } from 'react'
-import { ArrowRight, CheckCircle2, Scale } from 'lucide-react'
+import { Scale, ShoppingCart, Receipt, PackageX } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { StatCard } from '@/components/ui/stat-card'
+import { DeltaBadge } from '@/components/ui/delta-badge'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -75,60 +77,73 @@ export function ReceivingDiffSummary({ details }: ReceivingDiffSummaryProps) {
   if (receivedCount === 0) return null
 
   const totalDiff = roundMoney(payableTotal - orderedTotal)
-  const diffPct = orderedTotal > 0 ? Math.abs((totalDiff / orderedTotal) * 100) : 0
+  // DeltaBadge 要「有號」百分比（負 = 應付低於訂購 = 短收）
+  const diffPct = orderedTotal > 0 ? (totalDiff / orderedTotal) * 100 : 0
   const allReceived = receivedCount === details.length
 
   return (
     <Card>
       <CardContent className="pt-4 space-y-4">
-        {/* 頂列：訂購 → 差異 → 應付 */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <Scale className="size-4 text-muted-foreground" />
-            <span className="font-semibold text-sm">驗收差異摘要</span>
-            {!allReceived && (
-              <span className="text-xs text-muted-foreground">
-                （已驗收 {receivedCount}/{details.length} 項，僅比對已驗收部分）
+        <div className="flex items-center gap-2 flex-wrap">
+          <Scale className="size-4 text-muted-foreground" />
+          <span className="font-semibold text-sm">驗收差異摘要</span>
+          {!allReceived && (
+            <span className="text-xs text-muted-foreground">
+              （已驗收 {receivedCount}/{details.length} 項，僅比對已驗收部分）
+            </span>
+          )}
+        </div>
+
+        {/* 訂購 vs 應付 vs 差異品項數 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatCard
+            label="訂購金額"
+            value={formatCurrency(orderedTotal)}
+            icon={ShoppingCart}
+            accent="bg-red-100 text-red-600"
+            hint="按訂購量 × 單價"
+          />
+          <StatCard
+            label="應付金額"
+            value={<span className="text-primary">{formatCurrency(payableTotal)}</span>}
+            icon={Receipt}
+            accent="bg-orange-100 text-orange-600"
+            /*
+              invert：短收（應付 < 訂購）要顯示紅色警示，與下方差異表的紅色一致。
+              預設的「漲紅跌綠」會把短收畫成綠色（像是省到錢），語意相反。
+            */
+            trend={
+              <DeltaBadge
+                percent={Number(diffPct)}
+                amount={totalDiff !== 0 ? formatCurrency(totalDiff) : undefined}
+                invert
+              />
+            }
+            hint={totalDiff === 0 ? '與訂購金額相符' : '按實收 − 退貨'}
+          />
+          <StatCard
+            label="差異品項"
+            value={
+              <span className={diffRows.length > 0 ? 'text-orange-600' : 'text-green-600'}>
+                {diffRows.length} 項
               </span>
-            )}
-          </div>
+            }
+            icon={PackageX}
+            accent={
+              diffRows.length > 0
+                ? 'bg-orange-100 text-orange-600'
+                : 'bg-green-100 text-green-600'
+            }
+            hint={diffRows.length > 0 ? '需要跟供應商確認' : '全部如數到貨'}
+          />
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <div>
-            <p className="text-xs text-muted-foreground">訂購金額</p>
-            <p className="text-lg font-bold font-heading">{formatCurrency(orderedTotal)}</p>
-          </div>
-          <ArrowRight className="size-4 text-muted-foreground shrink-0" />
-          <span
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
-              totalDiff === 0
-                ? 'bg-green-100 text-green-700'
-                : 'bg-red-100 text-red-700'
-            }`}
-          >
-            {totalDiff === 0
-              ? '無差異'
-              : `${totalDiff > 0 ? '+' : ''}${formatCurrency(totalDiff)}（${diffPct.toFixed(1)}%）`}
-          </span>
-          <ArrowRight className="size-4 text-muted-foreground shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">應付金額</p>
-            <p className="text-lg font-bold font-heading text-primary">{formatCurrency(payableTotal)}</p>
-          </div>
-        </div>
-
-        {/* 差異明細：只列有差異的品項 */}
-        {diffRows.length === 0 ? (
-          <div className="flex items-center gap-1.5 text-sm text-green-600">
-            <CheckCircle2 className="size-4" />
-            已驗收品項皆如數到貨
-          </div>
-        ) : (
+        {/* 差異明細：只列有差異的品項（無差異時由上方「差異品項」卡片交代，不再重複一行綠字） */}
+        {diffRows.length > 0 && (
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow>
+              <TableHeader className="bg-muted/50">
+                <TableRow className="hover:bg-transparent">
                   <TableHead>品項</TableHead>
                   <TableHead className="hidden sm:table-cell">門市</TableHead>
                   <TableHead className="text-right">訂購量</TableHead>
@@ -139,7 +154,7 @@ export function ReceivingDiffSummary({ details }: ReceivingDiffSummaryProps) {
               </TableHeader>
               <TableBody>
                 {diffRows.map((r) => (
-                  <TableRow key={r.id}>
+                  <TableRow key={r.id} className="hover:bg-muted/30">
                     <TableCell className="font-medium">{r.itemName}</TableCell>
                     <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">
                       {r.storeName}

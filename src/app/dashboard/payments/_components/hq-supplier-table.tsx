@@ -51,10 +51,10 @@ export function HQSupplierTable({ suppliers, paymentType }: HQTableProps) {
       </CardHeader>
       <CardContent className="pt-3 overflow-x-auto">
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="bg-muted/50">
+            <TableRow className="hover:bg-transparent">
               <TableHead>供應商</TableHead>
-              <TableHead className="text-center">訂單筆數</TableHead>
+              <TableHead className="text-right">訂單筆數</TableHead>
               <TableHead className="text-right">採購金額</TableHead>
               <TableHead className="text-right">應付金額</TableHead>
               <TableHead className="text-right">已付</TableHead>
@@ -66,13 +66,16 @@ export function HQSupplierTable({ suppliers, paymentType }: HQTableProps) {
             {suppliers.map((s) => {
               const isFullyPaid = s.unpaidAmount === 0;
               return (
-                <TableRow key={s.supplierId} className={isFullyPaid ? 'opacity-70' : ''}>
+                <TableRow
+                  key={s.supplierId}
+                  className={`hover:bg-muted/30 ${isFullyPaid ? 'opacity-70' : ''}`}
+                >
                   <TableCell className="font-medium">{s.supplierName}</TableCell>
-                  <TableCell className="text-center text-sm">{s.orderCount} 筆</TableCell>
-                  <TableCell className="text-right text-muted-foreground">
+                  <TableCell className="text-right text-sm tabular-nums">{s.orderCount} 筆</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
                     {fmtAmount(s.totalAmount)}
                   </TableCell>
-                  <TableCell className="text-right font-semibold">
+                  <TableCell className="text-right font-semibold tabular-nums">
                     {s.payableAmount === null ? (
                       <span className="text-muted-foreground text-xs">未驗收</span>
                     ) : (
@@ -81,11 +84,11 @@ export function HQSupplierTable({ suppliers, paymentType }: HQTableProps) {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right text-green-600">
+                  <TableCell className="text-right tabular-nums text-green-600">
                     {fmtAmount(s.paidAmount)}
                   </TableCell>
                   <TableCell
-                    className={`text-right font-semibold ${
+                    className={`text-right font-semibold tabular-nums ${
                       s.unpaidAmount > 0 ? 'text-red-600' : 'text-muted-foreground'
                     }`}
                   >
@@ -108,12 +111,18 @@ export function HQSupplierTable({ suppliers, paymentType }: HQTableProps) {
               );
             })}
             {/* 小計列 */}
-            <TableRow className={`font-semibold ${isMonthly ? 'bg-blue-50/50' : 'bg-orange-50/50'}`}>
+            <TableRow
+              className={`font-semibold ${
+                isMonthly
+                  ? 'bg-blue-50/50 hover:bg-blue-50/50'
+                  : 'bg-orange-50/50 hover:bg-orange-50/50'
+              }`}
+            >
               <TableCell colSpan={2}>{paymentType}小計</TableCell>
-              <TableCell className="text-right text-muted-foreground">{fmtAmount(subtotalAmount)}</TableCell>
-              <TableCell className="text-right">{fmtAmount(subtotalPayable)}</TableCell>
-              <TableCell className="text-right text-green-600">{fmtAmount(subtotalPaid)}</TableCell>
-              <TableCell className="text-right text-red-600">{fmtAmount(subtotalUnpaid)}</TableCell>
+              <TableCell className="text-right tabular-nums text-muted-foreground">{fmtAmount(subtotalAmount)}</TableCell>
+              <TableCell className="text-right tabular-nums">{fmtAmount(subtotalPayable)}</TableCell>
+              <TableCell className="text-right tabular-nums text-green-600">{fmtAmount(subtotalPaid)}</TableCell>
+              <TableCell className="text-right tabular-nums text-red-600">{fmtAmount(subtotalUnpaid)}</TableCell>
               <TableCell className="print:hidden" />
             </TableRow>
           </TableBody>

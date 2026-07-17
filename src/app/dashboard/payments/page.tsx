@@ -26,12 +26,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Printer, Building2, Store } from 'lucide-react'
+import Link from 'next/link'
+import { Printer, Building2, Store, ReceiptText, ClipboardList } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { EmptyState } from '@/components/ui/empty-state'
 
 import { formatMonth, formatMonthDisplay, formatCurrency as fmtAmount } from '@/lib/format'
 import { MonthSelector } from '@/components/month-selector'
@@ -229,10 +230,23 @@ export default function PaymentsPage() {
           {/* 無資料 */}
           {report.suppliers.length === 0 && (
             <Card>
-              <CardContent className="py-16 text-center">
-                <p className="text-muted-foreground">
-                  {formatMonthDisplay(selectedMonth)} 沒有採購紀錄
-                </p>
+              <CardContent className="px-0">
+                <EmptyState
+                  icon={ReceiptText}
+                  title={`${formatMonthDisplay(selectedMonth)} 沒有採購紀錄`}
+                  description={
+                    activeTab === 'hq'
+                      ? '這個月還沒有任何叫貨單。換個月份看看，或到訂單管理新增一張訂單。'
+                      : '這個月這間門市還沒有採購紀錄。可以換個月份，或切到其他門市查看。'
+                  }
+                  action={
+                    <Link href="/dashboard/orders">
+                      <Button variant="outline" size="sm" className="gap-1.5">
+                        <ClipboardList className="size-3.5" /> 前往訂單管理
+                      </Button>
+                    </Link>
+                  }
+                />
               </CardContent>
             </Card>
           )}
@@ -260,25 +274,19 @@ export default function PaymentsPage() {
               <Separator />
               <Card className="bg-muted/30">
                 <CardContent className="pt-4">
-                  <Table>
-                    <TableBody>
-                      <TableRow className="font-bold text-base">
-                        <TableCell className="text-lg">月份合計</TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          採購 {fmtAmount(report.summary.totalAmount)}
-                        </TableCell>
-                        <TableCell className="text-right text-primary text-lg">
-                          應付 {fmtAmount(report.summary.payableAmount)}
-                        </TableCell>
-                        <TableCell className="text-right text-green-600">
-                          已付 {fmtAmount(report.summary.paidAmount)}
-                        </TableCell>
-                        <TableCell className="text-right text-red-600">
-                          未付 {fmtAmount(report.summary.unpaidAmount)}
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                  {/*
+                    合計列用 flex/grid 而非表格：單列資料不需要表格語意，
+                    窄螢幕才能折成兩欄不被擠爆（列印時維持一整列）。
+                  */}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:flex-row print:items-center">
+                    <p className="font-heading text-lg font-bold">月份合計</p>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:items-center sm:gap-6 print:flex print:gap-6">
+                      <TotalFigure label="採購" value={fmtAmount(report.summary.totalAmount)} className="text-muted-foreground" />
+                      <TotalFigure label="應付" value={fmtAmount(report.summary.payableAmount)} className="text-primary" emphasis />
+                      <TotalFigure label="已付" value={fmtAmount(report.summary.paidAmount)} className="text-green-600" />
+                      <TotalFigure label="未付" value={fmtAmount(report.summary.unpaidAmount)} className="text-red-600" />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </>
@@ -296,6 +304,32 @@ export default function PaymentsPage() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/** 月份合計的單一數字（標籤 + 金額），金額 tabular-nums 對齊 */
+function TotalFigure({
+  label,
+  value,
+  className,
+  emphasis = false,
+}: {
+  label: string
+  value: string
+  className?: string
+  emphasis?: boolean
+}) {
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span
+        className={`font-heading font-bold tabular-nums whitespace-nowrap ${
+          emphasis ? 'text-lg' : 'text-base'
+        } ${className ?? ''}`}
+      >
+        {value}
+      </span>
     </div>
   )
 }

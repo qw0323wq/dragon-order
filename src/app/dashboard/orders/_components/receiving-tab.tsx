@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Loader2, ClipboardCheck, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Loader2, ClipboardCheck, CheckCircle2, AlertTriangle, PackageSearch } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -129,6 +130,17 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
   const receivedCount = items.filter((i) => receivedIds.has(i.orderItemId)).length
   const allDone = items.length > 0 && receivedCount === items.length
 
+  // 這張訂單沒有任何品項可驗收（父層通常已擋掉，這裡兜底）
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={PackageSearch}
+        title="沒有需要驗收的品項"
+        description="這張訂單目前沒有任何品項。回「彙總」或「明細」看看訂單內容。"
+      />
+    )
+  }
+
   const supplierGroups = new Map<string, typeof items>()
   for (const item of items) {
     if (!supplierGroups.has(item.supplierName)) supplierGroups.set(item.supplierName, [])
@@ -137,11 +149,24 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
 
   return (
     <div className="space-y-4">
-      <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium ${
+      {/* 驗收進度：完成綠底、未完成灰底 + 進度數字 */}
+      <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${
         allDone ? 'bg-green-50 text-green-700' : 'bg-muted text-muted-foreground'
       }`}>
-        {allDone ? <CheckCircle2 className="size-4" /> : <AlertTriangle className="size-4" />}
-        {allDone ? '全部驗收完成！' : `驗收進度：${receivedCount} / ${items.length} 項`}
+        {allDone ? (
+          <CheckCircle2 className="size-4 shrink-0" />
+        ) : (
+          <AlertTriangle className="size-4 shrink-0" />
+        )}
+        {allDone ? (
+          '全部驗收完成！'
+        ) : (
+          <span>
+            驗收進度：
+            <span className="tabular-nums font-semibold text-foreground">{receivedCount}</span>
+            <span className="tabular-nums"> / {items.length} 項</span>
+          </span>
+        )}
       </div>
 
       {Array.from(supplierGroups.entries()).map(([supplierName, supplierItems]) => {
@@ -160,8 +185,8 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
             </CardHeader>
             <CardContent className="pt-3 overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow>
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="hover:bg-transparent">
                     <TableHead>品項</TableHead>
                     <TableHead>門市</TableHead>
                     <TableHead className="text-right">訂購量</TableHead>
@@ -178,7 +203,10 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
                     const qty = parseFloat(item.quantity)
                     const qtyStr = Number.isInteger(qty) ? String(qty) : qty.toFixed(1)
                     return (
-                      <TableRow key={item.orderItemId} className={isReceived ? 'bg-green-50/50' : ''}>
+                      <TableRow
+                        key={item.orderItemId}
+                        className={isReceived ? 'bg-green-50/50 hover:bg-green-50' : 'hover:bg-muted/30'}
+                      >
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-1.5">
                             {isReceived && <CheckCircle2 className="size-3.5 text-green-500 shrink-0" />}
@@ -186,12 +214,12 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{item.storeName}</TableCell>
-                        <TableCell className="text-right text-sm">{qtyStr} {item.unit}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{qtyStr} {item.unit}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Input
                               type="number" step="0.5" min="0"
-                              className="w-20 h-8 text-sm text-center"
+                              className="w-20 h-8 text-sm text-center tabular-nums"
                               placeholder={qtyStr}
                               value={input.receivedQty}
                               onChange={(e) => handleInputChange(item.orderItemId, 'receivedQty', e.target.value)}
@@ -214,7 +242,7 @@ export function ReceivingTab({ orderId, onSaved }: ReceivingTabProps) {
                             <div className="flex items-center gap-1">
                               <Input
                                 type="number" step="0.5" min="0" max={input.receivedQty}
-                                className="w-16 h-8 text-sm text-center border-red-300"
+                                className="w-16 h-8 text-sm text-center tabular-nums border-red-300"
                                 placeholder="0"
                                 value={input.returnedQty}
                                 onChange={(e) => handleInputChange(item.orderItemId, 'returnedQty', e.target.value)}

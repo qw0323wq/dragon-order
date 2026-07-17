@@ -91,7 +91,7 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
               </Badge>
             )}
           </div>
-          <span className="text-sm font-semibold text-primary">
+          <span className="text-sm font-semibold text-primary tabular-nums whitespace-nowrap">
             小計 {formatCurrency(subtotal)}
           </span>
         </div>
@@ -102,8 +102,8 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
             {idx > 0 && <Separator className="my-3" />}
             <p className="text-sm font-medium text-muted-foreground mb-2">{storeName}</p>
             <Table>
-              <TableHeader>
-                <TableRow>
+              <TableHeader className="bg-muted/50">
+                <TableRow className="hover:bg-transparent">
                   <TableHead>品項</TableHead>
                   <TableHead className="text-right">數量</TableHead>
                   <TableHead className="text-right">單價</TableHead>
@@ -119,25 +119,25 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
                   const qty = parseFloat(item.quantity)
                   const qtyStr = Number.isInteger(qty) ? String(qty) : qty.toFixed(1)
                   return (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.itemName}</TableCell>
-                      <TableCell className="text-right">
+                    <TableRow key={item.id} className="hover:bg-muted/30">
+                      <TableCell className="font-medium">{item.itemName}</TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {editingId === item.id ? (
                           <div className="flex items-center gap-1 justify-end">
-                            <Input type="number" min={0} step={0.5} className="w-16 h-7 text-sm text-right"
+                            <Input type="number" min={0} step={0.5} className="w-16 h-8 text-sm text-right tabular-nums"
                               value={editQty} onChange={e => setEditQty(e.target.value)} autoFocus
                               onKeyDown={e => e.key === 'Enter' && handleUpdateQty(item.id)} />
-                            <Button variant="ghost" size="icon" className="size-6 text-green-600" onClick={() => handleUpdateQty(item.id)}><Save className="size-3" /></Button>
-                            <Button variant="ghost" size="icon" className="size-6" onClick={() => setEditingId(null)}><X className="size-3" /></Button>
+                            <Button variant="ghost" size="icon" className="size-8 text-green-600" onClick={() => handleUpdateQty(item.id)}><Save className="size-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="size-8" onClick={() => setEditingId(null)}><X className="size-3.5" /></Button>
                           </div>
                         ) : (
                           <span>{qtyStr} {item.unit}</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
                         {formatCurrency(item.unitPrice)}
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-right font-medium tabular-nums">
                         {formatCurrency(item.subtotal)}
                       </TableCell>
                       {storeItems.some(i => i.supplierNotes) && (
@@ -148,11 +148,11 @@ export function SupplierOrderCard({ supplier, items, ordered, onMarkOrdered, ord
                       {orderId && editingId !== item.id && (
                         <TableCell className="text-right">
                           <div className="flex items-center gap-0.5 justify-end">
-                            <Button variant="ghost" size="icon" className="size-6" onClick={() => { setEditingId(item.id); setEditQty(String(qty)) }}>
-                              <Pencil className="size-3" />
+                            <Button variant="ghost" size="icon" className="size-8" onClick={() => { setEditingId(item.id); setEditQty(String(qty)) }}>
+                              <Pencil className="size-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="size-6 text-destructive" onClick={() => handleDeleteItem(item.id, item.itemName)}>
-                              <Trash2 className="size-3" />
+                            <Button variant="ghost" size="icon" className="size-8 text-destructive" onClick={() => handleDeleteItem(item.id, item.itemName)}>
+                              <Trash2 className="size-3.5" />
                             </Button>
                           </div>
                         </TableCell>

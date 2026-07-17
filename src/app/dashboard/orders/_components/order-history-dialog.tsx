@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 import { STATUS_LABELS, STATUS_COLORS } from './types'
 
 interface HistoryEvent {
@@ -63,7 +64,12 @@ export function OrderHistoryDialog({ orderId, open, onOpenChange }: OrderHistory
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </div>
         ) : events.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">沒有歷史紀錄</p>
+          <EmptyState
+            icon={History}
+            title="沒有歷史紀錄"
+            description="這張訂單還沒有狀態異動。之後送出、叫貨、驗收的每一步都會記在這裡。"
+            className="py-8"
+          />
         ) : (
           <div className="max-h-[60vh] overflow-y-auto pr-1">
             {/* 時間線：左側圓點 + 連接線 */}
@@ -81,7 +87,7 @@ export function OrderHistoryDialog({ orderId, open, onOpenChange }: OrderHistory
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {e.changedByName ? `${e.changedByName} · ` : ''}
-                      {formatTime(e.createdAt)}
+                      <span className="tabular-nums">{formatTime(e.createdAt)}</span>
                     </p>
                   </div>
                 ))}

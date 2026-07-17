@@ -221,8 +221,8 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
 
       <CardContent className="pt-3 overflow-x-auto">
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="bg-muted/50">
+            <TableRow className="hover:bg-transparent">
               <TableHead className="w-8 print:hidden">
                 <input
                   type="checkbox"
@@ -250,7 +250,10 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
               const isThisSubmitting = submitting === key;
               const checked = selectedKeys.has(key);
               return (
-                <TableRow key={key} className={isPaid ? 'opacity-70' : ''}>
+                <TableRow
+                  key={key}
+                  className={`hover:bg-muted/30 ${isPaid ? 'opacity-70' : ''}`}
+                >
                   <TableCell className="print:hidden">
                     {!isPaid && (
                       <input
@@ -262,14 +265,14 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                       />
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-sm tabular-nums">
                     {formatOrderDate(o.orderDate)}
                   </TableCell>
                   <TableCell className="font-medium">{o.supplierName}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
                     {fmtAmount(o.totalAmount)}
                   </TableCell>
-                  <TableCell className="text-right font-semibold">
+                  <TableCell className="text-right font-semibold tabular-nums">
                     {o.payableAmount === null ? (
                       <span className="text-muted-foreground text-xs">未驗收</span>
                     ) : (
@@ -278,7 +281,7 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right text-sm">
+                  <TableCell className="text-right text-sm tabular-nums">
                     {isPaid ? (
                       <span className="text-green-600">
                         {fmtAmount(o.paidAmount)}
@@ -287,7 +290,7 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                         )}
                       </span>
                     ) : (
-                      <span className="text-muted-foreground text-xs">-</span>
+                      <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </TableCell>
                   <TableCell className="print:hidden">
@@ -299,12 +302,12 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                           onChange={(e) =>
                             setPaidAtInputs((prev) => ({ ...prev, [key]: e.target.value }))
                           }
-                          className="h-7 text-xs w-32"
+                          className="h-8 text-xs w-32 tabular-nums"
                         />
                         <Button
                           size="sm"
                           variant="default"
-                          className="h-7 text-xs px-2"
+                          className="h-8 text-xs px-2.5"
                           disabled={isThisSubmitting}
                           onClick={() => postUpsert(o, 'paid', paidAtInputs[key] ?? today)}
                         >
@@ -317,7 +320,7 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 text-xs px-1"
+                          className="size-8 px-0"
                           onClick={() => setEditingKey(null)}
                           disabled={isThisSubmitting}
                         >
@@ -329,7 +332,7 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 text-xs gap-1 text-muted-foreground"
+                          className="h-8 text-xs gap-1 text-muted-foreground"
                           onClick={() => {
                             setPaidAtInputs((prev) => ({
                               ...prev,
@@ -345,7 +348,7 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 text-xs px-1.5 text-orange-600"
+                          className="size-8 px-0 text-orange-600"
                           disabled={isThisSubmitting}
                           onClick={() => postUpsert(o, 'unpaid')}
                           title="取消付款"
@@ -361,7 +364,7 @@ export function OrderPaymentList({ orders, paymentType, onReload }: OrderPayment
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 text-xs gap-1"
+                        className="h-8 text-xs gap-1"
                         onClick={() => {
                           setPaidAtInputs((prev) => ({ ...prev, [key]: today }));
                           setEditingKey(key);
