@@ -15,11 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Loader2,
   ClipboardCheck,
   AlertTriangle,
   AlertTriangleIcon,
+  PackageCheckIcon,
+  RotateCwIcon,
 } from "lucide-react";
 
 interface RecInput {
@@ -176,23 +179,37 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
     );
   if (error)
     return (
-      <div className="text-center py-12 space-y-3">
-        <AlertTriangleIcon className="size-8 text-orange-500 mx-auto" />
-        <p className="text-base text-red-500">{error}</p>
-        <Button
-          variant="outline"
-          onClick={loadData}
-          className="h-11 rounded-xl gap-2"
-        >
-          <Loader2 className="size-4" /> 重新載入
-        </Button>
-      </div>
+      <EmptyState
+        icon={AlertTriangleIcon}
+        title="載入待驗收清單失敗"
+        description={`${error}。請確認網路連線後再重新載入一次。`}
+        action={
+          <Button
+            variant="outline"
+            onClick={loadData}
+            className="h-11 rounded-xl gap-2"
+          >
+            <RotateCwIcon className="size-4" /> 重新載入
+          </Button>
+        }
+      />
     );
   if (items.length === 0)
     return (
-      <div className="text-center py-12 text-muted-foreground text-base">
-        近期沒有待驗收的品項
-      </div>
+      <EmptyState
+        icon={PackageCheckIcon}
+        title="近期沒有待驗收的品項"
+        description="近 7 天叫的貨都驗收完了。等供應商送貨到店，這裡就會出現需要點收的品項。"
+        action={
+          <Button
+            variant="outline"
+            onClick={loadData}
+            className="h-11 rounded-xl gap-2"
+          >
+            <RotateCwIcon className="size-4" /> 重新整理
+          </Button>
+        }
+      />
     );
 
   // 按「日期｜供應商」分組 — 拆單後同一天可能多家、隔天到貨也各自一組
@@ -206,9 +223,11 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-base font-semibold bg-muted text-muted-foreground">
-        <AlertTriangle className="size-5" />
-        {`還有 ${items.length} 項待驗收（近 7 天）`}
+      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-base font-semibold bg-orange-50 text-orange-700 ring-1 ring-orange-200">
+        <AlertTriangle className="size-5 shrink-0" />
+        <span>
+          還有 <span className="tabular-nums">{items.length}</span> 項待驗收（近 7 天）
+        </span>
       </div>
 
       {Array.from(byGroup.entries()).map(([groupKey, supplierItems]) => {
@@ -218,11 +237,15 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
         return (
           <div
             key={groupKey}
-            className="bg-card border border-border rounded-xl overflow-hidden"
+            className="bg-card rounded-xl ring-1 ring-foreground/10 overflow-hidden transition-shadow hover:shadow-sm"
           >
-            <div className="px-4 py-3 bg-muted/30 flex items-center justify-between">
-              <span className="font-semibold text-base">{gSupplier}</span>
-              <Badge variant="outline" className="text-xs">{dateLabel} 到貨</Badge>
+            <div className="px-3 py-3 sm:px-4 bg-muted/50 flex items-center justify-between gap-2">
+              <span className="font-heading font-semibold text-base min-w-0 break-words">
+                {gSupplier}
+              </span>
+              <Badge variant="outline" className="text-xs shrink-0 tabular-nums">
+                {dateLabel} 到貨
+              </Badge>
             </div>
             <div className="divide-y">
               {supplierItems.map((item) => {
@@ -231,26 +254,26 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                 return (
                   <div
                     key={item.orderItemId}
-                    className={`px-4 py-3 space-y-2 flex gap-3 ${item.isReceived ? "bg-green-50/50" : ""}`}
+                    className={`px-3 py-3 sm:px-4 space-y-2 flex gap-2 sm:gap-3 transition-colors ${item.isReceived ? "bg-green-50/50" : "hover:bg-muted/30"}`}
                   >
                     <div
                       className={`w-1 rounded-full shrink-0 self-stretch ${item.isReceived ? "bg-green-400" : "bg-transparent"}`}
                     />
                     <div className="flex-1 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
                           <span
-                            className={`text-base font-medium ${item.isReceived ? "line-through text-muted-foreground" : ""}`}
+                            className={`text-base font-medium break-words ${item.isReceived ? "line-through text-muted-foreground" : ""}`}
                           >
                             {item.itemName}
                           </span>
-                          <span className="text-sm text-muted-foreground ml-2">
+                          <span className="text-sm text-muted-foreground ml-2 tabular-nums whitespace-nowrap">
                             訂 {orderedQty} {item.unit}
                           </span>
                         </div>
                         {item.isReceived && (
                           <span
-                            className={`text-sm font-semibold ${RESULT_COLORS[item.receivedResult || "正常"]}`}
+                            className={`text-sm font-semibold shrink-0 ${RESULT_COLORS[item.receivedResult || "正常"]}`}
                           >
                             {item.receivedResult || "正常"} ✓
                           </span>
@@ -264,7 +287,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                             inputMode="decimal"
                             step="0.5"
                             min="0"
-                            className="w-20 h-11 text-center text-base border border-border rounded-xl bg-transparent"
+                            className="w-20 h-12 shrink-0 text-center text-base tabular-nums border border-border rounded-xl bg-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
                             value={input.receivedQty}
                             onChange={(e) =>
                               updateInput(
@@ -289,7 +312,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                               )
                             }
                           >
-                            <SelectTrigger className="flex-1 h-11 text-sm rounded-xl">
+                            <SelectTrigger className="flex-1 h-12! min-w-0 text-sm rounded-xl">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -317,7 +340,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                               step="0.5"
                               min="0"
                               max={input.receivedQty}
-                              className="w-20 h-11 text-center text-base border border-red-300 rounded-xl bg-transparent"
+                              className="w-20 h-12 shrink-0 text-center text-base tabular-nums border border-red-300 rounded-xl bg-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-red-400/40 focus:border-red-400"
                               value={input.returnedQty}
                               onChange={(e) =>
                                 updateInput(
@@ -338,7 +361,7 @@ export function ReceivingTab({ storeId }: { storeId: number }) {
                         input &&
                         input.result !== "正常" && (
                           <input
-                            className="w-full h-11 text-base px-3 border border-border rounded-xl bg-transparent"
+                            className="w-full h-12 text-base px-3 border border-border rounded-xl bg-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
                             placeholder="異常說明..."
                             value={input.issue}
                             onChange={(e) =>

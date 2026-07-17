@@ -11,7 +11,9 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, Trash2, AlertTriangle, EyeOff, Eye, Ruler } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { formatCurrency } from "@/lib/format";
+import { ChevronDown, ChevronRight, Pencil, Trash2, AlertTriangle, EyeOff, Eye, Ruler, SearchX } from "lucide-react";
 import type { MenuItemBom } from "./types";
 import { CATEGORY_COLORS, MARGIN_THRESHOLDS } from "./types";
 
@@ -34,9 +36,11 @@ interface MenuListProps {
 export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete, onToggleActive }: MenuListProps) {
   if (items.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        找不到符合的菜品
-      </div>
+      <EmptyState
+        icon={SearchX}
+        title="找不到符合的菜品"
+        description="試著換個關鍵字，或把分類、毛利、上下架篩選切回「全部」再找一次。"
+      />
     );
   }
 
@@ -91,7 +95,7 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                   {/* 售價欄 */}
                   <div className="w-16 px-2">
                     <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">售價</div>
-                    <div className="text-sm font-semibold mt-0.5">${item.sellPrice}</div>
+                    <div className="text-sm font-semibold mt-0.5 tabular-nums">{formatCurrency(item.sellPrice)}</div>
                   </div>
 
                   {/* 總公司毛利欄 */}
@@ -99,11 +103,11 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                     <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">總公司毛利</div>
                     {item.hqRevenue > 0 ? (
                       <>
-                        <div className={`text-sm font-bold mt-0.5 ${marginColorClass(item.hqMargin)}`}>
+                        <div className={`text-sm font-bold mt-0.5 tabular-nums ${marginColorClass(item.hqMargin)}`}>
                           {(item.hqMargin * 100).toFixed(1)}%
                         </div>
-                        <div className="text-[10px] text-muted-foreground/80 leading-tight">
-                          ${item.hqRevenue.toFixed(0)} / ${item.hqCost.toFixed(0)}
+                        <div className="text-[10px] text-muted-foreground/80 leading-tight tabular-nums">
+                          {formatCurrency(Math.round(item.hqRevenue))} / {formatCurrency(Math.round(item.hqCost))}
                         </div>
                       </>
                     ) : (
@@ -116,11 +120,11 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                     <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">分店毛利</div>
                     {item.storeCost > 0 ? (
                       <>
-                        <div className={`text-sm font-bold mt-0.5 ${marginColorClass(item.storeMargin)}`}>
+                        <div className={`text-sm font-bold mt-0.5 tabular-nums ${marginColorClass(item.storeMargin)}`}>
                           {(item.storeMargin * 100).toFixed(1)}%
                         </div>
-                        <div className="text-[10px] text-muted-foreground/80 leading-tight">
-                          ${item.sellPrice} / ${item.storeCost.toFixed(0)}
+                        <div className="text-[10px] text-muted-foreground/80 leading-tight tabular-nums">
+                          {formatCurrency(item.sellPrice)} / {formatCurrency(Math.round(item.storeCost))}
                         </div>
                       </>
                     ) : (
@@ -131,12 +135,12 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
 
                 {/* 手機版（≤ sm）— 維持原本緊湊顯示 */}
                 <div className="sm:hidden text-right shrink-0">
-                  <div className="text-sm font-semibold">售 ${item.sellPrice}</div>
+                  <div className="text-sm font-semibold tabular-nums">售 {formatCurrency(item.sellPrice)}</div>
                   <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5 leading-snug">
                     {item.hqRevenue > 0 && (
                       <div>
                         總:&nbsp;
-                        <span className={`font-semibold ${marginColorClass(item.hqMargin)}`}>
+                        <span className={`font-semibold tabular-nums ${marginColorClass(item.hqMargin)}`}>
                           {(item.hqMargin * 100).toFixed(1)}%
                         </span>
                       </div>
@@ -144,7 +148,7 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                     {item.storeCost > 0 && (
                       <div>
                         店:&nbsp;
-                        <span className={`font-semibold ${marginColorClass(item.storeMargin)}`}>
+                        <span className={`font-semibold tabular-nums ${marginColorClass(item.storeMargin)}`}>
                           {(item.storeMargin * 100).toFixed(1)}%
                         </span>
                       </div>
@@ -205,25 +209,25 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
 
             {/* 展開的 BOM 明細 */}
             {isExpanded && item.ingredients.length > 0 && (
-              <div className="border-t bg-muted/30 px-4 py-2 overflow-x-auto">
+              <div className="border-t bg-muted/30 px-3 sm:px-4 py-2 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-muted-foreground">
-                      <th className="text-left py-1 font-normal">#</th>
+                      <th className="text-left py-1 font-normal w-8">#</th>
                       <th className="text-left py-1 font-normal">食材</th>
                       <th className="text-left py-1 font-normal">用量</th>
                       {item.hqCost > 0 && (
-                        <th className="text-right py-1 font-normal">進貨價</th>
+                        <th className="text-right py-1 font-normal whitespace-nowrap">進貨價</th>
                       )}
                       {item.storeCost > 0 && (
-                        <th className="text-right py-1 font-normal">分店採購價</th>
+                        <th className="text-right py-1 font-normal whitespace-nowrap">分店採購價</th>
                       )}
                     </tr>
                   </thead>
                   <tbody>
                     {item.ingredients.map((ing, idx) => (
-                      <tr key={ing.id} className="border-t border-border/50">
-                        <td className="py-1.5 text-muted-foreground">{idx + 1}</td>
+                      <tr key={ing.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
+                        <td className="py-1.5 text-muted-foreground tabular-nums">{idx + 1}</td>
                         <td className="py-1.5">
                           {ing.ingredientName}
                           {ing.supplierCount > 1 && (
@@ -252,15 +256,15 @@ export function MenuList({ items, expandedIds, onToggleExpand, onEdit, onDelete,
                             </span>
                           )}
                         </td>
-                        <td className="py-1.5 text-muted-foreground">{ing.quantity}</td>
+                        <td className="py-1.5 text-muted-foreground tabular-nums whitespace-nowrap">{ing.quantity}</td>
                         {item.hqCost > 0 && (
-                          <td className="py-1.5 text-right text-muted-foreground">
-                            {ing.hqCost > 0 ? `$${ing.hqCost}` : "-"}
+                          <td className="py-1.5 text-right text-muted-foreground tabular-nums whitespace-nowrap">
+                            {ing.hqCost > 0 ? formatCurrency(ing.hqCost) : "-"}
                           </td>
                         )}
                         {item.storeCost > 0 && (
-                          <td className="py-1.5 text-right text-muted-foreground">
-                            {ing.storeCost > 0 ? `$${ing.storeCost}` : "-"}
+                          <td className="py-1.5 text-right text-muted-foreground tabular-nums whitespace-nowrap">
+                            {ing.storeCost > 0 ? formatCurrency(ing.storeCost) : "-"}
                           </td>
                         )}
                       </tr>

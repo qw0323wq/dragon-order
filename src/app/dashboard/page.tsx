@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * 儀表板首頁
- * 從 /api/stats 與 /api/orders 取得真實資料
- * 包含：月份選擇器、統計卡片、品項排行、每日趨勢 BarChart、供應商圓餅圖、最近訂單
+ * 儀表板首頁 — 營運概覽
+ * 從 /api/stats（當月 + 上月）與 /api/orders 取得真實資料
+ * 包含：月份選擇器、待辦卡、統計卡（含月比）、衍生指標、品項排行、每日趨勢、供應商圓餅、最近訂單
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -21,6 +21,7 @@ import {
   Pie,
   Cell,
   Legend,
+  Label,
 } from 'recharts'
 import {
   TrendingUp,
@@ -33,6 +34,9 @@ import {
   CreditCard,
   CalendarPlus,
   ChevronRight,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Inbox,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
@@ -42,6 +46,8 @@ import {
 } from './orders/_components/types'
 import { MonthSelector } from '@/components/month-selector'
 import { StatCard } from '@/components/ui/stat-card'
+import { DeltaBadge } from '@/components/ui/delta-badge'
+import { EmptyState } from '@/components/ui/empty-state'
 import { SkeletonStatCard, SkeletonTable } from '@/components/ui/skeleton'
 import {
   Card,
@@ -60,17 +66,21 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-// ── 火鍋暖色系調色盤 ──────────────────────────────────────────────────────────
+// ── 火鍋暖色系色階（品牌紅 → 橘 → 琥珀，由深到淺）──────────────────────────
+// 圓餅圖資料已依金額由大到小排序，深色自然落在佔比大的供應商上
 const CHART_COLORS = [
+  '#b91c1c',
   '#ef4444',
   '#f97316',
-  '#eab308',
-  '#22c55e',
-  '#3b82f6',
-  '#8b5cf6',
-  '#ec4899',
-  '#14b8a6',
+  '#fb923c',
+  '#f59e0b',
+  '#fbbf24',
+  '#fcd34d',
+  '#fde68a',
 ]
+
+// 圖表統一字級 / 灰階
+const CHART_TICK = { fontSize: 11, fill: 'var(--muted-foreground)' }
 
 // ── 型別定義 ──────────────────────────────────────────────────────────────────
 
@@ -120,7 +130,29 @@ interface Order {
 }
 
 // ── 共用工具（從 lib/format 匯入）──
-import { formatMonth, formatMonthDisplay, formatDateLocal, formatCurrency } from "@/lib/format";
+import {
+  formatMonth,
+  formatMonthDisplay,
+  formatDateLocal,
+  formatCurrency,
+  formatAmount,
+  addMonths,
+} from '@/lib/format'
+
+/**
+ * 月比變化百分比（純顯示用）。
+ * 上月無資料或為 0 時回 null → 不顯示徽章（避免除以 0 產生 Infinity）
+ */
+function deltaPercent(current: number, previous: number | undefined): number | null {
+  if (previous === undefined || previous === 0) return null
+  return ((Number(current) - Number(previous)) / Number(previous)) * 100
+}
+
+/** 該月份的總天數（用於標示「本月尚未結束」） */
+function daysInMonth(month: string): number {
+  const [y, m] = month.split('-').map(Number)
+  return new Date(y, m, 0).getDate()
+}
 
 // ── 待辦摘要（參考 Costflows 概覽的待辦導向卡片）──────────────────────────────
 
@@ -143,7 +175,7 @@ function TodoCard({
   return (
     <Link href={href} className="block">
       <Card className={`transition-colors hover:bg-muted/50 ${urgent ? 'border-orange-300 dark:border-orange-700' : ''}`}>
-        <CardContent className="py-3 px-4 flex items-center gap-3">
+        <CardContent className="py-3 px-3 sm:px-4 flex items-center gap-3">
           <div className={`p-2 rounded-lg shrink-0 ${
             urgent ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30' : 'bg-green-100 text-green-600 dark:bg-green-900/30'
           }`}>
@@ -160,18 +192,48 @@ function TodoCard({
   )
 }
 
+// ── 衍生指標列（細分隔線網格：gap-px + 底色 = 髮絲線）───────────────────────
+
+interface DerivedMetric {
+  label: string
+  value: string
+  hint?: string
+}
+
+function MetricStrip({ metrics }: { metrics: DerivedMetric[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-foreground/10 ring-1 ring-foreground/10 lg:grid-cols-4">
+      {metrics.map((m) => (
+        <div key={m.label} className="bg-card px-3 py-3 sm:px-4">
+          <p className="truncate text-xs text-muted-foreground">{m.label}</p>
+          <p className="mt-0.5 font-heading text-lg font-semibold tabular-nums text-foreground">
+            {m.value}
+          </p>
+          {m.hint && (
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{m.hint}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── 訂單狀態對照表 ────────────────────────────────────────────────────────────
 
 const ORDER_STATUS_MAP: Record<
   string,
   { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
 > = {
-  draft: { label: '草稿', variant: 'secondary' },
-  confirmed: { label: '已確認', variant: 'default' },
+  // 狀態機：draft → submitted → ordered → receiving → received → closed（另有 cancelled）
+  draft: { label: '編輯中', variant: 'secondary' },
+  submitted: { label: '已送出', variant: 'default' },
   ordered: { label: '已叫貨', variant: 'default' },
+  receiving: { label: '待驗收', variant: 'destructive' },
   received: { label: '已驗收', variant: 'default' },
   closed: { label: '已結案', variant: 'outline' },
+  cancelled: { label: '已取消', variant: 'outline' },
   pending: { label: '待叫貨', variant: 'destructive' },
+  confirmed: { label: '已確認', variant: 'default' }, // 已棄用的舊值，保留向下相容
 }
 
 // ── 品項排行名次 Badge ─────────────────────────────────────────────────────────
@@ -180,24 +242,24 @@ const ORDER_STATUS_MAP: Record<
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1)
     return (
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-white text-xs font-bold">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-white text-xs font-bold tabular-nums">
         1
       </span>
     )
   if (rank === 2)
     return (
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-400 text-white text-xs font-bold">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-400 text-white text-xs font-bold tabular-nums">
         2
       </span>
     )
   if (rank === 3)
     return (
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700 text-white text-xs font-bold">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700 text-white text-xs font-bold tabular-nums">
         3
       </span>
     )
   return (
-    <span className="inline-flex items-center justify-center w-6 h-6 text-xs text-muted-foreground font-medium">
+    <span className="inline-flex items-center justify-center w-6 h-6 text-xs text-muted-foreground font-medium tabular-nums">
       {rank}
     </span>
   )
@@ -211,14 +273,43 @@ function BarTooltip({
   label,
 }: {
   active?: boolean
-  payload?: Array<{ value: number }>
+  payload?: Array<{ value: number; payload: { itemCount: number } }>
   label?: string
 }) {
   if (!active || !payload?.length) return null
+  const { itemCount } = payload[0].payload
   return (
-    <div className="rounded-lg bg-popover px-3 py-2 text-sm shadow ring-1 ring-foreground/10">
-      <p className="font-medium">{label}</p>
-      <p className="text-primary">${payload[0].value.toLocaleString()}</p>
+    <div className="rounded-lg bg-popover px-3 py-2 text-xs shadow-md ring-1 ring-foreground/10">
+      <p className="font-medium text-foreground tabular-nums">{label}</p>
+      <p className="mt-0.5 font-semibold text-primary tabular-nums">
+        {formatCurrency(payload[0].value)}
+      </p>
+      <p className="text-muted-foreground tabular-nums">{itemCount} 項</p>
+    </div>
+  )
+}
+
+// ── 自訂 PieChart Tooltip ─────────────────────────────────────────────────────
+
+function PieTooltip({
+  active,
+  payload,
+  total,
+}: {
+  active?: boolean
+  payload?: Array<{ name: string; value: number }>
+  total: number
+}) {
+  if (!active || !payload?.length) return null
+  const { name, value } = payload[0]
+  const share = total > 0 ? (value / total) * 100 : 0
+  return (
+    <div className="rounded-lg bg-popover px-3 py-2 text-xs shadow-md ring-1 ring-foreground/10">
+      <p className="font-medium text-foreground">{name}</p>
+      <p className="mt-0.5 font-semibold text-primary tabular-nums">
+        {formatCurrency(value)}
+      </p>
+      <p className="text-muted-foreground tabular-nums">佔 {share.toFixed(1)}%</p>
     </div>
   )
 }
@@ -231,6 +322,8 @@ export default function DashboardPage() {
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [stats, setStats] = useState<StatsResponse | null>(null)
+  // 上月統計：只用來算月比徽章，載入失敗不影響主畫面
+  const [prevStats, setPrevStats] = useState<StatsResponse | null>(null)
   const [recentOrders, setRecentOrders] = useState<Order[]>([])
   const [todos, setTodos] = useState<Todos | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
@@ -255,6 +348,19 @@ export default function DashboardPage() {
       toast.error('載入統計資料失敗')
     } finally {
       setStatsLoading(false)
+    }
+  }, [])
+
+  // ── 載入上月統計（僅供月比徽章；失敗就靜默不顯示徽章）─────────────────────
+  const loadPrevStats = useCallback(async (month: string) => {
+    setPrevStats(null) // 先清空，避免新月份短暫配到舊的比較基準
+    try {
+      const res = await fetch(`/api/stats?month=${addMonths(month, -1)}`)
+      if (!res.ok) return
+      const data: StatsResponse = await res.json()
+      setPrevStats(data)
+    } catch {
+      // 靜默：月比徽章是輔助資訊
     }
   }, [])
 
@@ -303,7 +409,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadStats(selectedMonth)
-  }, [selectedMonth, loadStats])
+    loadPrevStats(selectedMonth)
+  }, [selectedMonth, loadStats, loadPrevStats])
 
   useEffect(() => {
     loadRecentOrders()
@@ -314,38 +421,39 @@ export default function DashboardPage() {
   const summary = stats?.summary ?? { totalAmount: 0, itemCount: 0, orderCount: 0 }
   const supplierCount = stats?.topSuppliers.length ?? 0
 
+  // 月比：上月完全沒抓到 → delta 為 null → StatCard 不顯示 trend
   const statCards = [
     {
-      title: '本月採購額',
-      value: `$${summary.totalAmount.toLocaleString()}`,
+      title: '採購額',
+      value: formatCurrency(summary.totalAmount),
       icon: DollarSign,
-      desc: `${formatMonthDisplay(selectedMonth)}`,
-      iconBg: 'bg-red-100 dark:bg-red-900/30',
-      iconColor: 'text-red-600',
+      desc: formatMonthDisplay(selectedMonth),
+      accent: 'bg-red-100 text-red-600 dark:bg-red-900/30',
+      delta: deltaPercent(summary.totalAmount, prevStats?.summary.totalAmount),
     },
     {
       title: '訂單數',
-      value: String(summary.orderCount),
+      value: formatAmount(summary.orderCount),
       icon: ShoppingCart,
-      desc: '本月叫貨次數',
-      iconBg: 'bg-orange-100 dark:bg-orange-900/30',
-      iconColor: 'text-orange-600',
+      desc: '叫貨次數',
+      accent: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30',
+      delta: deltaPercent(summary.orderCount, prevStats?.summary.orderCount),
     },
     {
       title: '品項數',
-      value: String(summary.itemCount),
+      value: formatAmount(summary.itemCount),
       icon: PackageSearch,
-      desc: '本月採購品項',
-      iconBg: 'bg-yellow-100 dark:bg-yellow-900/30',
-      iconColor: 'text-yellow-600',
+      desc: '採購品項',
+      accent: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30',
+      delta: deltaPercent(summary.itemCount, prevStats?.summary.itemCount),
     },
     {
       title: '供應商數',
-      value: String(supplierCount),
+      value: formatAmount(supplierCount),
       icon: Store,
-      desc: '本月往來廠商',
-      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
-      iconColor: 'text-blue-600',
+      desc: '往來廠商',
+      accent: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30',
+      delta: deltaPercent(supplierCount, prevStats?.topSuppliers.length),
     },
   ]
 
@@ -362,27 +470,78 @@ export default function DashboardPage() {
   }))
 
   // ── 供應商圓餅圖資料 ───────────────────────────────────────────────────────
-  const pieData = (stats?.topSuppliers ?? []).map((s, i) => ({
-    name: s.supplierName,
-    value: s.totalAmount,
-    color: CHART_COLORS[i % CHART_COLORS.length],
-  }))
+  // CRITICAL: 供應商一多（實測 3 月有 18 家）圖例會撐滿整張卡、把圓餅壓到看不見
+  //           → 只畫前 6 大，其餘合併成一塊「其他 N 家」（灰色）
+  const PIE_MAX = 6
+  const pieData = (() => {
+    const all = stats?.topSuppliers ?? []
+    const top = all.slice(0, PIE_MAX).map((s, i) => ({
+      name: s.supplierName,
+      value: s.totalAmount,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+    }))
+    const rest = all.slice(PIE_MAX)
+    const restTotal = rest.reduce((sum, s) => sum + s.totalAmount, 0)
+    if (restTotal > 0) {
+      top.push({ name: `其他 ${rest.length} 家`, value: restTotal, color: '#d4d4d8' })
+    }
+    return top
+  })()
 
-  // ── TrendChart Y 軸格式化 ──────────────────────────────────────────────────
+  // ── 衍生指標（全部由既有 API 資料推導，不另外打 API）──────────────────────
+  const purchaseDays = stats?.dailyTrend.length ?? 0
+  const avgPerPurchaseDay = purchaseDays > 0 ? summary.totalAmount / purchaseDays : 0
+  const avgPerOrder =
+    summary.orderCount > 0 ? summary.totalAmount / summary.orderCount : 0
+  const peakDay = (stats?.dailyTrend ?? []).reduce<DailyTrend | null>(
+    (max, d) => (max === null || d.totalAmount > max.totalAmount ? d : max),
+    null
+  )
+  const topSupplier = stats?.topSuppliers[0] ?? null
+  const topSupplierShare =
+    topSupplier && summary.totalAmount > 0
+      ? (topSupplier.totalAmount / summary.totalAmount) * 100
+      : 0
+
+  const derivedMetrics: DerivedMetric[] = [
+    {
+      label: '採購日均',
+      value: formatCurrency(Math.round(avgPerPurchaseDay)),
+      hint: `${purchaseDays} 天有進貨`,
+    },
+    {
+      label: '單筆均額',
+      value: formatCurrency(Math.round(avgPerOrder)),
+      hint: `${formatAmount(summary.orderCount)} 張訂單`,
+    },
+    {
+      label: '最高單日',
+      value: peakDay ? formatCurrency(peakDay.totalAmount) : '—',
+      hint: peakDay ? peakDay.date.slice(5).replace('-', '/') : undefined,
+    },
+    {
+      label: '最大供應商',
+      value: `${topSupplierShare.toFixed(0)}%`,
+      hint: topSupplier?.supplierName,
+    },
+  ]
+
+  // ── TrendChart Y 軸格式化（軸標籤需要縮寫，故不用 formatCurrency）─────────
   const yTickFormatter = (v: number) =>
     v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`
 
   // 只在「首次載入、還沒有任何資料」時顯示整頁骨架屏；
   // 切月份時 stats 已有舊資料 → 保留畫面、無縫換成新月份，不再整頁閃爍
   const showSkeleton = statsLoading && !stats
+  const hasData = summary.totalAmount > 0
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-5 md:space-y-6">
 
       {/* ── 頂部：標題 + 月份選擇器 ─────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="font-heading text-xl font-semibold">儀表板</h2>
+          <h2 className="font-heading text-xl font-semibold">營運概覽</h2>
           <p className="text-sm text-muted-foreground mt-0.5">採購概況統計</p>
         </div>
 
@@ -443,18 +602,37 @@ export default function DashboardPage() {
       {!showSkeleton && (
         <>
           {/* ── 統計卡片 2x2（手機）/ 4 欄（桌面）────────────────────────── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            {statCards.map((card) => (
-              <StatCard
-                key={card.title}
-                label={card.title}
-                value={card.value}
-                icon={card.icon}
-                accent={`${card.iconBg} ${card.iconColor}`}
-                hint={card.desc}
-              />
-            ))}
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              {statCards.map((card) => (
+                <StatCard
+                  key={card.title}
+                  label={card.title}
+                  value={card.value}
+                  icon={card.icon}
+                  accent={card.accent}
+                  // 上月有資料才顯示徽章；採購成本上升 = 壞事 → 沿用預設漲紅跌綠
+                  trend={
+                    card.delta !== null ? (
+                      <DeltaBadge percent={Number(card.delta)} />
+                    ) : undefined
+                  }
+                  hint={card.delta !== null ? '較上月' : card.desc}
+                />
+              ))}
+            </div>
+
+            {/* 本月尚未結束 → 與上月「全月」相比會偏低，明講避免誤讀 */}
+            {isCurrentMonth && prevStats && (
+              <p className="text-xs text-muted-foreground tabular-nums">
+                本月進行中（第 {new Date().getDate()} / {daysInMonth(selectedMonth)} 天），
+                月比是與上月<span className="font-medium">全月</span>相比，僅供參考
+              </p>
+            )}
           </div>
+
+          {/* ── 衍生指標列（有資料才顯示，否則整排 $0 是雜訊）─────────────── */}
+          {hasData && <MetricStrip metrics={derivedMetrics} />}
 
           {/* ── 品項排行（最重要區塊）──────────────────────────────────────── */}
           <Card>
@@ -467,7 +645,7 @@ export default function DashboardPage() {
                 {/* 排序切換按鈕 */}
                 <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
                   <button
-                    className={`px-3 py-1 text-xs rounded transition-colors ${
+                    className={`px-3 py-1.5 text-xs rounded transition-colors ${
                       itemSortMode === 'qty'
                         ? 'bg-primary text-primary-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
@@ -477,7 +655,7 @@ export default function DashboardPage() {
                     依數量
                   </button>
                   <button
-                    className={`px-3 py-1 text-xs rounded transition-colors ${
+                    className={`px-3 py-1.5 text-xs rounded transition-colors ${
                       itemSortMode === 'amount'
                         ? 'bg-primary text-primary-foreground font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
@@ -491,14 +669,27 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               {sortedItems.length === 0 ? (
-                <p className="text-center py-8 text-sm text-muted-foreground">
-                  {formatMonthDisplay(selectedMonth)} 尚無採購紀錄
-                </p>
+                <EmptyState
+                  icon={PackageSearch}
+                  title={`${formatMonthDisplay(selectedMonth)} 尚無採購紀錄`}
+                  description={
+                    isCurrentMonth
+                      ? '這個月還沒有任何叫貨單。建立第一張叫貨單後，這裡會列出叫最多的品項排行。'
+                      : '這個月份沒有叫貨紀錄。可用上方月份選擇器切換到其他月份查看。'
+                  }
+                  action={
+                    isCurrentMonth ? (
+                      <Button size="sm" onClick={() => router.push('/order')}>
+                        去叫貨
+                      </Button>
+                    ) : undefined
+                  }
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="hover:bg-transparent">
                         <TableHead className="w-10 text-center">排名</TableHead>
                         <TableHead>品項</TableHead>
                         <TableHead className="hidden sm:table-cell">分類</TableHead>
@@ -513,8 +704,8 @@ export default function DashboardPage() {
                     </TableHeader>
                     <TableBody>
                       {sortedItems.map((item, idx) => (
-                        <TableRow key={item.itemId}>
-                          <TableCell className="text-center">
+                        <TableRow key={item.itemId} className="hover:bg-muted/30">
+                          <TableCell className="text-center px-1 sm:px-2">
                             <RankBadge rank={idx + 1} />
                           </TableCell>
                           <TableCell className="font-medium">{item.itemName}</TableCell>
@@ -527,16 +718,16 @@ export default function DashboardPage() {
                             {item.supplierName}
                           </TableCell>
                           {/* 主要排序欄位靠右粗體 */}
-                          <TableCell className="text-right font-semibold">
+                          <TableCell className="text-right font-semibold tabular-nums">
                             {itemSortMode === 'qty'
-                              ? `${item.totalQty.toLocaleString()} ${item.unit}`
-                              : `$${item.totalAmount.toLocaleString()}`}
+                              ? `${formatAmount(item.totalQty)} ${item.unit}`
+                              : formatCurrency(item.totalAmount)}
                           </TableCell>
                           {/* 次要欄位靠右灰色 */}
-                          <TableCell className="text-right text-sm text-muted-foreground hidden sm:table-cell">
+                          <TableCell className="text-right text-sm text-muted-foreground tabular-nums hidden sm:table-cell">
                             {itemSortMode === 'qty'
-                              ? `$${item.totalAmount.toLocaleString()}`
-                              : `${item.totalQty.toLocaleString()} ${item.unit}`}
+                              ? formatCurrency(item.totalAmount)
+                              : `${formatAmount(item.totalQty)} ${item.unit}`}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -553,13 +744,19 @@ export default function DashboardPage() {
             {/* 每日採購趨勢 BarChart */}
             <Card className="lg:col-span-3">
               <CardHeader>
-                <CardTitle>每日採購趨勢</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="size-4 text-primary" />
+                  每日採購趨勢
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {dailyChartData.length === 0 ? (
-                  <p className="text-center py-12 text-sm text-muted-foreground">
-                    本月尚無採購紀錄
-                  </p>
+                  <EmptyState
+                    icon={BarChart3}
+                    title="這個月還沒有採購資料"
+                    description="有叫貨單之後，這裡會顯示每天的採購金額分布。"
+                    className="py-10"
+                  />
                 ) : (
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart
@@ -568,28 +765,33 @@ export default function DashboardPage() {
                     >
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="hsl(var(--border))"
+                        stroke="var(--border)"
+                        strokeOpacity={0.5}
                         vertical={false}
                       />
                       <XAxis
                         dataKey="date"
-                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        tick={CHART_TICK}
                         axisLine={false}
                         tickLine={false}
                       />
                       <YAxis
-                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        tick={CHART_TICK}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={yTickFormatter}
                         width={44}
                       />
                       {/* CRITICAL: 使用自訂 Tooltip 以符合設計語言 */}
-                      <Tooltip content={<BarTooltip />} />
+                      <Tooltip
+                        content={<BarTooltip />}
+                        cursor={{ fill: 'var(--muted)', fillOpacity: 0.4 }}
+                      />
                       <Bar
                         dataKey="totalAmount"
-                        fill="hsl(var(--primary))"
+                        fill="var(--primary)"
                         radius={[4, 4, 0, 0]}
+                        maxBarSize={28}
                       />
                     </BarChart>
                   </ResponsiveContainer>
@@ -600,13 +802,19 @@ export default function DashboardPage() {
             {/* 供應商消費佔比 PieChart */}
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>供應商消費佔比</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChartIcon className="size-4 text-primary" />
+                  供應商消費佔比
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {pieData.length === 0 ? (
-                  <p className="text-center py-12 text-sm text-muted-foreground">
-                    本月尚無採購紀錄
-                  </p>
+                  <EmptyState
+                    icon={PieChartIcon}
+                    title="這個月還沒有供應商往來"
+                    description="有叫貨單之後，這裡會顯示各供應商的消費佔比。"
+                    className="py-10"
+                  />
                 ) : (
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
@@ -618,10 +826,40 @@ export default function DashboardPage() {
                         outerRadius={72}
                         paddingAngle={2}
                         dataKey="value"
+                        stroke="none"
                       >
                         {pieData.map((entry) => (
                           <Cell key={entry.name} fill={entry.color} />
                         ))}
+                        {/* 甜甜圈中心補上總額，省一次視線來回 */}
+                        <Label
+                          content={({ viewBox }) => {
+                            if (!viewBox || !('cx' in viewBox)) return null
+                            const { cx, cy } = viewBox as { cx: number; cy: number }
+                            return (
+                              <g>
+                                <text
+                                  x={cx}
+                                  y={cy - 7}
+                                  textAnchor="middle"
+                                  fill="var(--muted-foreground)"
+                                  style={{ fontSize: 10 }}
+                                >
+                                  總額
+                                </text>
+                                <text
+                                  x={cx}
+                                  y={cy + 9}
+                                  textAnchor="middle"
+                                  fill="var(--foreground)"
+                                  style={{ fontSize: 13, fontWeight: 600 }}
+                                >
+                                  {formatCurrency(summary.totalAmount)}
+                                </text>
+                              </g>
+                            )
+                          }}
+                        />
                       </Pie>
                       <Legend
                         iconType="circle"
@@ -630,24 +868,14 @@ export default function DashboardPage() {
                           <span
                             style={{
                               fontSize: 11,
-                              color: 'hsl(var(--muted-foreground))',
+                              color: 'var(--muted-foreground)',
                             }}
                           >
                             {value}
                           </span>
                         )}
                       />
-                      <Tooltip
-                        formatter={(value) => [
-                          `$${Number(value).toLocaleString()}`,
-                          '',
-                        ]}
-                        contentStyle={{
-                          fontSize: 12,
-                          borderRadius: 8,
-                          border: '1px solid hsl(var(--border))',
-                        }}
-                      />
+                      <Tooltip content={<PieTooltip total={summary.totalAmount} />} />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
@@ -666,14 +894,21 @@ export default function DashboardPage() {
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
                 </div>
               ) : recentOrders.length === 0 ? (
-                <p className="text-center py-8 text-sm text-muted-foreground">
-                  尚無訂單紀錄
-                </p>
+                <EmptyState
+                  icon={Inbox}
+                  title="尚無訂單紀錄"
+                  description="系統還沒有任何叫貨單。建立第一張之後，最近 5 筆會顯示在這裡。"
+                  action={
+                    <Button size="sm" onClick={() => router.push('/order')}>
+                      去叫貨
+                    </Button>
+                  }
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow className="hover:bg-transparent">
                         <TableHead>日期</TableHead>
                         <TableHead className="text-right">金額</TableHead>
                         <TableHead>狀態</TableHead>
@@ -689,15 +924,15 @@ export default function DashboardPage() {
                         return (
                           <TableRow
                             key={order.id}
-                            className="cursor-pointer"
+                            className="cursor-pointer hover:bg-muted/30"
                             onClick={() => router.push(`/dashboard/orders?date=${order.orderDate}`)}
                           >
-                            <TableCell className="font-medium">
+                            <TableCell className="font-medium tabular-nums">
                               {order.orderDate}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right tabular-nums">
                               {order.totalAmount != null
-                                ? `$${order.totalAmount.toLocaleString()}`
+                                ? formatCurrency(order.totalAmount)
                                 : '—'}
                             </TableCell>
                             <TableCell>

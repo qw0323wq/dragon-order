@@ -7,8 +7,11 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Plus, Loader2 } from 'lucide-react'
+import { Plus, Loader2, Store, Package, CreditCard, PackageSearch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { StatCard } from '@/components/ui/stat-card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { formatAmount } from '@/lib/format'
 
 import type { Supplier, SupplierFormData } from './_components/types'
 import { CATEGORY_COLORS } from './_components/types'
@@ -91,17 +94,58 @@ export default function SuppliersPage() {
     return groups
   }, [suppliers, categoryFilter])
 
+  /** 頂部指標卡數據（純顯示用，從已載入的 suppliers 推導） */
+  const stats = useMemo(() => {
+    const totalItems = suppliers.reduce((sum, s) => sum + s.itemsCount, 0)
+    const cashCount = suppliers.filter((s) => s.paymentType === '現結').length
+    return {
+      totalItems,
+      cashCount,
+      monthlyCount: suppliers.length - cashCount,
+      categoryCount: new Set(suppliers.map((s) => s.category)).size,
+    }
+  }, [suppliers])
+
+  const hasVisibleGroups = Object.keys(grouped).length > 0
+
   return (
     <div className="p-4 md:p-6 space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="font-heading text-xl font-semibold">供應商管理</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {suppliers.length} 家供應商</p>
+          <p className="text-sm text-muted-foreground mt-0.5">管理供應商資料、聯絡方式與品項</p>
         </div>
-        <Button className="gap-1.5" onClick={handleAddNew}>
+        <Button className="gap-1.5 shrink-0" onClick={handleAddNew}>
           <Plus className="size-4" /> 新增供應商
         </Button>
       </div>
+
+      {/* 指標卡 */}
+      {!loading && suppliers.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatCard
+            label="供應商"
+            value={`${formatAmount(suppliers.length)} 家`}
+            icon={Store}
+            accent="bg-blue-100 text-blue-600"
+            hint={`${stats.categoryCount} 個分類`}
+          />
+          <StatCard
+            label="品項總數"
+            value={formatAmount(stats.totalItems)}
+            icon={Package}
+            accent="bg-orange-100 text-orange-600"
+            hint="所有供應商合計"
+          />
+          <StatCard
+            label="現結供應商"
+            value={`${formatAmount(stats.cashCount)} 家`}
+            icon={CreditCard}
+            accent="bg-red-100 text-red-600"
+            hint={`月結 ${formatAmount(stats.monthlyCount)} 家`}
+          />
+        </div>
+      )}
 
       {/* 分類篩選 */}
       <div className="flex flex-wrap gap-1.5">
@@ -111,10 +155,10 @@ export default function SuppliersPage() {
           const catStyle = CATEGORY_COLORS[cat]
           return (
             <button key={cat} onClick={() => setCategoryFilter(cat)}
-              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`inline-flex min-h-8 items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 isActive ? (catStyle ?? 'bg-primary text-primary-foreground') : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}>
-              {cat} <span className="opacity-70">({count})</span>
+              {cat} <span className="opacity-70 tabular-nums">({count})</span>
             </button>
           )
         })}
@@ -135,7 +179,7 @@ export default function SuppliersPage() {
               }`}>
                 {category}
               </span>
-              <span className="text-xs text-muted-foreground">{list.length} 家</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{list.length} 家</span>
               <div className="flex-1 border-t border-border" />
             </div>
           )}
@@ -147,10 +191,31 @@ export default function SuppliersPage() {
         </div>
       ))}
 
+      {/* 篩選後沒結果（但確實有供應商） */}
+      {!loading && suppliers.length > 0 && !hasVisibleGroups && (
+        <EmptyState
+          icon={PackageSearch}
+          title={`「${categoryFilter}」分類下沒有供應商`}
+          description="這個分類目前是空的。切回「全部」看所有供應商，或新增一家到此分類。"
+          action={
+            <Button variant="outline" onClick={() => setCategoryFilter('全部')}>
+              顯示全部供應商
+            </Button>
+          }
+        />
+      )}
+
       {!loading && suppliers.length === 0 && (
-        <div className="py-16 text-center text-muted-foreground">
-          尚無供應商，點選「新增供應商」建立第一筆
-        </div>
+        <EmptyState
+          icon={Store}
+          title="尚無供應商"
+          description="新增第一家供應商後，就能維護它的聯絡方式、付款條件與品項報價。"
+          action={
+            <Button className="gap-1.5" onClick={handleAddNew}>
+              <Plus className="size-4" /> 新增供應商
+            </Button>
+          }
+        />
       )}
 
       <SupplierFormDialog open={dialogOpen} onOpenChange={setDialogOpen} editTarget={editTarget} onSubmit={handleSubmit} />

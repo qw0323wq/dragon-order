@@ -11,9 +11,11 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Loader2, ChevronRight } from 'lucide-react'
+import { Loader2, ChevronRight, ClipboardList, PackageSearch } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -106,8 +108,10 @@ export function OrdersListView({ initialFilter = 'all', onSelectDate }: OrdersLi
   ]
 
   const pillClass = (active: boolean) =>
-    `h-8 px-3 rounded-md text-xs font-medium transition-colors ${
-      active ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'
+    `inline-flex min-h-8 items-center px-3 rounded-md text-xs font-medium transition-colors ${
+      active
+        ? 'bg-primary text-primary-foreground shadow-sm'
+        : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
     }`
 
   return (
@@ -140,38 +144,51 @@ export function OrdersListView({ initialFilter = 'all', onSelectDate }: OrdersLi
       )}
 
       {!loading && filtered.length === 0 && (
-        <Card>
-          <CardContent className="py-14 text-center text-sm text-muted-foreground">
-            {filter === 'all' ? '這段期間沒有訂單' : `沒有「${WORKFLOW_LABELS[filter as WorkflowStatus]}」的訂單`}
-          </CardContent>
-        </Card>
+        filter === 'all' ? (
+          <EmptyState
+            icon={ClipboardList}
+            title="這段期間沒有訂單"
+            description="換個日期範圍看看，或從「新增訂單」開一張新的叫貨單。"
+          />
+        ) : (
+          <EmptyState
+            icon={PackageSearch}
+            title={`沒有「${WORKFLOW_LABELS[filter as WorkflowStatus]}」的訂單`}
+            description="這個狀態目前是空的。切回「全部」可以看到這段期間的所有訂單。"
+            action={
+              <Button variant="outline" size="sm" onClick={() => setFilter('all')}>
+                顯示全部訂單
+              </Button>
+            }
+          />
+        )
       )}
 
       {/* 桌面：表格 */}
       {!loading && filtered.length > 0 && (
         <>
           <Card className="hidden md:block">
-            <CardContent className="pt-4">
+            <CardContent className="px-0">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>日期</TableHead>
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="pl-4">日期</TableHead>
                     <TableHead>狀態</TableHead>
                     <TableHead className="text-right">品項</TableHead>
                     <TableHead className="text-right">驗收進度</TableHead>
                     <TableHead className="text-right">付款進度</TableHead>
                     <TableHead className="text-right">金額</TableHead>
-                    <TableHead className="w-8" />
+                    <TableHead className="w-8 pr-4" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((r) => (
                     <TableRow
                       key={r.id}
-                      className="cursor-pointer"
+                      className="cursor-pointer hover:bg-muted/30"
                       onClick={() => onSelectDate(r.orderDate)}
                     >
-                      <TableCell className="font-medium">{formatDisplay(r.orderDate)}</TableCell>
+                      <TableCell className="pl-4 font-medium tabular-nums">{formatDisplay(r.orderDate)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <Badge className={WORKFLOW_COLORS[r.workflow]}>{WORKFLOW_LABELS[r.workflow]}</Badge>
@@ -187,8 +204,10 @@ export function OrdersListView({ initialFilter = 'all', onSelectDate }: OrdersLi
                       <TableCell className="text-right tabular-nums">
                         <ProgressText done={r.paidSupplierCount} total={r.supplierCount} />
                       </TableCell>
-                      <TableCell className="text-right font-semibold">{formatCurrency(r.totalAmount)}</TableCell>
-                      <TableCell><ChevronRight className="size-4 text-muted-foreground" /></TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">{formatCurrency(r.totalAmount)}</TableCell>
+                      <TableCell className="pr-4">
+                        <ChevronRight className="size-4 text-muted-foreground" />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -199,17 +218,23 @@ export function OrdersListView({ initialFilter = 'all', onSelectDate }: OrdersLi
           {/* 手機：卡片 */}
           <div className="md:hidden space-y-2.5">
             {filtered.map((r) => (
-              <Card key={r.id} className="cursor-pointer active:bg-muted/50" onClick={() => onSelectDate(r.orderDate)}>
+              <Card
+                key={r.id}
+                className="cursor-pointer transition-colors active:bg-muted/50"
+                onClick={() => onSelectDate(r.orderDate)}
+              >
                 <CardContent className="py-3.5 px-4">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-sm">{formatDisplay(r.orderDate)}</span>
+                    <span className="font-medium text-sm tabular-nums">{formatDisplay(r.orderDate)}</span>
                     <Badge className={WORKFLOW_COLORS[r.workflow]}>{WORKFLOW_LABELS[r.workflow]}</Badge>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-2 text-xs text-muted-foreground">
-                    <span>
+                    <span className="tabular-nums">
                       {r.itemCount} 品項 · 驗收 {r.receivedCount}/{r.itemCount} · 付款 {r.paidSupplierCount}/{r.supplierCount}
                     </span>
-                    <span className="font-semibold text-foreground">{formatCurrency(r.totalAmount)}</span>
+                    <span className="font-semibold text-foreground tabular-nums shrink-0">
+                      {formatCurrency(r.totalAmount)}
+                    </span>
                   </div>
                 </CardContent>
               </Card>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CATEGORY_COLORS } from "@/lib/mock-data";
 import type { MenuItem } from "@/lib/mock-data";
+import { formatCurrency } from "@/lib/format";
 import { PlusIcon, MinusIcon, CheckIcon } from "lucide-react";
 
 interface ItemCardProps {
@@ -51,15 +52,15 @@ export function ItemCard({
   }
 
   return (
-    <div className={`bg-card rounded-xl border transition-all ${inCart ? 'border-primary/30 ring-1 ring-primary/10' : 'border-border'}`}>
+    <div className={`bg-card rounded-xl transition-all hover:shadow-sm ${inCart ? 'ring-1 ring-primary/30' : 'ring-1 ring-foreground/10'}`}>
       {/* 上排：品名 + 資訊 + 快速加入按鈕 */}
       <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-muted/30"
+        className="flex items-center gap-3 px-3 py-3 sm:px-4 cursor-pointer transition-colors hover:bg-muted/20 active:bg-muted/30 rounded-xl"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-semibold text-base text-foreground leading-snug">
+            <span className="font-heading font-semibold text-base text-foreground leading-snug">
               {item.name}
             </span>
             <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${colorClass}`}>
@@ -68,10 +69,12 @@ export function ItemCard({
           </div>
           <div className="text-sm text-muted-foreground truncate">
             {item.unit}
-            {showPrice && item.cost_price > 0 ? ` · $${item.cost_price}` : ''}
+            {showPrice && item.cost_price > 0 ? (
+              <span className="tabular-nums"> · {formatCurrency(item.cost_price)}</span>
+            ) : null}
             {item.supplierName && <span> · {item.supplierName}</span>}
             {inCart && (
-              <span className="ml-2 text-primary font-medium">
+              <span className="ml-2 text-primary font-medium tabular-nums">
                 · 已加 {cartQty}
               </span>
             )}
@@ -94,8 +97,8 @@ export function ItemCard({
 
       {/* 展開：精確數量控制 */}
       {expanded && (
-        <div className="px-4 pb-3 pt-1 border-t border-border/50">
-          <div className="flex items-center gap-3">
+        <div className="px-3 pb-3 pt-1 sm:px-4 border-t border-border/50">
+          <div className="flex items-center gap-2 sm:gap-3">
             <span className="text-sm text-muted-foreground shrink-0">數量</span>
             <div className="flex items-center border border-border rounded-xl overflow-hidden flex-1">
               <button
@@ -111,7 +114,7 @@ export function ItemCard({
                   inputMode="decimal"
                   min="0"
                   step="0.5"
-                  className="flex-1 h-12 text-center text-lg font-bold text-foreground bg-transparent outline-none border-x border-border"
+                  className="flex-1 w-full min-w-0 h-12 text-center text-lg font-bold tabular-nums text-foreground bg-transparent outline-none border-x border-border"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onBlur={handleInputBlur}
@@ -120,7 +123,7 @@ export function ItemCard({
                 />
               ) : (
                 <button
-                  className="flex-1 h-12 text-center text-lg font-bold text-foreground border-x border-border hover:bg-muted/50 transition-colors"
+                  className="flex-1 min-w-0 h-12 text-center text-lg font-bold tabular-nums text-foreground border-x border-border hover:bg-muted/50 transition-colors"
                   onClick={() => { setInputValue(String(quantity)); setEditing(true); }}
                   aria-label="點擊輸入數量"
                 >
@@ -137,7 +140,7 @@ export function ItemCard({
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
-              className="shrink-0 h-12 px-5 bg-primary text-primary-foreground rounded-xl font-bold text-base flex items-center gap-1.5 active:scale-95 transition-transform"
+              className="shrink-0 h-12 px-4 sm:px-5 bg-primary text-primary-foreground rounded-xl font-bold text-base flex items-center gap-1.5 active:scale-95 transition-transform"
               aria-label={`加入 ${item.name} × ${quantity}`}
             >
               <CheckIcon className="size-4" />

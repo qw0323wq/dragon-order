@@ -22,12 +22,13 @@ import { toast } from 'sonner'
 import {
   LayoutList, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
   Loader2, ClipboardCheck, CreditCard, PlusCircle, FileText, Trash2, ArrowLeft, History,
+  ClipboardList,
 } from 'lucide-react'
 import Link from 'next/link'
 import { sumBy, formatCurrency } from '@/lib/format'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 
 import {
   formatDate, formatDisplay, addDays, groupBySupplier,
@@ -164,8 +165,10 @@ export default function OrdersPage() {
   const orderStatus = order ? STATUS_LABELS[order.status] || order.status : '無訂單'
 
   const tabClass = (m: ViewMode) =>
-    `h-8 text-xs px-3 rounded-md font-medium transition-colors ${
-      viewMode === m ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'
+    `inline-flex min-h-8 items-center text-xs px-3 rounded-md font-medium transition-colors ${
+      viewMode === m
+        ? 'bg-primary text-primary-foreground shadow-sm'
+        : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
     }`
 
   // URL 未解析完成（首次 render 的一瞬間）
@@ -212,7 +215,7 @@ export default function OrdersPage() {
           </div>
           <div className="flex items-center gap-2 mt-2">
             <Button variant="outline" size="icon" className="size-8" onClick={() => goDay(-1)}><ChevronLeft className="size-4" /></Button>
-            <div className="flex items-center gap-1.5 text-sm font-medium min-w-[180px] justify-center">
+            <div className="flex items-center gap-1.5 text-sm font-medium tabular-nums min-w-[180px] justify-center">
               <CalendarDays className="size-3.5 text-muted-foreground" />{formatDisplay(selectedDate)}
             </div>
             <Button variant="outline" size="icon" className="size-8" onClick={() => goDay(1)} disabled={isToday}><ChevronRight className="size-4" /></Button>
@@ -222,10 +225,10 @@ export default function OrdersPage() {
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge className={STATUS_COLORS[order.status] || ''}>{orderStatus}</Badge>
               {order.createdByName && <span className="text-xs text-muted-foreground">建單人：{order.createdByName}</span>}
-              <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={() => setHistoryOpen(true)}>
+              <Button variant="ghost" size="sm" className="text-xs h-8 px-2" onClick={() => setHistoryOpen(true)}>
                 <History className="size-3 mr-1" /> 歷史
               </Button>
-              <Button variant="ghost" size="sm" className="text-xs text-destructive h-6 px-2" onClick={handleDeleteOrder}>
+              <Button variant="ghost" size="sm" className="text-xs text-destructive h-8 px-2" onClick={handleDeleteOrder}>
                 <Trash2 className="size-3 mr-1" /> 刪除訂單
               </Button>
             </div>
@@ -234,7 +237,7 @@ export default function OrdersPage() {
         {order && (
           <div className="text-right">
             <p className="text-xs text-muted-foreground">採購總計</p>
-            <p className="text-xl font-bold font-heading text-primary">{formatCurrency(grandTotal)}</p>
+            <p className="text-xl font-bold font-heading tabular-nums text-primary">{formatCurrency(grandTotal)}</p>
           </div>
         )}
       </div>
@@ -242,7 +245,19 @@ export default function OrdersPage() {
       {loading && <div className="flex items-center justify-center py-20"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>}
 
       {!loading && !order && (
-        <Card><CardContent className="py-16 text-center"><p className="text-muted-foreground">{formatDisplay(selectedDate)} 沒有訂單</p></CardContent></Card>
+        <EmptyState
+          icon={ClipboardList}
+          title={`${formatDisplay(selectedDate)} 沒有訂單`}
+          description="這天還沒有人叫貨。可以新增一張訂單，或用上方箭頭切換到其他日期。"
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Link href="/order">
+                <Button size="sm" className="gap-1.5"><PlusCircle className="size-3.5" /> 新增訂單</Button>
+              </Link>
+              <Button variant="outline" size="sm" onClick={backToList}>回訂單列表</Button>
+            </div>
+          }
+        />
       )}
 
       {!loading && order && details.length > 0 && (

@@ -22,12 +22,21 @@ import {
   Star,
   Sparkles,
   AlertCircle,
+  SearchX,
+  Carrot,
+  Boxes,
+  Flame,
+  Truck,
+  UtensilsCrossed,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { SkeletonTable } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface IngredientRow {
   id: number;
@@ -183,7 +192,7 @@ export default function IngredientsHubPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="font-heading text-xl font-semibold">食材中心</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5 tabular-nums">
             共 {items.length} 個食材 · 多供應商比價 · 主供應商管理
           </p>
         </div>
@@ -205,7 +214,7 @@ export default function IngredientsHubPage() {
             <button
               key={cat}
               onClick={() => setFilterCat(cat)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+              className={`h-8 px-3 text-xs rounded-full border transition-colors ${
                 filterCat === cat
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -219,19 +228,44 @@ export default function IngredientsHubPage() {
 
       {/* 食材列表 */}
       <div className="space-y-2">
-        {filtered.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">沒有符合的食材</div>
-        )}
+        {filtered.length === 0 &&
+          (search !== "" || filterCat !== "全部" ? (
+            <EmptyState
+              icon={SearchX}
+              title="沒有符合的食材"
+              description="換個關鍵字，或把分類切回「全部」再找找看。"
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearch("");
+                    setFilterCat("全部");
+                  }}
+                >
+                  清除篩選條件
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={Carrot}
+              title="還沒有任何食材"
+              description="食材是把各供應商的同一樣東西串起來的那一層。到「品項管理」把採購品項對應到食材後，這裡就會出現比價資料。"
+            />
+          ))}
         {filtered.map((ing) => {
           const isExpanded = expandedId === ing.id;
           const detail = detailMap.get(ing.id);
 
           return (
-            <div key={ing.id} className="border rounded-lg bg-card overflow-hidden">
+            <div
+              key={ing.id}
+              className="rounded-xl bg-card ring-1 ring-foreground/10 overflow-hidden transition-shadow hover:shadow-sm"
+            >
               {/* 標頭 */}
               <button
                 onClick={() => toggleExpand(ing.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-muted/30 transition-colors text-left"
               >
                 {isExpanded ? (
                   <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
@@ -250,9 +284,9 @@ export default function IngredientsHubPage() {
                     <span className="text-xs text-muted-foreground">/{ing.unit}</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3 flex-wrap">
-                    <span>{ing.supplierCount} 家供應商</span>
+                    <span className="tabular-nums">{ing.supplierCount} 家供應商</span>
                     {ing.menuUseCount > 0 && (
-                      <span>用在 {ing.menuUseCount} 道菜</span>
+                      <span className="tabular-nums">用在 {ing.menuUseCount} 道菜</span>
                     )}
                     {ing.supplierCount === 0 && (
                       <span className="text-amber-600 flex items-center gap-1">
@@ -269,8 +303,9 @@ export default function IngredientsHubPage() {
                       <Star className="size-3 fill-yellow-400 text-yellow-500" />
                       {ing.primarySupplierName}
                     </div>
-                    <div className="text-sm font-semibold">
-                      ${ing.primaryCost}/{ing.unit}
+                    <div className="text-sm font-semibold tabular-nums">
+                      {formatCurrency(ing.primaryCost)}
+                      <span className="text-muted-foreground font-normal">/{ing.unit}</span>
                     </div>
                   </div>
                 ) : ing.supplierCount > 0 ? (
@@ -280,7 +315,7 @@ export default function IngredientsHubPage() {
 
               {/* 展開明細 */}
               {isExpanded && (
-                <div className="border-t bg-muted/30 px-4 py-3">
+                <div className="border-t bg-muted/30 px-3 sm:px-4 py-3">
                   {!detail ? (
                     <div className="text-center py-4 text-sm text-muted-foreground">
                       載入中...
@@ -289,39 +324,60 @@ export default function IngredientsHubPage() {
                     <div className="space-y-4">
                       {/* 庫存 + 消耗 summary */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <Card className="bg-card">
-                          <CardContent className="py-2 px-3">
-                            <p className="text-[10px] text-muted-foreground">總庫存</p>
-                            <p className="text-base font-semibold">
-                              {detail.summary.totalStock} <span className="text-xs text-muted-foreground">{detail.ingredient.unit}</span>
-                            </p>
-                          </CardContent>
-                        </Card>
-                        <Card className="bg-card">
-                          <CardContent className="py-2 px-3">
-                            <p className="text-[10px] text-muted-foreground">7日消耗</p>
-                            <p className="text-base font-semibold">{detail.summary.last7DaysOutflow}</p>
-                          </CardContent>
-                        </Card>
-                        <Card className="bg-card">
-                          <CardContent className="py-2 px-3">
-                            <p className="text-[10px] text-muted-foreground">供應商</p>
-                            <p className="text-base font-semibold">{detail.summary.skuCount} 家</p>
-                          </CardContent>
-                        </Card>
-                        <Card className="bg-card">
-                          <CardContent className="py-2 px-3">
-                            <p className="text-[10px] text-muted-foreground">用在</p>
-                            <p className="text-base font-semibold">{detail.summary.menuCount} 道菜</p>
-                          </CardContent>
-                        </Card>
+                        <StatCard
+                          label="總庫存"
+                          icon={Boxes}
+                          accent="bg-orange-100 text-orange-600"
+                          value={
+                            <>
+                              {detail.summary.totalStock}
+                              <span className="ml-1 text-sm font-normal text-muted-foreground">
+                                {detail.ingredient.unit}
+                              </span>
+                            </>
+                          }
+                        />
+                        <StatCard
+                          label="7 日消耗"
+                          icon={Flame}
+                          accent="bg-purple-100 text-purple-600"
+                          value={detail.summary.last7DaysOutflow}
+                          hint={detail.ingredient.unit}
+                        />
+                        <StatCard
+                          label="供應商"
+                          icon={Truck}
+                          accent="bg-blue-100 text-blue-600"
+                          value={
+                            <>
+                              {detail.summary.skuCount}
+                              <span className="ml-1 text-sm font-normal text-muted-foreground">家</span>
+                            </>
+                          }
+                        />
+                        <StatCard
+                          label="用在"
+                          icon={UtensilsCrossed}
+                          accent="bg-emerald-100 text-emerald-600"
+                          value={
+                            <>
+                              {detail.summary.menuCount}
+                              <span className="ml-1 text-sm font-normal text-muted-foreground">道菜</span>
+                            </>
+                          }
+                        />
                       </div>
 
                       {/* SKU 比價表 */}
                       <div>
                         <h4 className="text-sm font-medium mb-2">供應商比價</h4>
                         {detail.skus.length === 0 ? (
-                          <p className="text-xs text-muted-foreground py-2">尚無對應 SKU</p>
+                          <EmptyState
+                            className="py-6 rounded-xl bg-card ring-1 ring-foreground/10"
+                            icon={Truck}
+                            title="尚無對應 SKU"
+                            description="這個食材還沒對應到任何供應商品項，到「品項管理」把採購品項指到它就能開始比價。"
+                          />
                         ) : (
                           <div className="space-y-1.5">
                             {detail.skus.map((sku) => (
@@ -354,14 +410,20 @@ export default function IngredientsHubPage() {
                                   </div>
 
                                   <div className="flex items-center gap-3 text-xs shrink-0">
-                                    <div>
+                                    <div className="tabular-nums">
                                       <span className="text-muted-foreground">進貨</span>{" "}
-                                      <span className="font-semibold">${sku.cost_price}</span>
+                                      <span className="font-semibold">
+                                        {formatCurrency(sku.cost_price)}
+                                      </span>
                                       <span className="text-muted-foreground">/{sku.unit}</span>
                                     </div>
-                                    <div>
+                                    <div className="tabular-nums">
                                       <span className="text-muted-foreground">庫存</span>{" "}
-                                      <span className={sku.total_stock <= 0 ? "text-red-600" : ""}>
+                                      <span
+                                        className={
+                                          sku.total_stock <= 0 ? "font-semibold text-red-600" : "font-medium"
+                                        }
+                                      >
                                         {sku.total_stock}
                                       </span>
                                     </div>
@@ -369,7 +431,7 @@ export default function IngredientsHubPage() {
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-7 text-xs"
+                                        className="h-8 text-xs"
                                         onClick={() => handleSetPrimary(ing.id, sku.id, sku.name)}
                                       >
                                         設為主家
@@ -386,20 +448,22 @@ export default function IngredientsHubPage() {
                       {/* 用在哪些菜 */}
                       {detail.menuItems.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-medium mb-2">
+                          <h4 className="text-sm font-medium mb-2 tabular-nums">
                             用在 {detail.menuItems.length} 道菜
                           </h4>
                           <div className="flex flex-wrap gap-1.5">
                             {detail.menuItems.map((m) => (
                               <div
                                 key={m.id}
-                                className="px-2 py-1 bg-card border rounded text-xs"
-                                title={`售價 $${m.sell_price} · 用量 ${m.quantity}`}
+                                className="px-2 py-1 bg-card rounded-lg ring-1 ring-foreground/10 text-xs"
+                                title={`售價 ${formatCurrency(Number(m.sell_price))} · 用量 ${m.quantity}`}
                               >
                                 <span className="text-muted-foreground">{m.category}</span>
                                 <span className="mx-1">·</span>
                                 <span className="font-medium">{m.name}</span>
-                                <span className="text-muted-foreground ml-1">({m.quantity})</span>
+                                <span className="text-muted-foreground ml-1 tabular-nums">
+                                  ({m.quantity})
+                                </span>
                               </div>
                             ))}
                           </div>

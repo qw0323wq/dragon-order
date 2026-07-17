@@ -26,7 +26,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Search, Plus } from "lucide-react";
+import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { formatAmount } from "@/lib/format";
+import { Search, Plus, BookOpen, ListTree, AlertTriangle, WifiOff } from "lucide-react";
 
 import type { MenuItemBom } from "./_components/types";
 import { MARGIN_THRESHOLDS } from "./_components/types";
@@ -110,6 +113,18 @@ export default function BomPage() {
     () => ["全部", ...Array.from(new Set(data.map((d) => d.category)))],
     [data]
   );
+
+  /**
+   * 頂部指標卡數據（純顯示用，從已載入的 data 推導）
+   * 低毛利判定沿用 MARGIN_THRESHOLDS + 「該層有資料」條件，與配色/篩選器保持一致
+   */
+  const stats = useMemo(() => {
+    const ingredientCount = data.reduce((sum, d) => sum + d.ingredients.length, 0);
+    const lowMarginCount = data.filter(
+      (d) => d.storeCost > 0 && d.storeMargin < MARGIN_THRESHOLDS.STORE_LOW
+    ).length;
+    return { ingredientCount, lowMarginCount };
+  }, [data]);
 
   const filtered = useMemo(() => {
     // 先過濾
@@ -203,11 +218,17 @@ export default function BomPage() {
 
   if (fetchError) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <p className="text-sm text-muted-foreground">載入失敗，請檢查網路連線</p>
-        <Button variant="outline" size="sm" onClick={fetchData}>
-          重試
-        </Button>
+      <div className="p-4 md:p-6">
+        <EmptyState
+          icon={WifiOff}
+          title="載入失敗"
+          description="無法取得 BOM 配方資料，請檢查網路連線後重試。"
+          action={
+            <Button variant="outline" onClick={fetchData}>
+              重新載入
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -221,34 +242,52 @@ export default function BomPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="p-4 md:p-6 space-y-4">
       {/* 標題 + 操作按鈕 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">BOM 配方管理</h1>
-          <p className="text-sm text-muted-foreground">
-            {data.length} 道菜品，
-            {data.reduce((sum, d) => sum + d.ingredients.length, 0)} 筆配方明細
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="font-heading text-xl font-semibold">BOM 配方管理</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            菜品配方與毛利結構，成本由食材主供應商價推算
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={expandAll}
-            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 border rounded"
-          >
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={expandAll}>
             全部展開
-          </button>
-          <button
-            onClick={collapseAll}
-            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 border rounded"
-          >
+          </Button>
+          <Button variant="outline" size="sm" onClick={collapseAll}>
             全部收合
-          </button>
+          </Button>
           <Button className="gap-1.5" size="sm" onClick={handleAdd}>
             <Plus className="size-4" />
             新增菜品
           </Button>
         </div>
+      </div>
+
+      {/* 指標卡 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard
+          label="菜品總數"
+          value={formatAmount(data.length)}
+          icon={BookOpen}
+          accent="bg-orange-100 text-orange-600"
+          hint={showInactive ? "含已下架" : "上架中"}
+        />
+        <StatCard
+          label="配方明細"
+          value={formatAmount(stats.ingredientCount)}
+          icon={ListTree}
+          accent="bg-blue-100 text-blue-600"
+          hint="食材對應筆數"
+        />
+        <StatCard
+          label="低毛利菜品"
+          value={formatAmount(stats.lowMarginCount)}
+          icon={AlertTriangle}
+          accent="bg-red-100 text-red-600"
+          hint={`分店毛利 < ${MARGIN_THRESHOLDS.STORE_LOW * 100}%`}
+        />
       </div>
 
       {/* 搜尋 + 分類篩選 */}
@@ -267,7 +306,7 @@ export default function BomPage() {
             <button
               key={cat}
               onClick={() => setFilterCat(cat)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+              className={`inline-flex min-h-8 items-center px-3 py-1 text-xs rounded-full border transition-colors ${
                 filterCat === cat
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -295,7 +334,7 @@ export default function BomPage() {
               <button
                 key={key}
                 onClick={() => setSortMode(key)}
-                className={`px-2 py-0.5 rounded border transition-colors ${
+                className={`inline-flex min-h-7 items-center px-2 py-0.5 rounded border transition-colors ${
                   sortMode === key
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -311,7 +350,7 @@ export default function BomPage() {
             <span className="text-muted-foreground">毛利：</span>
             <button
               onClick={() => setMarginFilter({ kind: "all" })}
-              className={`px-2 py-0.5 rounded border transition-colors ${
+              className={`inline-flex min-h-7 items-center px-2 py-0.5 rounded border transition-colors ${
                 marginFilter.kind === "all"
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -323,7 +362,7 @@ export default function BomPage() {
               onClick={() =>
                 setMarginFilter({ kind: "low", layer: "hq", threshold: MARGIN_THRESHOLDS.HQ_LOW })
               }
-              className={`px-2 py-0.5 rounded border transition-colors ${
+              className={`inline-flex min-h-7 items-center px-2 py-0.5 rounded border transition-colors ${
                 marginFilter.kind === "low" && marginFilter.layer === "hq"
                   ? "bg-red-500 text-white border-red-500"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -336,7 +375,7 @@ export default function BomPage() {
               onClick={() =>
                 setMarginFilter({ kind: "low", layer: "store", threshold: MARGIN_THRESHOLDS.STORE_LOW })
               }
-              className={`px-2 py-0.5 rounded border transition-colors ${
+              className={`inline-flex min-h-7 items-center px-2 py-0.5 rounded border transition-colors ${
                 marginFilter.kind === "low" && marginFilter.layer === "store"
                   ? "bg-red-500 text-white border-red-500"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -349,7 +388,7 @@ export default function BomPage() {
               onClick={() =>
                 setMarginFilter({ kind: "high", layer: "store", threshold: MARGIN_THRESHOLDS.STORE_HIGH })
               }
-              className={`px-2 py-0.5 rounded border transition-colors ${
+              className={`inline-flex min-h-7 items-center px-2 py-0.5 rounded border transition-colors ${
                 marginFilter.kind === "high" && marginFilter.layer === "store"
                   ? "bg-green-600 text-white border-green-600"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -365,7 +404,7 @@ export default function BomPage() {
             <span className="text-muted-foreground">狀態：</span>
             <button
               onClick={() => setShowInactive((v) => !v)}
-              className={`px-2 py-0.5 rounded border transition-colors ${
+              className={`inline-flex min-h-7 items-center px-2 py-0.5 rounded border transition-colors ${
                 showInactive
                   ? "bg-orange-500 text-white border-orange-500"
                   : "bg-background text-muted-foreground border-border hover:bg-accent"

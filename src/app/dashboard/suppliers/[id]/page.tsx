@@ -24,8 +24,12 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { StatCard } from '@/components/ui/stat-card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { formatCurrency, formatAmount } from '@/lib/format'
 import {
   ArrowLeft, Plus, Pencil, Trash2, Upload, Loader2, FileSpreadsheet, RotateCcw, ChevronDown, ChevronRight,
+  Package, Archive, CalendarClock,
 } from 'lucide-react'
 
 interface ItemData {
@@ -295,7 +299,7 @@ export default function SupplierDetailPage() {
           </Button>
           <div>
             <h2 className="font-heading font-semibold text-lg">{supplierName}</h2>
-            <p className="text-sm text-muted-foreground">{activeItems.length} 個品項</p>
+            <p className="text-sm text-muted-foreground tabular-nums">{activeItems.length} 個品項</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -324,83 +328,135 @@ export default function SupplierDetailPage() {
         </div>
       </div>
 
+      {/* 指標卡 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard
+          label="上架品項"
+          value={formatAmount(activeItems.length)}
+          icon={Package}
+          accent="bg-orange-100 text-orange-600"
+          hint="可叫貨的品項數"
+        />
+        <StatCard
+          label="已停用品項"
+          value={formatAmount(inactiveItems.length)}
+          icon={Archive}
+          accent="bg-slate-100 text-slate-600"
+          hint="可隨時重新上架"
+        />
+        <StatCard
+          label="待生效改價"
+          value={formatAmount(Object.keys(pendingSchedules).length)}
+          icon={CalendarClock}
+          accent="bg-amber-100 text-amber-600"
+          hint="已排程的進貨價調整"
+        />
+      </div>
+
       {/* 上傳結果 */}
       {uploadResult && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="py-3 flex items-center gap-2 text-sm text-green-700">
-            <FileSpreadsheet className="size-4" />
-            報價單匯入完成：更新 {uploadResult.updated} 個、新增 {uploadResult.created} 個品項
+            <FileSpreadsheet className="size-4 shrink-0" />
+            <span className="tabular-nums">
+              報價單匯入完成：更新 {uploadResult.updated} 個、新增 {uploadResult.created} 個品項
+            </span>
           </CardContent>
         </Card>
       )}
 
       {/* 上傳說明 */}
       <Card className="border-dashed">
-        <CardContent className="py-3 text-xs text-muted-foreground">
-          📄 報價單 Excel 欄位對應：品名（必填）、進貨價/成本/單價/含稅價、單位、分類、規格。品名相同自動更新價格，新品名自動新增。
+        <CardContent className="py-3 flex items-start gap-2 text-xs text-muted-foreground">
+          <FileSpreadsheet className="size-3.5 mt-0.5 shrink-0" />
+          <span>
+            報價單 Excel 欄位對應：品名（必填）、進貨價/成本/單價/含稅價、單位、分類、規格。品名相同自動更新價格，新品名自動新增。
+          </span>
         </CardContent>
       </Card>
 
       {/* 品項列表 */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[140px]">品名</TableHead>
-                  <TableHead>分類</TableHead>
-                  <TableHead>單位</TableHead>
-                  <TableHead className="text-right">進貨價</TableHead>
-                  <TableHead className="text-right">店家採購價</TableHead>
-                  <TableHead className="text-right">售價</TableHead>
-                  <TableHead>規格</TableHead>
-                  <TableHead className="text-right w-[80px]">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activeItems.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      尚無品項，請新增或上傳報價單
-                    </TableCell>
+          {activeItems.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="尚無品項"
+              description="手動新增第一個品項，或直接上傳供應商的報價單 Excel 一次匯入全部品項與價格。"
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Button onClick={openAdd} className="gap-1.5">
+                    <Plus className="size-4" /> 新增品項
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Upload className="size-4" /> 上傳報價單
+                  </Button>
+                </div>
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="min-w-[140px]">品名</TableHead>
+                    <TableHead>分類</TableHead>
+                    <TableHead>單位</TableHead>
+                    <TableHead className="text-right">進貨價</TableHead>
+                    <TableHead className="text-right">店家採購價</TableHead>
+                    <TableHead className="text-right">售價</TableHead>
+                    <TableHead>規格</TableHead>
+                    <TableHead className="text-right w-[80px]">操作</TableHead>
                   </TableRow>
-                )}
-                {activeItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">{item.category}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{item.unit}</TableCell>
-                    <TableCell className="text-right">
-                      ${item.costPrice}
-                      {pendingSchedules[item.id] && (
-                        <span className="ml-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                          {pendingSchedules[item.id].effectiveDate.slice(5)} 起→${pendingSchedules[item.id].newCostPrice}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.storePrice > 0 ? `$${item.storePrice}` : <span className="text-muted-foreground text-xs">自動</span>}
-                    </TableCell>
-                    <TableCell className="text-right">${item.sellPrice}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{item.spec}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="size-7" onClick={() => openEdit(item)}>
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="size-7 text-destructive" onClick={() => handleDelete(item)}>
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {activeItems.map((item) => (
+                    <TableRow key={item.id} className="hover:bg-muted/30">
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs">{item.category}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{item.unit}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatCurrency(item.costPrice)}
+                        {pendingSchedules[item.id] && (
+                          <span className="ml-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded whitespace-nowrap">
+                            {pendingSchedules[item.id].effectiveDate.slice(5)} 起→{formatCurrency(pendingSchedules[item.id].newCostPrice)}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {item.storePrice > 0 ? formatCurrency(item.storePrice) : <span className="text-muted-foreground text-xs">自動</span>}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCurrency(item.sellPrice)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{item.spec}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(item)} title="編輯">
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(item)}
+                            title="刪除"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -411,9 +467,9 @@ export default function SupplierDetailPage() {
             className="pb-2 cursor-pointer select-none"
             onClick={() => setShowInactive(!showInactive)}
           >
-            <CardTitle className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-1.5 hover:text-foreground transition-colors">
               {showInactive ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-              已停用品項 ({inactiveItems.length})
+              已停用品項 <span className="tabular-nums">({inactiveItems.length})</span>
             </CardTitle>
           </CardHeader>
           {showInactive && (
@@ -421,7 +477,7 @@ export default function SupplierDetailPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead>品名</TableHead>
                       <TableHead>分類</TableHead>
                       <TableHead>單位</TableHead>
@@ -431,18 +487,18 @@ export default function SupplierDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {inactiveItems.map((item) => (
-                      <TableRow key={item.id} className="opacity-60 hover:opacity-100 transition-opacity">
+                      <TableRow key={item.id} className="opacity-60 hover:opacity-100 hover:bg-muted/30 transition-opacity">
                         <TableCell className="line-through text-muted-foreground">{item.name}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="text-xs">{item.category}</Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">{item.unit}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">${item.costPrice}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(item.costPrice)}</TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="gap-1 text-xs h-7"
+                            className="gap-1 text-xs h-8"
                             onClick={() => handleReactivate(item)}
                           >
                             <RotateCcw className="size-3" /> 上架

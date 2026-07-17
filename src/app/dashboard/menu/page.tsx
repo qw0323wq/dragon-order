@@ -7,12 +7,14 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Percent, CalendarClock, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { Plus, Search, Pencil, Percent, CalendarClock, Eye, EyeOff, Trash2, PackageSearch, SearchX } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { EmptyState } from '@/components/ui/empty-state'
+import { SkeletonTable } from '@/components/ui/skeleton'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -319,8 +321,40 @@ export default function MenuPage() {
   }
 
   if (loading) {
-    return <div className="p-4 md:p-6"><p className="text-muted-foreground">載入中...</p></div>
+    return (
+      <div className="p-4 md:p-6">
+        <SkeletonTable rows={8} cols={6} />
+      </div>
+    )
   }
+
+  // 空狀態文案：有篩選條件 → 引導清條件；本來就沒品項 → 引導去哪裡新增
+  const hasFilters = search !== '' || categoryFilter !== '全部' || supplierFilter !== '全部'
+  const emptyNode = hasFilters ? (
+    <EmptyState
+      icon={SearchX}
+      title="沒有符合的品項"
+      description="換個關鍵字，或把分類 / 供應商篩選切回「全部」再找找看。"
+      action={
+        <Button
+          variant="outline"
+          onClick={() => { setSearch(''); setCategoryFilter('全部'); setSupplierFilter('全部') }}
+        >
+          清除篩選條件
+        </Button>
+      }
+    />
+  ) : (
+    <EmptyState
+      icon={PackageSearch}
+      title={showInactive ? '還沒有任何品項' : '沒有上架中的品項'}
+      description={
+        showInactive
+          ? '品項是跟著供應商建立的，到「供應商」頁面挑一家廠商就能新增它的品項。'
+          : '可能全部都被下架了。點右上角的「顯示已下架」切換檢視，或到「供應商」頁面新增品項。'
+      }
+    />
+  )
 
   return (
     <div className="p-4 md:p-6 space-y-5">
@@ -328,7 +362,7 @@ export default function MenuPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="font-heading text-xl font-semibold">品項管理</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {items.length} 個品項</p>
+          <p className="text-sm text-muted-foreground mt-0.5 tabular-nums">共 {items.length} 個品項</p>
         </div>
         <Button variant="outline" className="gap-1.5 shrink-0" onClick={() => setBatchOpen(true)}>
           <Percent className="size-4" /> 批次設加成
@@ -372,7 +406,7 @@ export default function MenuPage() {
       <div className="flex justify-end">
         <button
           onClick={() => setShowInactive((v) => !v)}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors ${
+          className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs transition-colors ${
             showInactive
               ? 'bg-primary text-primary-foreground border-primary'
               : 'bg-background text-muted-foreground border-border hover:bg-accent'
@@ -390,7 +424,7 @@ export default function MenuPage() {
           <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead className="pl-4">品號</TableHead>
                   <TableHead>品項</TableHead>
                   <TableHead>分類</TableHead>
@@ -403,17 +437,17 @@ export default function MenuPage() {
               </TableHeader>
               <TableBody>
                 {filteredItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      沒有符合的品項
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={8} className="p-0">
+                      {emptyNode}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredItems.map((item) => {
                     const catStyle = CATEGORY_COLORS[item.category] ?? 'bg-muted text-muted-foreground'
                     return (
-                      <TableRow key={item.id} className={!item.isActive ? 'opacity-55' : ''}>
-                        <TableCell className="pl-4 text-xs text-muted-foreground font-mono">{item.sku || '-'}</TableCell>
+                      <TableRow key={item.id} className={`hover:bg-muted/30 ${!item.isActive ? 'opacity-55' : ''}`}>
+                        <TableCell className="pl-4 text-xs text-muted-foreground font-mono tabular-nums">{item.sku || '-'}</TableCell>
                         <TableCell className="font-medium">
                           {item.name}
                           {!item.isActive && (
@@ -426,10 +460,10 @@ export default function MenuPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{item.supplierName}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
                           {item.costPrice > 0 ? formatCurrency(item.costPrice) : '-'}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right tabular-nums font-medium">
                           {item.storePrice > 0 ? formatCurrency(item.storePrice) : '-'}
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground">{item.unit}</TableCell>
@@ -468,11 +502,12 @@ export default function MenuPage() {
 
           {/* 手機版 */}
           <div className="md:hidden divide-y">
+            {filteredItems.length === 0 && emptyNode}
             {filteredItems.map((item) => {
               const catStyle = CATEGORY_COLORS[item.category] ?? 'bg-muted text-muted-foreground'
               return (
-                <div key={item.id} className={`p-3 space-y-1 ${!item.isActive ? 'opacity-55' : ''}`}>
-                  <div className="flex items-center justify-between">
+                <div key={item.id} className={`px-3 py-3 space-y-1.5 ${!item.isActive ? 'opacity-55' : ''}`}>
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-medium text-sm truncate">{item.name}</span>
                       <span className={`inline-flex h-4 items-center rounded-full px-1.5 text-[10px] font-medium shrink-0 ${catStyle}`}>
@@ -482,7 +517,7 @@ export default function MenuPage() {
                         <span className="inline-flex h-4 items-center rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground shrink-0">已下架</span>
                       )}
                     </div>
-                    <div className="flex items-center shrink-0">
+                    <div className="flex items-center gap-0.5 shrink-0">
                       <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(item)} title="編輯">
                         <Pencil className="size-3.5" />
                       </Button>
@@ -508,11 +543,17 @@ export default function MenuPage() {
                       </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{item.supplierName}</span>
+                  <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-muted-foreground">
+                    <span className="truncate">{item.supplierName}</span>
                     <span>/{item.unit}</span>
-                    {item.costPrice > 0 && <span>進${item.costPrice}</span>}
-                    {item.storePrice > 0 && <span>店${item.storePrice}</span>}
+                    {item.costPrice > 0 && (
+                      <span className="tabular-nums">進 {formatCurrency(item.costPrice)}</span>
+                    )}
+                    {item.storePrice > 0 && (
+                      <span className="tabular-nums font-medium text-foreground">
+                        店 {formatCurrency(item.storePrice)}
+                      </span>
+                    )}
                   </div>
                 </div>
               )
@@ -532,15 +573,18 @@ export default function MenuPage() {
             const sched = editTarget ? pendingByItem.get(editTarget.id) : undefined
             if (!sched) return null
             return (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
                 <div className="flex items-start gap-2">
                   <CalendarClock className="size-4 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
                     <p className="font-medium">此品項有預約改價（{sched.effectiveDate} 生效）</p>
                     <p className="text-xs">
-                      屆時進貨價將改為 <span className="font-semibold">${sched.newCostPrice ?? '—'}</span>
+                      屆時進貨價將改為{' '}
+                      <span className="font-semibold tabular-nums">
+                        {sched.newCostPrice != null ? formatCurrency(sched.newCostPrice) : '—'}
+                      </span>
                       {sched.newStorePrice != null && sched.newStorePrice > 0 && (
-                        <>、店家採購價改為 <span className="font-semibold">${sched.newStorePrice}</span></>
+                        <>、店家採購價改為 <span className="font-semibold tabular-nums">{formatCurrency(sched.newStorePrice)}</span></>
                       )}
                       。現在手動改價會在生效日被排程覆蓋，如要永久調整請一併到「預約改價」修改或取消該排程。
                     </p>
@@ -587,10 +631,12 @@ export default function MenuPage() {
 
             {/* 自動算出的店家採購價（加成模式） */}
             {formStorePrice === 0 && formCostPrice > 0 && (
-              <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-                店家採購價（自動）＝ 進貨價 ${formCostPrice} × (1 + {formMarkupPct}%) ={' '}
-                <span className="font-semibold text-primary">
-                  ${Math.round(formCostPrice * (1 + formMarkupPct / 100))}
+              <div className="rounded-xl bg-muted/50 px-3 py-2 text-sm">
+                店家採購價（自動）＝ 進貨價{' '}
+                <span className="tabular-nums">{formatCurrency(formCostPrice)}</span> × (1 +{' '}
+                <span className="tabular-nums">{formMarkupPct}</span>%) ={' '}
+                <span className="font-semibold text-primary tabular-nums">
+                  {formatCurrency(Math.round(formCostPrice * (1 + formMarkupPct / 100)))}
                 </span>
               </div>
             )}
@@ -652,14 +698,14 @@ export default function MenuPage() {
               </div>
             </div>
 
-            <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-              將套用到 <span className="font-semibold text-primary">{batchScopeCount}</span> 個品項
+            <div className="rounded-xl bg-muted/50 px-3 py-2 text-sm">
+              將套用到 <span className="font-semibold text-primary tabular-nums">{batchScopeCount}</span> 個品項
               {batchCategory === '全部' ? '（全部）' : `（${batchCategory}）`}
             </div>
 
             {/* 有手動固定價的提醒 + 清除選項 */}
             {batchManualCount > 0 && (
-              <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm cursor-pointer">
+              <label className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm cursor-pointer">
                 <input
                   type="checkbox"
                   checked={batchClearManual}
@@ -693,7 +739,7 @@ export default function MenuPage() {
             <p>
               即將永久刪除「<span className="font-semibold">{deleteTarget?.name}</span>」，此動作無法復原。
             </p>
-            <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-amber-800 text-xs">
+            <p className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-amber-800 text-xs">
               只有從未被叫貨、庫存、配方、價格排程等引用的品項才能真刪除；若已有關聯資料會被擋下，請改用「下架」。
             </p>
           </div>

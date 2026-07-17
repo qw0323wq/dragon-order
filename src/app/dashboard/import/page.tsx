@@ -27,6 +27,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { StatCard } from '@/components/ui/stat-card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
@@ -79,7 +81,7 @@ interface ParsedFile {
 }
 
 // ── 共用工具（從 lib/format 匯入）──
-import { formatCurrency as fmtMoney } from "@/lib/format";
+import { formatCurrency as fmtMoney, formatAmount } from "@/lib/format";
 
 /** 類型中文標籤 */
 const TYPE_LABEL: Record<string, string> = {
@@ -187,73 +189,119 @@ function ItemOverviewTable({ rows, summary }: ItemOverviewTableProps) {
     <div className="space-y-4">
       {/* 摘要卡片 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SummaryCard label="總品項數" value={summary.totalItems.toString()} icon={FileSpreadsheet} />
-        <SummaryCard label="總銷售量" value={summary.totalQuantity.toLocaleString()} icon={ShoppingCart} />
-        <SummaryCard label="總營業額" value={fmtMoney(summary.totalRevenue)} icon={TrendingUp} />
-        <SummaryCard
+        <StatCard
+          label="總品項數"
+          value={formatAmount(summary.totalItems)}
+          icon={FileSpreadsheet}
+          accent="bg-blue-100 text-blue-600"
+        />
+        <StatCard
+          label="總銷售量"
+          value={formatAmount(summary.totalQuantity)}
+          icon={ShoppingCart}
+          accent="bg-orange-100 text-orange-600"
+        />
+        <StatCard
+          label="總營業額"
+          value={fmtMoney(summary.totalRevenue)}
+          icon={TrendingUp}
+          accent="bg-red-100 text-red-600"
+        />
+        <StatCard
           label="已比對品項"
-          value={`${matchedCount} / ${rows.length}`}
+          value={
+            <span className={matchedCount === rows.length ? 'text-green-600' : 'text-yellow-600'}>
+              {formatAmount(matchedCount)} / {formatAmount(rows.length)}
+            </span>
+          }
           icon={CheckCircle2}
-          valueClass={matchedCount === rows.length ? 'text-green-600' : 'text-yellow-600'}
+          accent={
+            matchedCount === rows.length
+              ? 'bg-green-100 text-green-600'
+              : 'bg-yellow-100 text-yellow-600'
+          }
+          hint={matchedCount === rows.length ? '全部比對成功' : '未匹配的品項無法算毛利'}
         />
       </div>
 
       {/* 品項表格 */}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="pl-4 w-8">排名</TableHead>
-              <TableHead>品項名稱</TableHead>
-              <TableHead className="hidden sm:table-cell">分類</TableHead>
-              <TableHead className="text-right">銷售量</TableHead>
-              <TableHead className="text-right hidden md:table-cell">點選率</TableHead>
-              <TableHead className="text-right">營業額</TableHead>
-              <TableHead className="hidden lg:table-cell">系統比對</TableHead>
-              <TableHead className="text-right hidden lg:table-cell">估算毛利</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row, idx) => (
-              <TableRow key={idx}>
-                <TableCell className="pl-4 text-muted-foreground text-sm">{idx + 1}</TableCell>
-                <TableCell className="font-medium max-w-[140px] truncate" title={row.name}>
-                  {row.name}
-                </TableCell>
-                <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                  {row.category || '-'}
-                </TableCell>
-                <TableCell className="text-right">{row.quantity.toLocaleString()}</TableCell>
-                <TableCell className="text-right hidden md:table-cell text-muted-foreground text-sm">
-                  {row.clickRate}
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {fmtMoney(row.revenue)}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  {row.matched ? (
-                    <span className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
-                      <CheckCircle2 className="size-3.5 shrink-0" />
-                      {row.matched.name}
-                    </span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">未匹配</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right hidden lg:table-cell">
-                  {row.estimatedProfit !== null ? (
-                    <span className={row.estimatedProfit >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                      {fmtMoney(row.estimatedProfit)}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </TableCell>
+      {rows.length === 0 ? (
+        <div className="rounded-xl bg-card ring-1 ring-foreground/10">
+          <EmptyState
+            icon={FileSpreadsheet}
+            title="這份檔案沒有品項資料"
+            description="檔案解析成功但內容是空的。請確認在 iCHEF 匯出時有選到正確的日期區間。"
+          />
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="pl-3 md:pl-4 w-8">排名</TableHead>
+                <TableHead>品項名稱</TableHead>
+                <TableHead className="hidden sm:table-cell">分類</TableHead>
+                <TableHead className="text-right">銷售量</TableHead>
+                <TableHead className="text-right hidden md:table-cell">點選率</TableHead>
+                <TableHead className="text-right">營業額</TableHead>
+                <TableHead className="hidden lg:table-cell">系統比對</TableHead>
+                <TableHead className="text-right pr-3 md:pr-4 hidden lg:table-cell">
+                  估算毛利
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, idx) => (
+                <TableRow key={idx} className="hover:bg-muted/30">
+                  <TableCell className="pl-3 md:pl-4 text-muted-foreground text-sm tabular-nums">
+                    {idx + 1}
+                  </TableCell>
+                  <TableCell className="font-medium max-w-[140px] truncate" title={row.name}>
+                    {row.name}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                    {row.category || '-'}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.quantity)}
+                  </TableCell>
+                  <TableCell className="text-right hidden md:table-cell text-muted-foreground text-sm tabular-nums">
+                    {row.clickRate}
+                  </TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">
+                    {fmtMoney(row.revenue)}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {row.matched ? (
+                      <span className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
+                        <CheckCircle2 className="size-3.5 shrink-0" />
+                        {row.matched.name}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">未匹配</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right pr-3 md:pr-4 hidden lg:table-cell tabular-nums">
+                    {row.estimatedProfit !== null ? (
+                      <span
+                        className={
+                          row.estimatedProfit >= 0
+                            ? 'text-green-600 font-medium'
+                            : 'text-red-600 font-medium'
+                        }
+                      >
+                        {fmtMoney(row.estimatedProfit)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   )
 }
@@ -270,43 +318,74 @@ function CategoryOverviewTable({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <SummaryCard label="分類數" value={summary.totalCategories.toString()} icon={BarChart3} />
-        <SummaryCard label="總銷售量" value={summary.totalQuantity.toLocaleString()} icon={ShoppingCart} />
-        <SummaryCard label="總營業額" value={fmtMoney(summary.totalRevenue)} icon={TrendingUp} />
+        <StatCard
+          label="分類數"
+          value={formatAmount(summary.totalCategories)}
+          icon={BarChart3}
+          accent="bg-blue-100 text-blue-600"
+        />
+        <StatCard
+          label="總銷售量"
+          value={formatAmount(summary.totalQuantity)}
+          icon={ShoppingCart}
+          accent="bg-orange-100 text-orange-600"
+        />
+        <StatCard
+          label="總營業額"
+          value={fmtMoney(summary.totalRevenue)}
+          icon={TrendingUp}
+          accent="bg-red-100 text-red-600"
+        />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="pl-4">分類</TableHead>
-              <TableHead className="text-right">銷售量</TableHead>
-              <TableHead className="text-right hidden sm:table-cell">銷售量占比</TableHead>
-              <TableHead className="text-right">營業額</TableHead>
-              <TableHead className="text-right hidden sm:table-cell">營業額占比</TableHead>
-              <TableHead className="text-right hidden md:table-cell">點選率</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row, idx) => (
-              <TableRow key={idx}>
-                <TableCell className="font-medium pl-4">{row.name}</TableCell>
-                <TableCell className="text-right">{row.quantity.toLocaleString()}</TableCell>
-                <TableCell className="text-right hidden sm:table-cell text-muted-foreground">
-                  {row.quantityRate}
-                </TableCell>
-                <TableCell className="text-right font-medium">{fmtMoney(row.revenue)}</TableCell>
-                <TableCell className="text-right hidden sm:table-cell text-muted-foreground">
-                  {row.revenueRate}
-                </TableCell>
-                <TableCell className="text-right hidden md:table-cell text-muted-foreground">
-                  {row.clickRate}
-                </TableCell>
+      {rows.length === 0 ? (
+        <div className="rounded-xl bg-card ring-1 ring-foreground/10">
+          <EmptyState
+            icon={BarChart3}
+            title="這份檔案沒有分類資料"
+            description="檔案解析成功但內容是空的。請確認在 iCHEF 匯出時有選到正確的日期區間。"
+          />
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="pl-3 md:pl-4">分類</TableHead>
+                <TableHead className="text-right">銷售量</TableHead>
+                <TableHead className="text-right hidden sm:table-cell">銷售量占比</TableHead>
+                <TableHead className="text-right">營業額</TableHead>
+                <TableHead className="text-right hidden sm:table-cell">營業額占比</TableHead>
+                <TableHead className="text-right pr-3 md:pr-4 hidden md:table-cell">
+                  點選率
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, idx) => (
+                <TableRow key={idx} className="hover:bg-muted/30">
+                  <TableCell className="font-medium pl-3 md:pl-4">{row.name}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatAmount(row.quantity)}
+                  </TableCell>
+                  <TableCell className="text-right hidden sm:table-cell text-muted-foreground tabular-nums">
+                    {row.quantityRate}
+                  </TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">
+                    {fmtMoney(row.revenue)}
+                  </TableCell>
+                  <TableCell className="text-right hidden sm:table-cell text-muted-foreground tabular-nums">
+                    {row.revenueRate}
+                  </TableCell>
+                  <TableCell className="text-right pr-3 md:pr-4 hidden md:table-cell text-muted-foreground tabular-nums">
+                    {row.clickRate}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   )
 }
@@ -324,95 +403,100 @@ function CheckoutTable({
     <div className="space-y-4">
       {/* 摘要卡片 */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <SummaryCard label="總訂單數" value={summary.totalOrders.toLocaleString()} icon={ShoppingCart} />
-        <SummaryCard label="總營業額" value={fmtMoney(summary.totalRevenue)} icon={TrendingUp} />
+        <StatCard
+          label="總訂單數"
+          value={formatAmount(summary.totalOrders)}
+          icon={ShoppingCart}
+          accent="bg-orange-100 text-orange-600"
+        />
+        <StatCard
+          label="總營業額"
+          value={fmtMoney(summary.totalRevenue)}
+          icon={TrendingUp}
+          accent="bg-red-100 text-red-600"
+        />
         <div className="col-span-2 md:col-span-1">
-          <Card>
-            <CardContent className="pt-4 pb-3 px-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CreditCard className="size-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground font-medium">付款方式</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
+          <div className="flex h-full items-start justify-between gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <div className="min-w-0 space-y-1">
+              <p className="truncate text-xs text-muted-foreground">付款方式</p>
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
                 {Object.entries(summary.payMethods).map(([method, count]) => (
                   <span
                     key={method}
-                    className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-0.5 text-xs"
+                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs"
                   >
                     {method}
-                    <span className="font-semibold">{count}</span>
+                    <span className="font-semibold tabular-nums">{formatAmount(count)}</span>
                   </span>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+              <CreditCard className="size-5" />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 結帳紀錄表格 */}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="pl-4">結帳時間</TableHead>
-              <TableHead className="hidden sm:table-cell">桌號</TableHead>
-              <TableHead className="text-right">金額</TableHead>
-              <TableHead className="hidden md:table-cell">付款方式</TableHead>
-              <TableHead className="hidden lg:table-cell">品項</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.slice(0, 200).map((row, idx) => (
-              <TableRow key={idx}>
-                <TableCell className="pl-4 text-sm">{row.checkoutTime || '-'}</TableCell>
-                <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                  {row.tableNo || '-'}
-                </TableCell>
-                <TableCell className="text-right font-medium">{fmtMoney(row.amount)}</TableCell>
-                <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                  {row.payMethod || '-'}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell text-muted-foreground text-sm max-w-[240px] truncate" title={row.items}>
-                  {row.items || '-'}
-                </TableCell>
-              </TableRow>
-            ))}
-            {rows.length > 200 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-3">
-                  顯示前 200 筆，共 {rows.length} 筆
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  )
-}
-
-// ── 子元件：摘要卡片 ──────────────────────────────────────────────────────────
-
-interface SummaryCardProps {
-  label: string
-  value: string
-  icon: React.ElementType
-  valueClass?: string
-}
-
-function SummaryCard({ label, value, icon: Icon, valueClass }: SummaryCardProps) {
-  return (
-    <Card>
-      <CardContent className="pt-4 pb-3 px-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Icon className="size-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">{label}</span>
+      {rows.length === 0 ? (
+        <div className="rounded-xl bg-card ring-1 ring-foreground/10">
+          <EmptyState
+            icon={CreditCard}
+            title="這份檔案沒有結帳紀錄"
+            description="檔案解析成功但內容是空的。請確認在 iCHEF 匯出時有選到正確的日期區間。"
+          />
         </div>
-        <p className={['text-lg font-bold leading-tight', valueClass ?? ''].join(' ')}>
-          {value}
-        </p>
-      </CardContent>
-    </Card>
+      ) : (
+        <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="pl-3 md:pl-4">結帳時間</TableHead>
+                <TableHead className="hidden sm:table-cell">桌號</TableHead>
+                <TableHead className="text-right">金額</TableHead>
+                <TableHead className="hidden md:table-cell">付款方式</TableHead>
+                <TableHead className="pr-3 md:pr-4 hidden lg:table-cell">品項</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.slice(0, 200).map((row, idx) => (
+                <TableRow key={idx} className="hover:bg-muted/30">
+                  <TableCell className="pl-3 md:pl-4 text-sm tabular-nums">
+                    {row.checkoutTime || '-'}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell text-muted-foreground text-sm tabular-nums">
+                    {row.tableNo || '-'}
+                  </TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">
+                    {fmtMoney(row.amount)}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                    {row.payMethod || '-'}
+                  </TableCell>
+                  <TableCell
+                    className="pr-3 md:pr-4 hidden lg:table-cell text-muted-foreground text-sm max-w-[240px] truncate"
+                    title={row.items}
+                  >
+                    {row.items || '-'}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {rows.length > 200 && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-sm text-muted-foreground py-3"
+                  >
+                    顯示前 200 筆，共 <span className="tabular-nums">{formatAmount(rows.length)}</span> 筆
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   )
 }
 

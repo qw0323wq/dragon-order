@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
-  ArrowRightLeft, Plus, Search, Loader2, RotateCcw, CheckCircle2,
+  ArrowRightLeft, Plus, Loader2, RotateCcw, CheckCircle2, PackageSearch, Clock,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { StatCard } from '@/components/ui/stat-card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { formatAmount } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 // ── 型別 ──
 
@@ -191,21 +195,46 @@ export default function TransfersPage() {
   }
 
   const borrowCount = transfers.filter(t => t.type === 'borrow' && t.status === 'confirmed').length
+  // 顯示用：進行中 = 已確認但尚未歸還/沖銷
+  const activeCount = transfers.filter(t => t.status === 'confirmed').length
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="font-heading text-lg font-semibold">門市調撥/借料</h2>
-          <p className="text-sm text-muted-foreground">
-            {transfers.length} 筆紀錄
-            {borrowCount > 0 && <span className="ml-2 text-amber-600 font-medium">{borrowCount} 筆未歸還</span>}
-          </p>
+          <p className="text-sm text-muted-foreground">兩店之間的撥貨與借料紀錄</p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" className="h-8 shrink-0 gap-1.5" onClick={() => setCreateOpen(true)}>
           <Plus className="size-3.5" /> 新增
         </Button>
+      </div>
+
+      {/* 指標卡 */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard
+          label="調撥紀錄"
+          value={formatAmount(transfers.length)}
+          icon={ArrowRightLeft}
+          accent="bg-orange-100 text-orange-600"
+          hint="筆（依目前篩選）"
+        />
+        <StatCard
+          label="進行中"
+          value={formatAmount(activeCount)}
+          icon={Clock}
+          accent="bg-blue-100 text-blue-600"
+          hint="尚未歸還或沖銷"
+        />
+        <StatCard
+          label="未歸還借料"
+          value={formatAmount(borrowCount)}
+          icon={RotateCcw}
+          accent="bg-amber-100 text-amber-600"
+          hint={borrowCount > 0 ? '記得追回' : '都已結清'}
+          className="col-span-2 sm:col-span-1"
+        />
       </div>
 
       {/* 篩選 */}
@@ -219,7 +248,7 @@ export default function TransfersPage() {
           <button
             key={opt.value}
             onClick={() => setStatusFilter(opt.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-medium transition-colors ${
               statusFilter === opt.value
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -236,7 +265,26 @@ export default function TransfersPage() {
           <Loader2 className="size-4 animate-spin" /> 載入中...
         </div>
       ) : transfers.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">尚無調撥紀錄</div>
+        <EmptyState
+          icon={statusFilter === 'all' ? ArrowRightLeft : PackageSearch}
+          title={statusFilter === 'all' ? '尚無調撥紀錄' : '這個狀態下沒有紀錄'}
+          description={
+            statusFilter === 'all'
+              ? '兩店互相借料或撥貨時，按「新增」建立一筆，系統會自動調整雙方庫存。'
+              : '切換上方的狀態篩選看看其他紀錄，或建立一筆新的調撥。'
+          }
+          action={
+            statusFilter === 'all' ? (
+              <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+                <Plus className="size-3.5" /> 新增調撥/借料
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
+                看全部紀錄
+              </Button>
+            )
+          }
+        />
       ) : (
         <div className="space-y-3">
           {transfers.map(t => {
@@ -246,45 +294,47 @@ export default function TransfersPage() {
             const isActive = t.status === 'confirmed'
 
             return (
-              <Card key={t.id}>
-                <CardContent className="pt-4 pb-3 space-y-2">
+              <Card key={t.id} className="ring-1 ring-foreground/10 transition-shadow hover:shadow-sm">
+                <CardContent className="space-y-2.5 px-3 pb-3 pt-4 sm:px-6">
                   {/* 標頭 */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ArrowRightLeft className="size-4 text-muted-foreground" />
-                      <span className="font-mono text-sm font-medium">{t.transfer_number}</span>
-                      <Badge variant="secondary" className={`text-[10px] ${st.color}`}>{st.label}</Badge>
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <ArrowRightLeft className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="font-mono text-sm font-medium tabular-nums">{t.transfer_number}</span>
+                      <Badge variant="secondary" className={cn('text-[10px]', st.color)}>{st.label}</Badge>
                       <Badge variant="outline" className="text-[10px]">{isBorrow ? '借料' : '調撥'}</Badge>
                     </div>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                       {new Date(t.created_at).toLocaleDateString('zh-TW')}
                     </span>
                   </div>
 
                   {/* 來源→目標 */}
-                  <div className="text-sm">
+                  <div className="flex flex-wrap items-center gap-x-2 text-sm">
                     <span className="font-medium">{t.from_store_name}</span>
-                    <span className="mx-2 text-muted-foreground">→</span>
+                    <span className="text-muted-foreground">→</span>
                     <span className="font-medium">{t.to_store_name}</span>
-                    {t.created_by_name && <span className="text-xs text-muted-foreground ml-2">by {t.created_by_name}</span>}
+                    {t.created_by_name && <span className="text-xs text-muted-foreground">by {t.created_by_name}</span>}
                   </div>
 
                   {/* 品項明細 */}
-                  <div className="text-xs space-y-0.5 pl-2 border-l-2 border-border">
+                  <div className="space-y-1 rounded-lg border-l-2 border-border bg-muted/30 py-1.5 pl-2.5 pr-2 text-xs">
                     {t.items.map(item => (
-                      <div key={item.id} className="flex items-center gap-2">
-                        <span>{item.item_name}</span>
-                        <span className="text-muted-foreground">
-                          {item.quantity} {item.unit || item.item_unit}
-                        </span>
-                        {isBorrow && item.returned_qty > 0 && (
-                          <span className="text-green-600">已還 {item.returned_qty}</span>
-                        )}
-                        {isBorrow && item.quantity > item.returned_qty && isActive && (
-                          <span className="text-amber-600">
-                            未還 {(item.quantity - item.returned_qty).toFixed(1)}
+                      <div key={item.id} className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">{item.item_name}</span>
+                        <div className="flex shrink-0 items-center gap-2 tabular-nums">
+                          {isBorrow && item.returned_qty > 0 && (
+                            <span className="text-green-600">已還 {item.returned_qty}</span>
+                          )}
+                          {isBorrow && item.quantity > item.returned_qty && isActive && (
+                            <span className="text-amber-600">
+                              未還 {(item.quantity - item.returned_qty).toFixed(1)}
+                            </span>
+                          )}
+                          <span className="text-right font-medium text-muted-foreground">
+                            {item.quantity} {item.unit || item.item_unit}
                           </span>
-                        )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -295,12 +345,12 @@ export default function TransfersPage() {
                   {isActive && (
                     <div className="flex gap-2 pt-1">
                       {isBorrow && hasUnreturned && (
-                        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openReturn(t)}>
-                          <RotateCcw className="size-3" /> 歸還
+                        <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={() => openReturn(t)}>
+                          <RotateCcw className="size-3.5" /> 歸還
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => handleSettle(t)}>
-                        <CheckCircle2 className="size-3" /> 沖銷
+                      <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={() => handleSettle(t)}>
+                        <CheckCircle2 className="size-3.5" /> 沖銷
                       </Button>
                     </div>
                   )}
@@ -324,8 +374,10 @@ export default function TransfersPage() {
                 <button
                   key={t}
                   onClick={() => setFormType(t)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    formType === t ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'
+                  className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-colors ${
+                    formType === t
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted text-muted-foreground border-border hover:bg-muted/70'
                   }`}
                 >
                   {t === 'borrow' ? '借料（需歸還）' : '調撥（不歸還）'}
@@ -361,9 +413,9 @@ export default function TransfersPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>品項</Label>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1"
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1"
                   onClick={() => setFormItems(prev => [...prev, { itemId: '', quantity: '' }])}>
-                  <Plus className="size-3" /> 加品項
+                  <Plus className="size-3.5" /> 加品項
                 </Button>
               </div>
               {formItems.map((fi, idx) => {
@@ -397,31 +449,37 @@ export default function TransfersPage() {
                           {isOpen && (
                             <>
                               <div className="fixed inset-0 z-40" onClick={() => setItemDropdownOpen(prev => ({ ...prev, [idx]: false }))} />
-                              <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto bg-card border rounded-md shadow-lg">
-                                {filtered.map(it => (
-                                  <button key={it.id} type="button"
-                                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted flex justify-between"
-                                    onClick={() => {
-                                      setFormItems(prev => prev.map((p, i) => i === idx ? { ...p, itemId: String(it.id) } : p))
-                                      setItemSearchText(prev => { const n = { ...prev }; delete n[idx]; return n })
-                                      setItemDropdownOpen(prev => ({ ...prev, [idx]: false }))
-                                    }}>
-                                    <span>{it.name}</span>
-                                    <span className="text-xs text-muted-foreground">{it.category}</span>
-                                  </button>
-                                ))}
+                              <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border bg-card shadow-lg">
+                                {filtered.length === 0 ? (
+                                  <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                                    找不到「{searchText}」，換個關鍵字試試
+                                  </p>
+                                ) : (
+                                  filtered.map(it => (
+                                    <button key={it.id} type="button"
+                                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                                      onClick={() => {
+                                        setFormItems(prev => prev.map((p, i) => i === idx ? { ...p, itemId: String(it.id) } : p))
+                                        setItemSearchText(prev => { const n = { ...prev }; delete n[idx]; return n })
+                                        setItemDropdownOpen(prev => ({ ...prev, [idx]: false }))
+                                      }}>
+                                      <span className="min-w-0 truncate">{it.name}</span>
+                                      <span className="shrink-0 text-xs text-muted-foreground">{it.category}</span>
+                                    </button>
+                                  ))
+                                )}
                               </div>
                             </>
                           )}
                         </div>
                       )}
                     </div>
-                    <Input type="number" min={0} step="0.1" placeholder="數量" className="w-20"
+                    <Input type="number" min={0} step="0.1" placeholder="數量" className="w-20 text-right tabular-nums"
                       value={fi.quantity}
                       onChange={e => setFormItems(prev => prev.map((p, i) => i === idx ? { ...p, quantity: e.target.value } : p))}
                     />
                     {formItems.length > 1 && (
-                      <Button variant="ghost" size="sm" className="px-1 text-destructive"
+                      <Button variant="ghost" size="icon" title="移除品項" className="size-8 shrink-0 text-destructive hover:bg-destructive/10"
                         onClick={() => setFormItems(prev => prev.filter((_, i) => i !== idx))}>✕</Button>
                     )}
                   </div>
@@ -450,20 +508,20 @@ export default function TransfersPage() {
             <DialogTitle>歸還借料 — {returnTarget?.transfer_number}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
-            <p className="text-sm text-muted-foreground">
+            <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
               {returnTarget?.to_store_name} → 還給 {returnTarget?.from_store_name}
             </p>
             {returnTarget?.items.filter(i => i.quantity > i.returned_qty).map(item => {
               const remaining = item.quantity - item.returned_qty
               return (
                 <div key={item.id} className="flex items-center justify-between gap-2">
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <span className="text-sm font-medium">{item.item_name}</span>
-                    <span className="text-xs text-muted-foreground ml-1">
+                    <span className="ml-1 text-xs text-muted-foreground tabular-nums">
                       (未還 {remaining.toFixed(1)} {item.unit || item.item_unit})
                     </span>
                   </div>
-                  <Input type="number" min={0} max={remaining} step="0.1" className="w-20"
+                  <Input type="number" min={0} max={remaining} step="0.1" className="w-20 shrink-0 text-right tabular-nums"
                     value={returnQtys[item.id] ?? ''}
                     onChange={e => setReturnQtys(prev => ({ ...prev, [item.id]: e.target.value }))}
                   />

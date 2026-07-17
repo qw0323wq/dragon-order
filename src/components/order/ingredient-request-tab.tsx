@@ -24,11 +24,17 @@ import {
   AlertCircle,
   X,
   Plus,
+  AlertTriangleIcon,
+  CarrotIcon,
+  StoreIcon,
+  SearchXIcon,
+  RotateCwIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Select,
   SelectContent,
@@ -310,7 +316,7 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
             value={storeId ? String(storeId) : ""}
             onValueChange={(v) => setStoreId(v ? Number(v) : null)}
           >
-            <SelectTrigger className="w-32 h-9 text-sm">
+            <SelectTrigger className="w-32 h-11! text-sm">
               <SelectValue placeholder="門市" />
             </SelectTrigger>
             <SelectContent>
@@ -323,22 +329,23 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
           </Select>
         )}
         <div className="relative flex-1 min-w-40">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="搜尋食材..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 h-9 text-sm"
+            className="pl-9 h-11 text-base"
           />
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setFilterCat(cat)}
-            className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+            aria-pressed={filterCat === cat}
+            className={`min-h-8 px-3 py-1.5 text-sm rounded-full border transition-colors active:scale-95 ${
               filterCat === cat
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -352,21 +359,19 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
-          size="sm"
-          className="gap-1.5"
+          className="h-11 rounded-xl gap-1.5"
           onClick={autofillSuggested}
           disabled={loading || ingredients.length === 0}
         >
-          <Lightbulb className="size-3.5" />
+          <Lightbulb className="size-4" />
           補貨建議自動填
         </Button>
         <Button
           variant="outline"
-          size="sm"
-          className="gap-1.5"
+          className="h-11 rounded-xl gap-1.5"
           onClick={() => setRevBomOpen(true)}
         >
-          <Calculator className="size-3.5" />
+          <Calculator className="size-4" />
           從銷量反推
         </Button>
       </div>
@@ -378,15 +383,67 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
         </div>
       ) : loadError ? (
         <Card>
-          <CardContent className="py-8 text-center space-y-3">
-            <p className="text-sm text-red-500">載入失敗</p>
-            <Button variant="outline" size="sm" onClick={loadIngredients}>重新載入</Button>
+          <CardContent className="p-0">
+            <EmptyState
+              icon={AlertTriangleIcon}
+              title="載入食材清單失敗"
+              description="可能是網路不穩或連線逾時。請確認網路後重新載入。"
+              action={
+                <Button
+                  variant="outline"
+                  onClick={loadIngredients}
+                  className="h-11 rounded-xl gap-2"
+                >
+                  <RotateCwIcon className="size-4" /> 重新載入
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
+      ) : !storeId ? (
+        <Card>
+          <CardContent className="p-0">
+            <EmptyState
+              icon={StoreIcon}
+              title="請先選擇門市"
+              description="選好門市後，就會載入該店的食材庫存與補貨建議。"
+            />
+          </CardContent>
+        </Card>
+      ) : ingredients.length === 0 ? (
+        <Card>
+          <CardContent className="p-0">
+            <EmptyState
+              icon={CarrotIcon}
+              title="這間店還沒有食材資料"
+              description="請先請老闆在後台「食材中心」建立食材，才能在這裡提叫貨需求。"
+            />
           </CardContent>
         </Card>
       ) : filtered.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground text-sm">
-            {storeId ? "沒有食材" : "請先選擇門市"}
+          <CardContent className="p-0">
+            <EmptyState
+              icon={SearchXIcon}
+              title="找不到符合的食材"
+              description={
+                search
+                  ? `沒有名稱包含「${search}」的食材，換個關鍵字或清除篩選看看。`
+                  : `「${filterCat}」分類目前沒有食材，換個分類看看。`
+              }
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearch("");
+                    setFilterCat("全部");
+                  }}
+                  className="h-11 rounded-xl gap-2"
+                >
+                  <X className="size-4" /> 清除篩選
+                </Button>
+              }
+            />
           </CardContent>
         </Card>
       ) : (
@@ -399,57 +456,61 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
                 key={ing.id}
                 className={`${ing.isLow ? "border-amber-300" : ""} ${hasNeed ? "ring-1 ring-primary/30" : ""}`}
               >
-                <CardContent className="py-2.5 px-3 space-y-1.5">
+                <CardContent className="py-3 px-3 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     {ing.category && (
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs shrink-0">
                         {ing.category}
                       </Badge>
                     )}
-                    <span className="font-medium text-sm">{ing.name}</span>
-                    <span className="text-[10px] text-muted-foreground">/{ing.unit}</span>
+                    <span className="font-medium text-base">{ing.name}</span>
+                    <span className="text-xs text-muted-foreground">/{ing.unit}</span>
                     {ing.isLow && (
-                      <span className="text-[10px] text-amber-700 flex items-center gap-0.5">
-                        <AlertCircle className="size-3" />
+                      <span className="text-xs text-amber-700 flex items-center gap-0.5 shrink-0">
+                        <AlertCircle className="size-3.5" />
                         低於安全庫存
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap text-xs">
                     <span className="text-muted-foreground">系統庫存</span>
-                    <span className="font-medium">{ing.totalStock}</span>
+                    <span className="font-medium tabular-nums">{ing.totalStock}</span>
                     {ing.safetyStock > 0 && (
-                      <span className="text-muted-foreground">/ 安全 {ing.safetyStock}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        / 安全 {ing.safetyStock}
+                      </span>
                     )}
                     {ing.suggestedQty > 0 && (
-                      <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 bg-blue-50">
+                      <Badge variant="outline" className="text-xs tabular-nums border-blue-200 text-blue-700 bg-blue-50">
                         建議 {ing.suggestedQty}
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <label className="text-xs text-muted-foreground shrink-0">現有</label>
                     <Input
                       type="number"
+                      inputMode="decimal"
                       min={0}
                       step="0.5"
                       placeholder={String(ing.totalStock)}
                       value={inp.currentStock}
                       onChange={(e) => setIngredientInput(ing.id, "currentStock", e.target.value)}
-                      className="w-20 h-8 text-sm text-center"
+                      className="w-20 h-11 shrink-0 text-base text-center tabular-nums"
                     />
-                    <label className="text-xs text-muted-foreground shrink-0 ml-2">要叫</label>
+                    <label className="text-xs text-muted-foreground shrink-0 ml-1">要叫</label>
                     <Input
                       type="number"
+                      inputMode="decimal"
                       min={0}
                       step="0.5"
                       placeholder="0"
                       value={inp.neededQty}
                       onChange={(e) => setIngredientInput(ing.id, "neededQty", e.target.value)}
-                      className="w-20 h-8 text-sm text-center"
+                      className={`w-20 h-11 shrink-0 text-base text-center tabular-nums ${hasNeed ? "border-primary/40 font-semibold" : ""}`}
                     />
                     {ing.primarySupplierName && (
-                      <span className="text-[10px] text-muted-foreground truncate">
+                      <span className="text-xs text-muted-foreground truncate min-w-0">
                         主家：{ing.primarySupplierName}
                       </span>
                     )}
@@ -465,11 +526,18 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
       {pendingReqs.length > 0 && (
         <Card>
           <CardContent className="py-3 px-3 space-y-1.5">
-            <p className="text-xs text-muted-foreground">待老闆處理的需求（{pendingReqs.length} 筆）</p>
+            <p className="text-xs text-muted-foreground">
+              待老闆處理的需求（<span className="tabular-nums">{pendingReqs.length}</span> 筆）
+            </p>
             {pendingReqs.slice(0, 5).map((r) => (
-              <div key={r.id} className="flex items-center justify-between text-sm">
-                <span>{r.request_date?.slice(5).replace("-", "/")} · {r.item_count} 項食材</span>
-                <Badge variant="outline" className="text-[10px]">待處理</Badge>
+              <div
+                key={r.id}
+                className="flex items-center justify-between gap-2 py-1 text-sm transition-colors hover:bg-muted/30 -mx-1 px-1 rounded-md"
+              >
+                <span className="tabular-nums min-w-0 truncate">
+                  {r.request_date?.slice(5).replace("-", "/")} · {r.item_count} 項食材
+                </span>
+                <Badge variant="outline" className="text-xs shrink-0">待處理</Badge>
               </div>
             ))}
           </CardContent>
@@ -477,15 +545,15 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
       )}
 
       {/* 送出按鈕（固定下方） */}
-      <div className="sticky bottom-2 bg-card border rounded-lg px-3 py-2.5 flex items-center justify-between shadow-lg">
-        <div className="text-sm">
-          <span className="font-semibold">{totalLines}</span>
+      <div className="sticky bottom-2 bg-card rounded-xl ring-1 ring-foreground/10 px-3 py-2.5 flex items-center justify-between gap-3 shadow-lg">
+        <div className="text-sm min-w-0">
+          <span className="font-heading font-semibold text-base tabular-nums">{totalLines}</span>
           <span className="text-muted-foreground"> 項食材要叫</span>
         </div>
         <Button
           onClick={handleSubmit}
           disabled={submitting || totalLines === 0}
-          className="gap-1.5"
+          className="h-12 rounded-xl gap-1.5 shrink-0"
         >
           {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           送出叫貨需求
@@ -512,7 +580,7 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
                     setRevBomEntries(next);
                   }}
                 >
-                  <SelectTrigger className="flex-1 text-sm">
+                  <SelectTrigger className="flex-1 h-11! min-w-0 text-sm">
                     <SelectValue placeholder="選菜品..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -526,6 +594,7 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
                 </Select>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   min={0}
                   placeholder="份數"
                   value={entry.quantity}
@@ -534,35 +603,43 @@ export default function IngredientRequestTab({ stores, storeId, onStoreChange }:
                     next[idx] = { ...next[idx], quantity: e.target.value };
                     setRevBomEntries(next);
                   }}
-                  className="w-20 text-sm"
+                  className="w-20 h-11 shrink-0 text-base text-center tabular-nums"
                 />
                 {revBomEntries.length > 1 && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-7 text-destructive"
+                    className="size-9 shrink-0 text-destructive"
                     onClick={() => setRevBomEntries(revBomEntries.filter((_, i) => i !== idx))}
+                    aria-label="移除這道菜品"
                   >
-                    <X className="size-3.5" />
+                    <X className="size-4" />
                   </Button>
                 )}
               </div>
             ))}
             <Button
               variant="outline"
-              size="sm"
-              className="w-full gap-1.5"
+              className="w-full h-11 rounded-xl gap-1.5"
               onClick={() => setRevBomEntries([...revBomEntries, { menuItemId: null, quantity: "" }])}
             >
-              <Plus className="size-3.5" />
+              <Plus className="size-4" />
               加菜品
             </Button>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRevBomOpen(false)}>
+            <Button
+              variant="outline"
+              className="h-11 rounded-xl"
+              onClick={() => setRevBomOpen(false)}
+            >
               取消
             </Button>
-            <Button onClick={runReverseBom} disabled={revBomLoading}>
+            <Button
+              onClick={runReverseBom}
+              disabled={revBomLoading}
+              className="h-11 rounded-xl gap-1.5"
+            >
               {revBomLoading ? <Loader2 className="size-4 animate-spin" /> : "計算並加入"}
             </Button>
           </DialogFooter>

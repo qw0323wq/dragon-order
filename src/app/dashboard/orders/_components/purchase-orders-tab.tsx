@@ -13,6 +13,7 @@ import { Loader2, FileText, Download, Printer } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { buildPoHtml, type PoTemplateItem } from '@/lib/po-template';
 import type { POItem, PurchaseOrder } from './types';
 
@@ -130,20 +131,28 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={handleGenerate} disabled={generating} className="gap-1.5">
-          {generating ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
-          {generating ? '產生中...' : '產生叫貨單'}
-        </Button>
-      </div>
+      {/* 空狀態時按鈕由 EmptyState 提供，避免重複兩顆一樣的按鈕 */}
+      {pos.length > 0 && (
+        <div className="flex justify-end">
+          <Button onClick={handleGenerate} disabled={generating} className="gap-1.5">
+            {generating ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+            {generating ? '產生中...' : '產生叫貨單'}
+          </Button>
+        </div>
+      )}
 
       {pos.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            <FileText className="size-8 mx-auto mb-2 opacity-50" />
-            <p>尚無叫貨單，按「產生叫貨單」從訂單自動拆單</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={FileText}
+          title="尚無叫貨單"
+          description="按「產生叫貨單」會依這天的訂單自動按供應商拆單，拆完就能複製、下載 PDF 或列印給供應商。"
+          action={
+            <Button onClick={handleGenerate} disabled={generating} className="gap-1.5">
+              {generating ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+              {generating ? '產生中...' : '產生叫貨單'}
+            </Button>
+          }
+        />
       ) : (
         pos.map((po) => {
           const { storeNames, grouped } = groupPOItems(po.items);
@@ -165,13 +174,13 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
                       ? '已確認'
                       : '已送出'}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">{grouped.length} 品項</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{grouped.length} 品項</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="gap-1 text-xs h-7 px-2"
+                    className="gap-1 text-xs h-8 px-2"
                     onClick={() => copyPOText(po)}
                   >
                     {copiedId === po.id ? '✓ 已複製' : '複製'}
@@ -179,7 +188,7 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="gap-1 text-xs h-7 px-2"
+                    className="gap-1 text-xs h-8 px-2"
                     onClick={() => downloadPOPdf(po)}
                     disabled={downloadingId === po.id}
                     title="下載 PDF"
@@ -195,7 +204,7 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="gap-1 text-xs h-7 px-2"
+                    className="gap-1 text-xs h-8 px-2"
                     onClick={() => printPO(po)}
                     title="列印/存PDF"
                   >
@@ -207,33 +216,36 @@ export function PurchaseOrdersTab({ selectedDate }: PurchaseOrdersTabProps) {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-xs text-muted-foreground border-b">
-                        <th className="text-left py-1.5 pl-4 font-normal">品名</th>
+                      <tr className="text-xs text-muted-foreground [&>th]:bg-muted/50 [&>th]:border-b">
+                        <th className="text-left py-2 pl-3 sm:pl-4 font-normal">品名</th>
                         {storeNames.map((s) => (
-                          <th key={s} className="text-center py-1.5 font-normal">
+                          <th key={s} className="text-right py-2 px-2 font-normal whitespace-nowrap">
                             {s}
                           </th>
                         ))}
-                        <th className="text-center py-1.5 font-semibold">合計</th>
-                        <th className="text-left py-1.5 font-normal">單位</th>
+                        <th className="text-right py-2 px-2 font-semibold">合計</th>
+                        <th className="text-left py-2 px-2 font-normal">單位</th>
                         {grouped.some((g) => g.notes) && (
-                          <th className="text-left py-1.5 font-normal">備註</th>
+                          <th className="text-left py-2 pr-3 sm:pr-4 font-normal">備註</th>
                         )}
                       </tr>
                     </thead>
                     <tbody>
                       {grouped.map((g) => (
-                        <tr key={g.itemName} className="border-b border-border/50">
-                          <td className="py-1.5 pl-4 font-medium">{g.itemName}</td>
+                        <tr
+                          key={g.itemName}
+                          className="border-b border-border/50 transition-colors hover:bg-muted/30"
+                        >
+                          <td className="py-2 pl-3 sm:pl-4 font-medium">{g.itemName}</td>
                           {storeNames.map((s) => (
-                            <td key={s} className="text-center">
+                            <td key={s} className="py-2 px-2 text-right tabular-nums">
                               {g.stores[s] || ''}
                             </td>
                           ))}
-                          <td className="text-center font-semibold">{g.total}</td>
-                          <td className="text-xs text-muted-foreground">{g.itemUnit}</td>
+                          <td className="py-2 px-2 text-right font-semibold tabular-nums">{g.total}</td>
+                          <td className="py-2 px-2 text-xs text-muted-foreground">{g.itemUnit}</td>
                           {grouped.some((gg) => gg.notes) && (
-                            <td className="text-xs text-muted-foreground">{g.notes || ''}</td>
+                            <td className="py-2 pr-3 sm:pr-4 text-xs text-muted-foreground">{g.notes || ''}</td>
                           )}
                         </tr>
                       ))}

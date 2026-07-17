@@ -14,7 +14,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Search, Package, AlertTriangle, Plus, Minus, ClipboardCheck,
-  Loader2, History, ArrowRightLeft,
+  Loader2, History, ArrowRightLeft, Boxes, WifiOff, SearchX,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { StatCard } from '@/components/ui/stat-card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { formatAmount } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface InventoryItem {
@@ -155,6 +158,10 @@ export default function InventoryPage() {
   }, [items, search, categoryFilter, showLowOnly])
 
   const lowCount = items.filter(i => i.isLow).length
+  // 顯示用：categories 第一筆是「全部」這個 UI 選項，不算真實分類
+  const categoryCount = Math.max(categories.length - 1, 0)
+  // 顯示用：有套用任何篩選時，空狀態要引導使用者清掉篩選
+  const hasFilters = Boolean(search) || categoryFilter !== '全部' || showLowOnly
 
   // 開啟異動 Dialog
   function openAction(item: InventoryItem, type: 'in' | 'out' | 'adjust' | 'transfer') {
@@ -241,14 +248,35 @@ export default function InventoryPage() {
             )}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {items.length} 個品項
-            {lowCount > 0 && (
-              <span className="ml-2 text-red-600 font-medium">
-                {lowCount} 項低於安全庫存
-              </span>
-            )}
+            {location === 'all' ? '全部門市彙總' : '單店庫存與異動'}
           </p>
         </div>
+      </div>
+
+      {/* 指標卡 */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard
+          label="品項總數"
+          value={formatAmount(items.length)}
+          icon={Package}
+          accent="bg-orange-100 text-orange-600"
+          hint="個品項"
+        />
+        <StatCard
+          label="低於安全庫存"
+          value={formatAmount(lowCount)}
+          icon={AlertTriangle}
+          accent="bg-red-100 text-red-600"
+          hint={lowCount > 0 ? '需要補貨' : '庫存無虞'}
+        />
+        <StatCard
+          label="品項分類"
+          value={formatAmount(categoryCount)}
+          icon={Boxes}
+          accent="bg-blue-100 text-blue-600"
+          hint="個分類"
+          className="col-span-2 sm:col-span-1"
+        />
       </div>
 
       {/* 地點切換 */}
@@ -257,7 +285,7 @@ export default function InventoryPage() {
           <button
             key={opt.value}
             onClick={() => setLocation(opt.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-medium transition-colors ${
               location === opt.value
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -302,15 +330,41 @@ export default function InventoryPage() {
 
       {/* 庫存列表 */}
       {error ? (
-        <div className="text-center py-12 space-y-3">
-          <AlertTriangle className="size-8 text-red-400 mx-auto" />
-          <p className="text-sm text-muted-foreground">載入失敗，請檢查網路連線</p>
-          <Button variant="outline" size="sm" onClick={fetchItems}>重試</Button>
-        </div>
+        <EmptyState
+          icon={WifiOff}
+          title="載入庫存失敗"
+          description="可能是網路不穩或伺服器忙碌，請稍候再試一次。"
+          action={<Button variant="outline" size="sm" onClick={fetchItems}>重新載入</Button>}
+        />
       ) : loading ? (
         <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> 載入中...
         </div>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="px-0 py-0">
+            <EmptyState
+              icon={hasFilters ? SearchX : Package}
+              title={hasFilters ? '沒有符合的品項' : '這個地點還沒有庫存品項'}
+              description={
+                hasFilters
+                  ? '換個關鍵字或分類試試，也可以直接清除目前的篩選條件。'
+                  : '先到「品項管理」建立品項，回到這裡就能做進貨、盤點與撥貨。'
+              }
+              action={
+                hasFilters ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setSearch(''); setCategoryFilter('全部'); setShowLowOnly(false) }}
+                  >
+                    清除篩選
+                  </Button>
+                ) : undefined
+              }
+            />
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="pt-0 px-0">
@@ -318,7 +372,7 @@ export default function InventoryPage() {
             <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead className="pl-4">品號</TableHead>
                     <TableHead>品項</TableHead>
                     <TableHead>分類</TableHead>
@@ -330,82 +384,82 @@ export default function InventoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        沒有符合的品項
+                  {filtered.map(item => (
+                    <TableRow
+                      key={item.id}
+                      className={cn(
+                        'transition-colors',
+                        item.isLow ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-muted/30',
+                      )}
+                    >
+                      <TableCell className="pl-4 text-xs text-muted-foreground font-mono tabular-nums">{item.sku || '-'}</TableCell>
+                      <TableCell className="font-medium">
+                        {item.name}
+                        {item.spec && (
+                          <span className="text-xs text-muted-foreground ml-1">({item.spec.split('（')[0]})</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{item.category}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{item.supplier_name}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums whitespace-nowrap">
+                        <span className={cn('font-semibold', item.isLow && 'text-red-600')}>
+                          {item.current_stock}
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-1">
+                          {item.stock_unit || item.unit}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                        {item.safety_stock > 0 ? item.safety_stock : '-'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.isLow ? (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                            <AlertTriangle className="size-3" /> 不足
+                          </span>
+                        ) : item.current_stock > 0 ? (
+                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                            正常
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right pr-4">
+                        <div className="flex items-center justify-end gap-0.5">
+                          {canAct && (
+                            <>
+                              <Button variant="ghost" size="icon" title="進貨"
+                                onClick={() => openAction(item, 'in')}
+                                className="size-8 text-green-600 hover:bg-green-50 hover:text-green-700">
+                                <Plus className="size-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="出貨"
+                                onClick={() => openAction(item, 'out')}
+                                className="size-8 text-red-600 hover:bg-red-50 hover:text-red-700">
+                                <Minus className="size-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="盤點"
+                                onClick={() => openAction(item, 'adjust')}
+                                className="size-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
+                                <ClipboardCheck className="size-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="撥貨"
+                                onClick={() => openAction(item, 'transfer')}
+                                className="size-8 text-purple-600 hover:bg-purple-50 hover:text-purple-700">
+                                <ArrowRightLeft className="size-3.5" />
+                              </Button>
+                            </>
+                          )}
+                          <Button variant="ghost" size="icon" title="紀錄"
+                            onClick={() => viewLogs(item)}
+                            className="size-8">
+                            <History className="size-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    filtered.map(item => (
-                      <TableRow key={item.id} className={item.isLow ? 'bg-red-50/50' : ''}>
-                        <TableCell className="pl-4 text-xs text-muted-foreground font-mono">{item.sku || '-'}</TableCell>
-                        <TableCell className="font-medium">
-                          {item.name}
-                          {item.spec && (
-                            <span className="text-xs text-muted-foreground ml-1">({item.spec.split('（')[0]})</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{item.category}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{item.supplier_name}</TableCell>
-                        <TableCell className="text-right font-mono tabular-nums">
-                          <span className={cn('font-semibold', item.isLow && 'text-red-600')}>
-                            {item.current_stock}
-                          </span>
-                          <span className="text-xs text-muted-foreground ml-1">
-                            {item.stock_unit || item.unit}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                          {item.safety_stock > 0 ? item.safety_stock : '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.isLow ? (
-                            <span className="inline-flex items-center gap-0.5 text-xs text-red-600 font-medium">
-                              <AlertTriangle className="size-3" /> 不足
-                            </span>
-                          ) : item.current_stock > 0 ? (
-                            <span className="text-xs text-green-600">正常</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right pr-4">
-                          <div className="flex items-center justify-end gap-0.5">
-                            {canAct && (
-                              <>
-                                <Button variant="ghost" size="icon" title="進貨"
-                                  onClick={() => openAction(item, 'in')}
-                                  className="size-7 text-green-600">
-                                  <Plus className="size-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon" title="出貨"
-                                  onClick={() => openAction(item, 'out')}
-                                  className="size-7 text-red-600">
-                                  <Minus className="size-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon" title="盤點"
-                                  onClick={() => openAction(item, 'adjust')}
-                                  className="size-7 text-blue-600">
-                                  <ClipboardCheck className="size-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon" title="撥貨"
-                                  onClick={() => openAction(item, 'transfer')}
-                                  className="size-7 text-purple-600">
-                                  <ArrowRightLeft className="size-3.5" />
-                                </Button>
-                              </>
-                            )}
-                            <Button variant="ghost" size="icon" title="紀錄"
-                              onClick={() => viewLogs(item)}
-                              className="size-7">
-                              <History className="size-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -413,21 +467,27 @@ export default function InventoryPage() {
             {/* 手機版 */}
             <div className="md:hidden divide-y">
               {filtered.map(item => (
-                <div key={item.id} className={cn('p-3 space-y-1.5', item.isLow && 'bg-red-50/50')}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      {item.sku && <span className="font-mono text-[10px] text-muted-foreground mr-1">{item.sku}</span>}
+                <div
+                  key={item.id}
+                  className={cn(
+                    'space-y-2 p-3 transition-colors',
+                    item.isLow ? 'bg-red-50/50' : 'active:bg-muted/30',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      {item.sku && <span className="font-mono text-[10px] tabular-nums text-muted-foreground mr-1">{item.sku}</span>}
                       <span className="font-medium text-sm">{item.name}</span>
                       <span className="text-[10px] text-muted-foreground ml-1">{item.category}</span>
                     </div>
                     {item.isLow && (
-                      <span className="text-xs text-red-600 font-medium flex items-center gap-0.5">
+                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
                         <AlertTriangle className="size-3" /> 不足
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-muted-foreground tabular-nums">
                       庫存: <span className={cn('font-semibold', item.isLow ? 'text-red-600' : 'text-foreground')}>
                         {item.current_stock}
                       </span> {item.stock_unit || item.unit}
@@ -436,19 +496,19 @@ export default function InventoryPage() {
                       )}
                     </div>
                     {canAct ? (
-                      <div className="flex gap-0.5">
-                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'in')} className="h-7 px-2 text-green-600">
-                          <Plus className="size-3" /> 進
+                      <div className="flex shrink-0 gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'in')} className="h-8 gap-1 px-2 text-green-600">
+                          <Plus className="size-3.5" /> 進
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'out')} className="h-7 px-2 text-red-600">
-                          <Minus className="size-3" /> 出
+                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'out')} className="h-8 gap-1 px-2 text-red-600">
+                          <Minus className="size-3.5" /> 出
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openAction(item, 'adjust')} className="h-7 px-2 text-blue-600">
-                          <ClipboardCheck className="size-3" />
+                        <Button variant="ghost" size="icon" title="盤點" onClick={() => openAction(item, 'adjust')} className="size-8 text-blue-600">
+                          <ClipboardCheck className="size-3.5" />
                         </Button>
                       </div>
                     ) : (
-                      <span className="text-[10px] text-muted-foreground">選門市後可操作</span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">選門市後可操作</span>
                     )}
                   </div>
                 </div>
@@ -467,18 +527,21 @@ export default function InventoryPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-1">
-            <p className="text-sm text-muted-foreground">
-              目前庫存: <strong>{selectedItem?.current_stock}</strong> {selectedItem?.stock_unit || selectedItem?.unit}
+            <p className="text-sm text-muted-foreground tabular-nums">
+              目前庫存: <strong className="text-foreground">{selectedItem?.current_stock}</strong> {selectedItem?.stock_unit || selectedItem?.unit}
             </p>
             {dialogType === 'adjust' && formQty && selectedItem && parseFloat(formQty) !== selectedItem.current_stock && (
-              <div className="text-sm px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800">
-                {(() => {
-                  const diff = parseFloat(formQty) - selectedItem.current_stock
-                  return <>
-                    將從 <strong>{selectedItem.current_stock}</strong> 調整為 <strong>{formQty}</strong>
-                    （{diff > 0 ? `+${diff}` : diff}）
-                  </>
-                })()}
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <ClipboardCheck className="mt-0.5 size-3.5 shrink-0" />
+                <span className="tabular-nums">
+                  {(() => {
+                    const diff = parseFloat(formQty) - selectedItem.current_stock
+                    return <>
+                      將從 <strong>{selectedItem.current_stock}</strong> 調整為 <strong>{formQty}</strong>
+                      （{diff > 0 ? `+${diff}` : diff}）
+                    </>
+                  })()}
+                </span>
               </div>
             )}
             <div className="space-y-1.5">
@@ -544,20 +607,25 @@ export default function InventoryPage() {
               <Loader2 className="size-4 animate-spin mx-auto" />
             </div>
           ) : logs.length === 0 ? (
-            <p className="py-4 text-center text-muted-foreground">尚無異動紀錄</p>
+            <EmptyState
+              icon={History}
+              title="尚無異動紀錄"
+              description="這個品項還沒有進貨、出貨或盤點紀錄，操作後就會顯示在這裡。"
+              className="py-8"
+            />
           ) : (
             <div className="divide-y text-sm">
               {logs.map(log => {
                 const qty = parseFloat(log.quantity)
                 return (
                   <div key={log.id} className="py-2 space-y-0.5">
-                    <div className="flex items-center justify-between">
-                      <span className={cn('font-medium', TYPE_COLORS[log.type])}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={cn('font-medium tabular-nums', TYPE_COLORS[log.type])}>
                         {TYPE_LABELS[log.type] || log.type}
                         {' '}
                         {qty > 0 ? '+' : ''}{qty} {log.unit || ''}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                         餘 {log.balance_after}
                       </span>
                     </div>

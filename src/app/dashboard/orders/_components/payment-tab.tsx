@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Loader2, CreditCard, CheckCircle2, X } from 'lucide-react'
+import { Loader2, CreditCard, CheckCircle2, X, ShoppingCart, Receipt } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { StatCard } from '@/components/ui/stat-card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -111,42 +112,44 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground">採購總計</p>
-            <p className="text-xl font-bold text-primary font-heading">{formatCurrency(grandTotal)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground">應付總計</p>
-            <p className="text-xl font-bold text-orange-600 font-heading">
-              {grandPayable === null ? <span className="text-muted-foreground">—</span> : formatCurrency(grandPayable)}
-            </p>
-            {grandPayable === null && (
-              <p className="text-[10px] text-muted-foreground mt-0.5">未完成驗收</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground">已付金額</p>
-            <p className="text-xl font-bold text-green-600 font-heading">{formatCurrency(paidTotal)}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard
+          label="採購總計"
+          value={<span className="text-primary">{formatCurrency(grandTotal)}</span>}
+          icon={ShoppingCart}
+          accent="bg-red-100 text-red-600"
+          hint="按訂購量 × 單價"
+        />
+        <StatCard
+          label="應付總計"
+          value={
+            grandPayable === null
+              ? <span className="text-muted-foreground">—</span>
+              : <span className="text-orange-600">{formatCurrency(grandPayable)}</span>
+          }
+          icon={Receipt}
+          accent="bg-orange-100 text-orange-600"
+          hint={grandPayable === null ? '未完成驗收' : '按實收 − 退貨'}
+        />
+        <StatCard
+          label="已付金額"
+          value={<span className="text-green-600">{formatCurrency(paidTotal)}</span>}
+          icon={CheckCircle2}
+          accent="bg-green-100 text-green-600"
+          hint={`${paidSuppliers.size} / ${supplierPayments.length} 家已付`}
+        />
       </div>
 
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="px-0">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>供應商</TableHead>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="pl-4">供應商</TableHead>
                 <TableHead>結帳方式</TableHead>
                 <TableHead className="text-right">採購金額</TableHead>
                 <TableHead className="text-right">應付金額</TableHead>
-                <TableHead>操作</TableHead>
+                <TableHead className="pr-4">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -157,8 +160,8 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                 // 標記付款用「應付」，未驗收完則 fallback「採購」
                 const payAmount = s.payableAmount ?? s.totalAmount
                 return (
-                  <TableRow key={s.supplierId} className={isPaid ? 'opacity-60' : ''}>
-                    <TableCell className="font-medium">{s.supplierName}</TableCell>
+                  <TableRow key={s.supplierId} className={`hover:bg-muted/30 ${isPaid ? 'opacity-60' : ''}`}>
+                    <TableCell className="pl-4 font-medium">{s.supplierName}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
                         s.paymentType === '現結'
@@ -168,8 +171,8 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                         {s.paymentType}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right text-muted-foreground">{formatCurrency(s.totalAmount)}</TableCell>
-                    <TableCell className="text-right font-semibold">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(s.totalAmount)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
                       {s.payableAmount === null ? (
                         <span className="text-muted-foreground text-xs">未驗收</span>
                       ) : (
@@ -178,7 +181,7 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="pr-4">
                       {isPaid ? (
                         <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
                           <CheckCircle2 className="size-3.5" /> 已付款
@@ -191,10 +194,10 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                             onChange={(e) =>
                               setPaidAtInputs((prev) => ({ ...prev, [s.supplierId]: e.target.value }))
                             }
-                            className="h-7 text-xs w-32"
+                            className="h-8 text-xs w-32 tabular-nums"
                           />
                           <Button
-                            size="sm" variant="default" className="h-7 text-xs px-2"
+                            size="sm" variant="default" className="h-8 text-xs px-2.5"
                             disabled={isThisSubmitting}
                             onClick={() => handleMarkPaid(
                               s.supplierId, s.supplierName, payAmount,
@@ -204,7 +207,7 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                             {isThisSubmitting ? <Loader2 className="size-3 animate-spin" /> : '確認'}
                           </Button>
                           <Button
-                            size="sm" variant="ghost" className="h-7 text-xs px-1"
+                            size="sm" variant="ghost" className="size-8 px-0"
                             onClick={() => setEditingSupplierId(null)}
                             disabled={isThisSubmitting}
                           >
@@ -213,7 +216,7 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                         </div>
                       ) : (
                         <Button
-                          size="sm" variant="outline" className="h-7 text-xs gap-1"
+                          size="sm" variant="outline" className="h-8 text-xs gap-1"
                           onClick={() => {
                             setPaidAtInputs((prev) => ({ ...prev, [s.supplierId]: today }))
                             setEditingSupplierId(s.supplierId)
@@ -227,17 +230,17 @@ export function PaymentTab({ details, orderId }: PaymentTabProps) {
                   </TableRow>
                 )
               })}
-              <TableRow className="bg-muted/50 font-semibold">
-                <TableCell colSpan={2}>合計</TableCell>
-                <TableCell className="text-right text-muted-foreground">{formatCurrency(grandTotal)}</TableCell>
-                <TableCell className="text-right text-primary">
+              <TableRow className="bg-muted/50 font-semibold hover:bg-muted/50">
+                <TableCell className="pl-4" colSpan={2}>合計</TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(grandTotal)}</TableCell>
+                <TableCell className="text-right tabular-nums text-primary">
                   {grandPayable === null ? (
                     <span className="text-muted-foreground text-xs">未完成驗收</span>
                   ) : (
                     formatCurrency(grandPayable)
                   )}
                 </TableCell>
-                <TableCell />
+                <TableCell className="pr-4" />
               </TableRow>
             </TableBody>
           </Table>

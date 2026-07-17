@@ -24,11 +24,17 @@ import {
   Plus,
   Send,
   Star,
+  ClipboardList,
+  Package,
+  Inbox,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Select,
   SelectContent,
@@ -36,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatAmount } from "@/lib/format";
 
 interface RequestRow {
   id: number;
@@ -82,6 +88,13 @@ interface RequestDetail {
   request: RequestRow;
   items: RequestItem[];
 }
+
+/** 指標卡標題（隨狀態 tab 切換） */
+const STAT_LABEL: Record<"pending" | "processed" | "cancelled", string> = {
+  pending: "待處理需求",
+  processed: "已拆單需求",
+  cancelled: "已取消需求",
+};
 
 export default function PurchasePlanPage() {
   const [requests, setRequests] = useState<RequestRow[]>([]);
@@ -248,7 +261,7 @@ export default function PurchasePlanPage() {
           <button
             key={key}
             onClick={() => setStatusFilter(key)}
-            className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+            className={`min-h-8 px-3.5 py-1.5 text-sm rounded-lg border transition-colors ${
               statusFilter === key
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background text-muted-foreground border-border hover:bg-accent"
@@ -259,6 +272,26 @@ export default function PurchasePlanPage() {
         ))}
       </div>
 
+      {/* 指標卡 */}
+      {!loading && requests.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+          <StatCard
+            label={STAT_LABEL[statusFilter]}
+            value={formatAmount(requests.length)}
+            icon={ClipboardList}
+            accent="bg-blue-100 text-blue-600"
+            hint="張需求單"
+          />
+          <StatCard
+            label="食材項次"
+            value={formatAmount(requests.reduce((sum, r) => sum + r.item_count, 0))}
+            icon={Package}
+            accent="bg-orange-100 text-orange-600"
+            hint="合計品項數"
+          />
+        </div>
+      )}
+
       {/* 載入中 */}
       {loading && (
         <div className="flex items-center justify-center py-12">
@@ -268,15 +301,27 @@ export default function PurchasePlanPage() {
 
       {/* 列表 */}
       {!loading && requests.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              {statusFilter === "pending"
-                ? "目前沒有待處理的叫貨需求"
-                : `沒有${statusFilter === "processed" ? "已拆單" : "已取消"}的紀錄`}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl bg-card ring-1 ring-foreground/10">
+          {statusFilter === "pending" ? (
+            <EmptyState
+              icon={Inbox}
+              title="目前沒有待處理的叫貨需求"
+              description="員工在叫貨頁提出需求後，會出現在這裡讓你挑廠商、確認數量，再拆單產生訂單。"
+            />
+          ) : statusFilter === "processed" ? (
+            <EmptyState
+              icon={Send}
+              title="還沒有已拆單的紀錄"
+              description="需求單確認廠商後按「拆單產生訂單」，就會歸到這裡；產出的訂單可在訂單管理查看。"
+            />
+          ) : (
+            <EmptyState
+              icon={Ban}
+              title="沒有已取消的需求單"
+              description="被取消的需求單會留在這裡備查，不會產生任何訂單。"
+            />
+          )}
+        </div>
       )}
 
       <div className="space-y-3">
@@ -286,11 +331,14 @@ export default function PurchasePlanPage() {
           const isPending = req.status === "pending";
 
           return (
-            <div key={req.id} className="border rounded-lg bg-card overflow-hidden">
+            <div
+              key={req.id}
+              className="rounded-xl bg-card ring-1 ring-foreground/10 overflow-hidden"
+            >
               {/* 標頭 */}
               <button
                 onClick={() => toggleExpand(req.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3 md:px-4 py-3 hover:bg-accent/50 transition-colors text-left"
               >
                 {isExpanded ? (
                   <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
@@ -316,7 +364,7 @@ export default function PurchasePlanPage() {
                       <Badge className="text-[10px] bg-gray-100 text-gray-700">已取消</Badge>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
+                  <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">
                     {req.request_date} · {req.item_count} 項食材
                     {req.notes ? ` · ${req.notes}` : ""}
                   </div>
@@ -326,20 +374,21 @@ export default function PurchasePlanPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-destructive shrink-0"
+                    className="text-destructive shrink-0 size-8 p-0 hover:bg-destructive/10"
+                    title="取消需求"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCancel(req.id);
                     }}
                   >
-                    <Trash2 className="size-3.5" />
+                    <Trash2 className="size-4" />
                   </Button>
                 )}
               </button>
 
               {/* 展開明細 */}
               {isExpanded && (
-                <div className="border-t bg-muted/30 px-4 py-4">
+                <div className="border-t bg-muted/30 px-3 md:px-4 py-4">
                   {!detail ? (
                     <div className="text-center py-4 text-sm text-muted-foreground">
                       載入中...
@@ -365,7 +414,7 @@ export default function PurchasePlanPage() {
                                   )}
                                   <span className="font-medium">{it.ingredient_name}</span>
                                   {it.currentStock != null && (
-                                    <span className="text-xs text-muted-foreground">
+                                    <span className="text-xs text-muted-foreground tabular-nums">
                                       現有 {it.currentStock}
                                     </span>
                                   )}
@@ -375,16 +424,17 @@ export default function PurchasePlanPage() {
                                   {isPending ? (
                                     <Input
                                       type="number"
+                                      inputMode="decimal"
                                       min={0}
                                       step="0.5"
                                       value={it.neededQty}
                                       onChange={(e) =>
                                         setNeededQty(req.id, it.id, parseFloat(e.target.value) || 0)
                                       }
-                                      className="w-20 h-7 text-sm"
+                                      className="w-20 h-8 text-sm text-right tabular-nums"
                                     />
                                   ) : (
-                                    <span className="font-semibold">{it.neededQty}</span>
+                                    <span className="font-semibold tabular-nums">{it.neededQty}</span>
                                   )}
                                   <span className="text-xs text-muted-foreground">
                                     {it.unit || it.ingredient_unit}
@@ -418,11 +468,11 @@ export default function PurchasePlanPage() {
                                               <Sparkles className="size-3 text-green-600" />
                                             )}
                                             <span className="font-medium">{s.supplierName}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              {s.name} ${s.costPrice}/{s.unit}
+                                            <span className="text-xs text-muted-foreground tabular-nums">
+                                              {s.name} {formatCurrency(s.costPrice)}/{s.unit}
                                               {s.packSize && ` (${s.packSize})`}
                                             </span>
-                                            <span className="text-xs text-muted-foreground">
+                                            <span className="text-xs text-muted-foreground tabular-nums">
                                               庫存 {s.currentStock}
                                             </span>
                                           </div>
@@ -434,10 +484,10 @@ export default function PurchasePlanPage() {
                                   chosenSku && (
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                       <Badge variant="outline">{chosenSku.supplierName}</Badge>
-                                      <span>
-                                        ${chosenSku.costPrice}/{chosenSku.unit}
+                                      <span className="tabular-nums">
+                                        {formatCurrency(chosenSku.costPrice)}/{chosenSku.unit}
                                       </span>
-                                      <span>
+                                      <span className="ml-auto tabular-nums font-medium text-foreground">
                                         小計 {formatCurrency(chosenSku.costPrice * it.neededQty)}
                                       </span>
                                     </div>
@@ -451,30 +501,43 @@ export default function PurchasePlanPage() {
 
                       {/* 廠商分組摘要 */}
                       <div>
-                        <h4 className="text-sm font-medium mb-2">廠商分組</h4>
-                        <div className="space-y-1.5">
-                          {summarizeBySupplier(detail.items).map((s) => (
-                            <Card key={s.supplierId} className="bg-card">
-                              <CardContent className="py-2 px-3 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
+                        <h4 className="font-heading text-sm font-medium mb-2">廠商分組</h4>
+                        {summarizeBySupplier(detail.items).length === 0 ? (
+                          <div className="rounded-xl bg-card ring-1 ring-foreground/10">
+                            <EmptyState
+                              icon={AlertCircle}
+                              title="還沒有可拆單的廠商"
+                              description="上面每個食材都要選一家供應商，系統才能按廠商分組拆成訂單。"
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {summarizeBySupplier(detail.items).map((s) => (
+                              <div
+                                key={s.supplierId}
+                                className="flex items-center justify-between gap-3 rounded-xl bg-card px-3 py-2 ring-1 ring-foreground/10"
+                              >
+                                <div className="flex min-w-0 items-center gap-2">
                                   <Badge variant="outline">{s.name}</Badge>
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-xs text-muted-foreground tabular-nums">
                                     {s.lineCount} 項
                                   </span>
                                 </div>
-                                <span className="font-semibold">{formatCurrency(s.total)}</span>
-                              </CardContent>
-                            </Card>
-                          ))}
-                          <div className="flex items-center justify-between px-3 py-1.5 text-sm font-semibold border-t mt-2">
-                            <span>總計</span>
-                            <span className="text-primary">
-                              {formatCurrency(
-                                summarizeBySupplier(detail.items).reduce((sum, s) => sum + s.total, 0)
-                              )}
-                            </span>
+                                <span className="font-semibold tabular-nums">
+                                  {formatCurrency(s.total)}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between px-3 py-2 text-sm font-semibold border-t mt-2">
+                              <span>總計</span>
+                              <span className="font-heading text-base text-primary tabular-nums">
+                                {formatCurrency(
+                                  summarizeBySupplier(detail.items).reduce((sum, s) => sum + s.total, 0)
+                                )}
+                              </span>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       {/* 操作按鈕 */}
@@ -504,7 +567,7 @@ export default function PurchasePlanPage() {
 
                       {/* 已拆單看訂單連結 */}
                       {req.status === "processed" && req.order_ids?.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-muted-foreground tabular-nums">
                           已拆出訂單 #
                           {req.order_ids.join(", #")} — 進
                           <a href="/dashboard/orders" className="text-primary hover:underline ml-1">
