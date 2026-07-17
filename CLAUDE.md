@@ -46,6 +46,14 @@
 | `src/app/dashboard/purchase-orders/page.tsx` | 供應商叫貨單（各店訂單→按供應商拆單→匯出無價格版） |
 | `src/app/dashboard/import/page.tsx` | POS 匯入 |
 
+### 📄 叫貨單 PDF / 列印（2026-07-17）
+| 檔案 | 用途 |
+|---|---|
+| `src/lib/po-template.ts` | 🚫 叫貨單 HTML 模板 — 前端列印與後端 PDF 共用同一份版式（無價格） |
+| `src/app/api/purchase-orders/[id]/pdf/route.ts` | 伺服器產 PDF：Vercel 用 @sparticuz/chromium、本機用系統 Chrome；maxDuration 60 |
+| `public/fonts/NotoSansTC.ttf` | 中文字型（11MB variable font）— lambda 的 Chromium 無 CJK 字型，runtime 丟進 FONTCONFIG_PATH |
+| `next.config.ts` | ⚠️ `outputFileTracingIncludes` 的 key 是 picomatch glob，`[id]` 要寫成 `\\[id\\]` 才會匹配，否則 chromium bin 不進 lambda bundle（噴 bin does not exist） |
+
 ### ⚙️ 設定頁（已拆分）
 | 檔案 | 用途 | 行數 |
 |---|---|---|
