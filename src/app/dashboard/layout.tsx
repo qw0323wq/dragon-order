@@ -31,6 +31,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { ROLE_LABELS } from '@/lib/permissions'
 import type { AppRole } from '@/lib/permissions'
 
@@ -166,6 +167,7 @@ export default function DashboardLayout({
           </h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{userName}</span>
+            <ThemeToggle />
             <Button variant="ghost" size="sm" className="gap-1.5" onClick={handleLogout}>
               <LogOut className="size-3.5" />
               登出
@@ -183,7 +185,10 @@ export default function DashboardLayout({
               {visibleNav.find(n => isActive(n.href))?.label ?? '肥龍後台'}
             </span>
           </div>
-          <span className="text-xs text-muted-foreground">{userName}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">{userName}</span>
+            <ThemeToggle className="size-8" />
+          </div>
         </header>
 
         {/* 頁面主體（列印時展開，不裁頁） */}

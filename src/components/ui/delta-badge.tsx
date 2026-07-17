@@ -30,8 +30,8 @@ export function DeltaBadge({ percent, amount, invert = false, size = "sm", class
   const tone = flat
     ? "bg-muted text-muted-foreground"
     : isRed
-      ? "bg-red-50 text-red-700"
-      : "bg-green-50 text-green-700"
+      ? "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400"
+      : "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-400"
   const Icon = flat ? Minus : up ? TrendingUp : TrendingDown
 
   return (
