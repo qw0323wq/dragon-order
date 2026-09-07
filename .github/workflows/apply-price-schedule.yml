@@ -5,9 +5,12 @@ name: Apply Price Schedule (daily 05:00 Taipei)
 # 備援：Vercel cron 同時跑也無妨（應用層冪等）
 
 on:
-  schedule:
-    - cron: '0 21 * * *'
-  workflow_dispatch: # 允許從 GitHub UI 或 gh CLI 手動觸發
+  # ⏸️ 2026-09-07 暫停：採購系統(dragon-order)停用，只留盤點配送(stock-dispatch)。
+  #    停掉每日自動套用預約改價，避免無謂打共用 Supabase。
+  #    要恢復：把下面 schedule 兩行的註解拿掉即可（其餘不用動）。
+  # schedule:
+  #   - cron: '0 21 * * *'
+  workflow_dispatch: # 保留手動觸發（GitHub UI / gh CLI），需要單次套用時仍可用
 
 jobs:
   apply:
